@@ -13,8 +13,9 @@ from sqlmodel import Field, Relationship, SQLModel
 
 # --- Valori ammessi, scritti in un punto solo per non sbagliare a digitarli ---
 
-KIND_PORT = "port"   # una voce del catalogo che rappresenta una porta
-KIND_TECH = "tech"   # una voce del catalogo che rappresenta una tecnologia
+KIND_PORT = "port"            # una voce del catalogo che rappresenta una porta
+KIND_TECH = "tech"            # una voce del catalogo che rappresenta una tecnologia
+KIND_TECHNIQUE = "technique"  # una tecnica / classe di vulnerabilita' (es. SQL Injection)
 
 # Gravita' di un finding, dalla piu' grave alla meno grave.
 SEVERITIES = ["critical", "high", "medium", "low", "info"]

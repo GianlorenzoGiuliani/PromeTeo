@@ -11,10 +11,17 @@ Due modi per popolare il catalogo:
   - automatico: al primo avvio dell'app, se il catalogo e' vuoto;
   - manuale:    python -m app.seed
 """
+import json
+
 from sqlmodel import Session, select
 
-from app.database import create_db_and_tables, engine
-from app.models import KIND_PORT, KIND_TECH, Check, Topic
+from app.database import BASE_DIR, create_db_and_tables, engine
+from app.models import KIND_PORT, KIND_TECH, KIND_TECHNIQUE, Check, Topic
+
+# JSON con le tecniche importate da PayloadsAllTheThings (prodotto da
+# tools/import_payloads.py). Lo teniamo versionato: cosi' chiunque cloni il
+# progetto ottiene lo stesso catalogo, senza dover riscaricare la fonte.
+PAYLOADS_SEED_PATH = BASE_DIR / "data" / "payloads_seed.json"
 
 
 def build_starter_topics() -> list[Topic]:
@@ -152,7 +159,11 @@ def seed_if_empty() -> int:
     Questo controllo evita di creare doppioni a ogni avvio.
     """
     with Session(engine) as session:
-        gia_presenti = session.exec(select(Topic)).first()
+        # Controlliamo solo le voci "di base" (porte e tecnologie): le tecniche
+        # importate hanno un loro controllo separato, piu' sotto.
+        gia_presenti = session.exec(
+            select(Topic).where(Topic.kind.in_([KIND_PORT, KIND_TECH]))
+        ).first()
         if gia_presenti is not None:
             return 0
 
@@ -162,11 +173,62 @@ def seed_if_empty() -> int:
         return len(topics)
 
 
+def load_payload_topics() -> list[Topic]:
+    """Legge il JSON di PayloadsAllTheThings e costruisce Topic + Check (in memoria)."""
+    if not PAYLOADS_SEED_PATH.exists():
+        return []
+
+    data = json.loads(PAYLOADS_SEED_PATH.read_text(encoding="utf-8"))
+    topics: list[Topic] = []
+    for t in data.get("topics", []):
+        topic = Topic(
+            kind=t.get("kind", KIND_TECHNIQUE),
+            name=t["name"],
+            description=t.get("description", ""),
+            detection=t.get("detection"),
+        )
+        topic.checks = [
+            Check(
+                title=c["title"],
+                goal=c.get("goal"),
+                tool=c.get("tool"),
+                command=c.get("command"),
+                interpretation=c.get("interpretation"),
+                references=c.get("references"),
+            )
+            for c in t.get("checks", [])
+        ]
+        topics.append(topic)
+    return topics
+
+
+def seed_payloads_if_absent() -> int:
+    """Carica le tecniche (PayloadsAllTheThings) solo se non gia' presenti.
+
+    Restituisce il numero di categorie inserite (0 se erano gia' nel database).
+    """
+    with Session(engine) as session:
+        gia_presenti = session.exec(
+            select(Topic).where(Topic.kind == KIND_TECHNIQUE)
+        ).first()
+        if gia_presenti is not None:
+            return 0
+
+        topics = load_payload_topics()
+        if not topics:
+            return 0
+
+        session.add_all(topics)
+        session.commit()
+        return len(topics)
+
+
 if __name__ == "__main__":
     # Eseguito con:  python -m app.seed
     create_db_and_tables()
-    inserite = seed_if_empty()
-    if inserite:
-        print(f"Catalogo popolato: {inserite} voci inserite.")
-    else:
-        print("Catalogo gia' presente: non ho inserito nulla (nessun doppione).")
+    base = seed_if_empty()
+    tecniche = seed_payloads_if_absent()
+    print(f"Base del catalogo (porte/tecnologie): {base} voci inserite."
+          if base else "Base del catalogo gia' presente.")
+    print(f"Tecniche (PayloadsAllTheThings): {tecniche} categorie inserite."
+          if tecniche else "Tecniche gia' presenti.")

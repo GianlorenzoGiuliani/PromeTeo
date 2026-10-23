@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.database import create_db_and_tables
-from app.seed import seed_if_empty
+from app.seed import seed_if_empty, seed_payloads_if_absent
 
 # BASE_DIR = la cartella "app" dove si trova questo file.
 # La calcoliamo in automatico cosi' l'app funziona ovunque venga copiata,
@@ -29,9 +29,12 @@ async def lifespan(app: FastAPI):
     # All'avvio: creiamo il database (se non esiste) e, se il catalogo e' vuoto,
     # carichiamo la base pronta di porte e tecnologie.
     create_db_and_tables()
-    inserite = seed_if_empty()
-    if inserite:
-        print(f"[PromeTeus] Catalogo iniziale caricato: {inserite} voci.")
+    base = seed_if_empty()
+    tecniche = seed_payloads_if_absent()
+    if base:
+        print(f"[PromeTeus] Base del catalogo caricata: {base} voci.")
+    if tecniche:
+        print(f"[PromeTeus] Tecniche (PayloadsAllTheThings) caricate: {tecniche} categorie.")
     yield
     # (allo spegnimento non c'e' nulla di speciale da fare)
 

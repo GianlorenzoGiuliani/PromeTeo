@@ -54,15 +54,20 @@ PromeTeus/
 │  ├─ main.py            # il cuore: crea l'app e definisce le pagine (route)
 │  ├─ database.py        # configurazione del database SQLite
 │  ├─ models.py          # le "tabelle": Topic, Check, Project, Finding
-│  ├─ seed.py            # contenuti iniziali del catalogo (base pronta)
+│  ├─ seed.py            # carica i contenuti iniziali nel database
 │  ├─ templates/         # le pagine HTML
 │  │  ├─ base.html       # struttura comune a tutte le pagine
 │  │  └─ home.html       # la home
 │  └─ static/
 │     └─ style.css       # lo stile grafico
+├─ data/
+│  └─ payloads_seed.json # tecniche importate da PayloadsAllTheThings
+├─ tools/
+│  └─ import_payloads.py # trasforma PayloadsAllTheThings nel formato di PromeTeus
 ├─ requirements.txt      # elenco delle librerie da installare
 ├─ .gitignore            # file che git deve ignorare
 ├─ prometeus.db          # il database (creato in automatico; NON su git)
+├─ THIRD_PARTY_NOTICES.md # licenze/attribuzioni dei contenuti di terze parti
 └─ README.md             # questo file
 ```
 
@@ -72,16 +77,33 @@ Al primo avvio PromeTeus crea da solo il file `prometeus.db` e, se il catalogo
 e' vuoto, lo riempie con una base di porte e tecnologie comuni.
 Il file resta sul tuo computer e non viene salvato su git (contiene dati, non codice).
 
-Per (ri)caricare a mano la base del catalogo:
+Per (ri)caricare a mano i contenuti del catalogo:
 
 ```bash
 python -m app.seed
 ```
 
+## Il catalogo
+
+Al primo avvio il catalogo si riempie con:
+
+- una **base** di porte e tecnologie comuni, scritta a mano in `app/seed.py`;
+- un'ampia raccolta di **tecniche e payload** importata da
+  [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings)
+  (licenza MIT — vedi `THIRD_PARTY_NOTICES.md` per l'attribuzione).
+
+Le tecniche sono già pronte nel file `data/payloads_seed.json`. Per
+**rigenerarle** dalla fonte (serve una copia clonata del repository):
+
+```bash
+git clone --depth 1 https://github.com/swisskyrepo/PayloadsAllTheThings.git /tmp/patt
+python tools/import_payloads.py --source /tmp/patt --out data/payloads_seed.json
+```
+
 ## Stato dei lavori
 
 - [x] **M0** - Scheletro: il server parte e mostra la home
-- [x] **M1** - Database e modelli (Porte, Tecnologie, Test, Progetti, Findings) + base del catalogo
+- [x] **M1** - Database, modelli e riempimento del catalogo (base + import da PayloadsAllTheThings)
 - [ ] **M2** - Catalogo: consultazione per porta / per tecnologia
 - [ ] **M3** - Progetti e findings
 - [ ] **M4** - Report ed esportazione
