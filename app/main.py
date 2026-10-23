@@ -529,3 +529,247 @@ def progetto_delete(project_id: int, session: Session = Depends(get_session)):
     session.delete(project)
     session.commit()
     return RedirectResponse(url="/progetti", status_code=303)
+
+
+# =====================  GESTIONE DEL CATALOGO  =====================
+
+@app.get("/catalogo/nuovo", response_class=HTMLResponse)
+def topic_new_form(request: Request):
+    """Form per creare una nuova voce del catalogo."""
+    values = {
+        "kind": "port", "name": "", "port": "", "protocol": "",
+        "description": "", "detection": "", "references": "",
+    }
+    return templates.TemplateResponse(
+        request=request,
+        name="topic_form.html",
+        context={
+            "values": values,
+            "form_action": "/catalogo",
+            "form_title": "Nuova voce del catalogo",
+            "submit_label": "Crea voce",
+            "back_url": "/catalogo",
+            "kinds": [KIND_PORT, KIND_TECH, KIND_TECHNIQUE],
+            "kind_labels": KIND_LABELS,
+        },
+    )
+
+
+@app.post("/catalogo")
+def topic_create(
+    kind: str = Form("port"),
+    name: str = Form(...),
+    port: str = Form(""),
+    protocol: str = Form(""),
+    description: str = Form(""),
+    detection: str = Form(""),
+    references: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    """Crea una voce del catalogo."""
+    if kind not in (KIND_PORT, KIND_TECH, KIND_TECHNIQUE):
+        kind = KIND_TECH
+    topic = Topic(
+        kind=kind,
+        name=name.strip(),
+        port=_int_or_none(port),
+        protocol=protocol.strip() or None,
+        description=description.strip(),
+        detection=detection.strip() or None,
+        references=references.strip() or None,
+    )
+    session.add(topic)
+    session.commit()
+    session.refresh(topic)
+    return RedirectResponse(url=f"/topic/{topic.id}", status_code=303)
+
+
+@app.get("/topic/{topic_id}/modifica", response_class=HTMLResponse)
+def topic_edit_form(topic_id: int, request: Request, session: Session = Depends(get_session)):
+    """Form per modificare una voce del catalogo."""
+    topic = session.get(Topic, topic_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Voce non trovata")
+    values = {
+        "kind": topic.kind,
+        "name": topic.name,
+        "port": topic.port or "",
+        "protocol": topic.protocol or "",
+        "description": topic.description or "",
+        "detection": topic.detection or "",
+        "references": topic.references or "",
+    }
+    return templates.TemplateResponse(
+        request=request,
+        name="topic_form.html",
+        context={
+            "values": values,
+            "form_action": f"/topic/{topic.id}",
+            "form_title": "Modifica voce",
+            "submit_label": "Salva modifiche",
+            "back_url": f"/topic/{topic.id}",
+            "kinds": [KIND_PORT, KIND_TECH, KIND_TECHNIQUE],
+            "kind_labels": KIND_LABELS,
+        },
+    )
+
+
+@app.post("/topic/{topic_id}")
+def topic_update(
+    topic_id: int,
+    kind: str = Form("port"),
+    name: str = Form(...),
+    port: str = Form(""),
+    protocol: str = Form(""),
+    description: str = Form(""),
+    detection: str = Form(""),
+    references: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    """Aggiorna una voce del catalogo."""
+    topic = session.get(Topic, topic_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Voce non trovata")
+    if kind not in (KIND_PORT, KIND_TECH, KIND_TECHNIQUE):
+        kind = topic.kind
+    topic.kind = kind
+    topic.name = name.strip()
+    topic.port = _int_or_none(port)
+    topic.protocol = protocol.strip() or None
+    topic.description = description.strip()
+    topic.detection = detection.strip() or None
+    topic.references = references.strip() or None
+    session.add(topic)
+    session.commit()
+    return RedirectResponse(url=f"/topic/{topic_id}", status_code=303)
+
+
+@app.post("/topic/{topic_id}/elimina")
+def topic_delete(topic_id: int, session: Session = Depends(get_session)):
+    """Elimina una voce del catalogo e tutti i suoi test."""
+    topic = session.get(Topic, topic_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Voce non trovata")
+    checks = session.exec(select(Check).where(Check.topic_id == topic_id)).all()
+    for c in checks:
+        session.delete(c)
+    session.delete(topic)
+    session.commit()
+    return RedirectResponse(url="/catalogo", status_code=303)
+
+
+@app.get("/topic/{topic_id}/test/nuovo", response_class=HTMLResponse)
+def check_new_form(topic_id: int, request: Request, session: Session = Depends(get_session)):
+    """Form per aggiungere un test a una voce."""
+    topic = session.get(Topic, topic_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Voce non trovata")
+    values = {"title": "", "goal": "", "tool": "", "command": "", "interpretation": "", "references": ""}
+    return templates.TemplateResponse(
+        request=request,
+        name="check_form.html",
+        context={
+            "values": values,
+            "topic": topic,
+            "form_action": f"/topic/{topic_id}/test",
+            "form_title": f"Nuovo test per {topic.name}",
+            "submit_label": "Aggiungi test",
+            "back_url": f"/topic/{topic_id}",
+        },
+    )
+
+
+@app.post("/topic/{topic_id}/test")
+def check_create(
+    topic_id: int,
+    title: str = Form(...),
+    goal: str = Form(""),
+    tool: str = Form(""),
+    command: str = Form(""),
+    interpretation: str = Form(""),
+    references: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    """Crea un test dentro una voce del catalogo."""
+    topic = session.get(Topic, topic_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Voce non trovata")
+    check = Check(
+        topic_id=topic_id,
+        title=title.strip(),
+        goal=goal.strip() or None,
+        tool=tool.strip() or None,
+        command=command.strip() or None,
+        interpretation=interpretation.strip() or None,
+        references=references.strip() or None,
+    )
+    session.add(check)
+    session.commit()
+    return RedirectResponse(url=f"/topic/{topic_id}", status_code=303)
+
+
+@app.get("/test/{check_id}/modifica", response_class=HTMLResponse)
+def check_edit_form(check_id: int, request: Request, session: Session = Depends(get_session)):
+    """Form per modificare un test."""
+    check = session.get(Check, check_id)
+    if check is None:
+        raise HTTPException(status_code=404, detail="Test non trovato")
+    topic = session.get(Topic, check.topic_id)
+    values = {
+        "title": check.title,
+        "goal": check.goal or "",
+        "tool": check.tool or "",
+        "command": check.command or "",
+        "interpretation": check.interpretation or "",
+        "references": check.references or "",
+    }
+    return templates.TemplateResponse(
+        request=request,
+        name="check_form.html",
+        context={
+            "values": values,
+            "topic": topic,
+            "form_action": f"/test/{check.id}",
+            "form_title": "Modifica test",
+            "submit_label": "Salva modifiche",
+            "back_url": f"/topic/{check.topic_id}",
+        },
+    )
+
+
+@app.post("/test/{check_id}")
+def check_update(
+    check_id: int,
+    title: str = Form(...),
+    goal: str = Form(""),
+    tool: str = Form(""),
+    command: str = Form(""),
+    interpretation: str = Form(""),
+    references: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    """Aggiorna un test."""
+    check = session.get(Check, check_id)
+    if check is None:
+        raise HTTPException(status_code=404, detail="Test non trovato")
+    check.title = title.strip()
+    check.goal = goal.strip() or None
+    check.tool = tool.strip() or None
+    check.command = command.strip() or None
+    check.interpretation = interpretation.strip() or None
+    check.references = references.strip() or None
+    session.add(check)
+    session.commit()
+    return RedirectResponse(url=f"/topic/{check.topic_id}", status_code=303)
+
+
+@app.post("/test/{check_id}/elimina")
+def check_delete(check_id: int, session: Session = Depends(get_session)):
+    """Elimina un test."""
+    check = session.get(Check, check_id)
+    if check is None:
+        raise HTTPException(status_code=404, detail="Test non trovato")
+    topic_id = check.topic_id
+    session.delete(check)
+    session.commit()
+    return RedirectResponse(url=f"/topic/{topic_id}", status_code=303)

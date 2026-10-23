@@ -348,3 +348,7 @@ pre.cmd code {
   padding: 0;
 }
 .btn-link-danger:hover { text-decoration: underline; }
+
+/* Intestazione di pagina con pulsante a destra (es. Catalogo + Nuova voce) */
+.page-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.page-head h1 { margin: 0; }

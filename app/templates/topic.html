@@ -19,6 +19,14 @@
         <a href="{{ topic.references }}" target="_blank" rel="noopener noreferrer">{{ topic.references }}</a>
       </p>
     {% endif %}
+    <div class="actions">
+      <a class="btn" href="/topic/{{ topic.id }}/test/nuovo">+ Aggiungi test</a>
+      <a class="btn btn-secondary" href="/topic/{{ topic.id }}/modifica">Modifica voce</a>
+      <form class="inline-form" method="post" action="/topic/{{ topic.id }}/elimina"
+            onsubmit="return confirm('Eliminare questa voce e tutti i suoi test?');">
+        <button class="btn btn-danger" type="submit">Elimina voce</button>
+      </form>
+    </div>
   </header>
 
   <h2>Test ({{ checks|length }})</h2>
@@ -42,9 +50,14 @@
           <a href="{{ c.references }}" target="_blank" rel="noopener noreferrer">Fonte</a>
         </p>
       {% endif %}
-      <p class="check-action">
+      <div class="finding-actions">
         <a class="btn-link" href="/findings/nuovo?check_id={{ c.id }}">+ Aggiungi come finding</a>
-      </p>
+        <a class="btn-link" href="/test/{{ c.id }}/modifica">Modifica</a>
+        <form class="inline-form" method="post" action="/test/{{ c.id }}/elimina"
+              onsubmit="return confirm('Eliminare questo test?');">
+          <button class="btn-link-danger" type="submit">Elimina</button>
+        </form>
+      </div>
     </article>
   {% else %}
     <p class="empty">Nessun test per questa voce.</p>
