@@ -7,6 +7,7 @@ Qui facciamo tre cose:
   3) definiamo le "rotte" (route): ogni rotta e' un indirizzo del sito
      (es. "/") a cui corrisponde una funzione Python che decide cosa mostrare.
 """
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -14,14 +15,30 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from app.database import create_db_and_tables
+from app.seed import seed_if_empty
+
 # BASE_DIR = la cartella "app" dove si trova questo file.
 # La calcoliamo in automatico cosi' l'app funziona ovunque venga copiata,
 # senza dover scrivere a mano percorsi fissi tipo "C:\Users\...".
 BASE_DIR = Path(__file__).resolve().parent
 
+# Cosa deve succedere all'avvio e allo spegnimento dell'app.
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # All'avvio: creiamo il database (se non esiste) e, se il catalogo e' vuoto,
+    # carichiamo la base pronta di porte e tecnologie.
+    create_db_and_tables()
+    inserite = seed_if_empty()
+    if inserite:
+        print(f"[PromeTeus] Catalogo iniziale caricato: {inserite} voci.")
+    yield
+    # (allo spegnimento non c'e' nulla di speciale da fare)
+
+
 # L'applicazione. "title" compare nella documentazione automatica di FastAPI
 # (la trovi su http://127.0.0.1:8000/docs quando il server e' avviato).
-app = FastAPI(title="PromeTeus")
+app = FastAPI(title="PromeTeus", lifespan=lifespan)
 
 # File statici = file che il browser scarica cosi' come sono (CSS, immagini...).
 # Li mettiamo in app/static e saranno raggiungibili sotto l'indirizzo /static/...

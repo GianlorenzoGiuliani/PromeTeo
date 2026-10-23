@@ -52,6 +52,9 @@ PromeTeus/
 ├─ app/
 │  ├─ __init__.py        # rende "app" un pacchetto Python
 │  ├─ main.py            # il cuore: crea l'app e definisce le pagine (route)
+│  ├─ database.py        # configurazione del database SQLite
+│  ├─ models.py          # le "tabelle": Topic, Check, Project, Finding
+│  ├─ seed.py            # contenuti iniziali del catalogo (base pronta)
 │  ├─ templates/         # le pagine HTML
 │  │  ├─ base.html       # struttura comune a tutte le pagine
 │  │  └─ home.html       # la home
@@ -59,13 +62,26 @@ PromeTeus/
 │     └─ style.css       # lo stile grafico
 ├─ requirements.txt      # elenco delle librerie da installare
 ├─ .gitignore            # file che git deve ignorare
+├─ prometeus.db          # il database (creato in automatico; NON su git)
 └─ README.md             # questo file
+```
+
+## Il database
+
+Al primo avvio PromeTeus crea da solo il file `prometeus.db` e, se il catalogo
+e' vuoto, lo riempie con una base di porte e tecnologie comuni.
+Il file resta sul tuo computer e non viene salvato su git (contiene dati, non codice).
+
+Per (ri)caricare a mano la base del catalogo:
+
+```bash
+python -m app.seed
 ```
 
 ## Stato dei lavori
 
 - [x] **M0** - Scheletro: il server parte e mostra la home
-- [ ] **M1** - Database e modelli (Porte, Tecnologie, Test, Progetti, Findings)
+- [x] **M1** - Database e modelli (Porte, Tecnologie, Test, Progetti, Findings) + base del catalogo
 - [ ] **M2** - Catalogo: consultazione per porta / per tecnologia
 - [ ] **M3** - Progetti e findings
 - [ ] **M4** - Report ed esportazione
