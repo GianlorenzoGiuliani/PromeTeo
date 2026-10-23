@@ -21,6 +21,11 @@
     <button type="submit">Crea progetto</button>
   </form>
 
+  <form class="search" method="get" action="/progetti">
+    <input type="search" name="q" value="{{ q }}" placeholder="Cerca per nome o cliente…">
+    <button type="submit">Cerca</button>
+  </form>
+
   {% if projects %}
     <ul class="topic-list">
       {% for p in projects %}
@@ -34,6 +39,10 @@
       {% endfor %}
     </ul>
   {% else %}
-    <p class="empty">Nessun progetto ancora. Creane uno qui sopra per iniziare a segnare i findings.</p>
+    {% if q %}
+      <p class="empty">Nessun progetto trovato per &laquo;{{ q }}&raquo;.</p>
+    {% else %}
+      <p class="empty">Nessun progetto ancora. Creane uno qui sopra per iniziare a segnare i findings.</p>
+    {% endif %}
   {% endif %}
 {% endblock %}

@@ -37,10 +37,15 @@
       {% if c.goal %}<p class="goal">{{ c.goal }}</p>{% endif %}
       {% if c.tool %}<p class="tool"><strong>Tool:</strong> {{ c.tool }}</p>{% endif %}
       {% if c.command %}
-        <div class="cmd-label">Comando / payload</div>
         {# NB sicurezza: {{ ... }} applica l'autoescaping di Jinja2, quindi anche
            un payload come <script> viene mostrato come TESTO, non eseguito. #}
-        <pre class="cmd"><code>{{ c.command }}</code></pre>
+        <div class="cmd-block">
+          <div class="cmd-head">
+            <span class="cmd-label">Comando / payload</span>
+            <button class="copy-btn" type="button">Copia</button>
+          </div>
+          <pre class="cmd"><code>{{ c.command }}</code></pre>
+        </div>
       {% endif %}
       {% if c.interpretation %}
         <p class="interp"><strong>Come leggere il risultato:</strong> {{ c.interpretation }}</p>

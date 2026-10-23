@@ -23,6 +23,24 @@
 
   <h2>Findings ({{ findings|length }})</h2>
 
+  {# Filtri: i 'select' si inviano da soli al cambio (onchange), con un
+     pulsante di riserva per chi ha JavaScript disattivato (noscript). #}
+  <form class="filter-form" method="get" action="/progetti/{{ project.id }}">
+    <select name="severity" onchange="this.form.submit()">
+      <option value="">Gravità: tutte</option>
+      {% for s in severities %}
+        <option value="{{ s }}"{% if s == sel_severity %} selected{% endif %}>{{ severity_labels.get(s, s) }}</option>
+      {% endfor %}
+    </select>
+    <select name="status" onchange="this.form.submit()">
+      <option value="">Stato: tutti</option>
+      {% for s in statuses %}
+        <option value="{{ s }}"{% if s == sel_status %} selected{% endif %}>{{ status_labels.get(s, s) }}</option>
+      {% endfor %}
+    </select>
+    <noscript><button type="submit">Filtra</button></noscript>
+  </form>
+
   {% for f in findings %}
     <article class="finding sev-{{ f.severity }}">
       <div class="finding-head">
@@ -61,7 +79,11 @@
       </div>
     </article>
   {% else %}
-    <p class="empty">Nessun finding ancora. Usa &laquo;+ Aggiungi finding&raquo;,
-      oppure parti da un test nel <a href="/catalogo">catalogo</a>.</p>
+    {% if sel_severity or sel_status %}
+      <p class="empty">Nessun finding con questi filtri.</p>
+    {% else %}
+      <p class="empty">Nessun finding ancora. Usa &laquo;+ Aggiungi finding&raquo;,
+        oppure parti da un test nel <a href="/catalogo">catalogo</a>.</p>
+    {% endif %}
   {% endfor %}
 {% endblock %}

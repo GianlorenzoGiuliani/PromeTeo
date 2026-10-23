@@ -187,16 +187,20 @@ def topic_detail(
 # =====================  PROGETTI E FINDINGS  =====================
 
 @app.get("/progetti", response_class=HTMLResponse)
-def progetti(request: Request, session: Session = Depends(get_session)):
-    """Elenco dei progetti + form per crearne uno nuovo."""
-    projects = session.exec(select(Project).order_by(Project.created_at.desc())).all()
+def progetti(request: Request, session: Session = Depends(get_session), q: str | None = None):
+    """Elenco dei progetti (ricercabili per nome/cliente) + form per crearne uno."""
+    statement = select(Project).order_by(Project.created_at.desc())
+    if q:
+        like = f"%{q}%"
+        statement = statement.where(or_(Project.name.ilike(like), Project.client.ilike(like)))
+    projects = session.exec(statement).all()
     counts = dict(
         session.exec(select(Finding.project_id, func.count()).group_by(Finding.project_id)).all()
     )
     return templates.TemplateResponse(
         request=request,
         name="progetti.html",
-        context={"projects": projects, "counts": counts},
+        context={"projects": projects, "counts": counts, "q": q or ""},
     )
 
 
@@ -224,19 +228,36 @@ def crea_progetto(
 
 
 @app.get("/progetti/{project_id}", response_class=HTMLResponse)
-def progetto_detail(project_id: int, request: Request, session: Session = Depends(get_session)):
-    """Dettaglio di un progetto: dati + findings ordinati per gravita'."""
+def progetto_detail(
+    project_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    severity: str | None = None,
+    status: str | None = None,
+):
+    """Dettaglio di un progetto: dati + findings, filtrabili per gravita' e stato."""
     project = session.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Progetto non trovato")
-    findings = session.exec(select(Finding).where(Finding.project_id == project_id)).all()
-    findings = sorted(findings, key=lambda f: (SEVERITY_RANK.get(f.severity, 99), f.id))
+    statement = select(Finding).where(Finding.project_id == project_id)
+    if severity in SEVERITIES:
+        statement = statement.where(Finding.severity == severity)
+    if status in STATUSES:
+        statement = statement.where(Finding.status == status)
+    findings = sorted(
+        session.exec(statement).all(),
+        key=lambda f: (SEVERITY_RANK.get(f.severity, 99), f.id),
+    )
     return templates.TemplateResponse(
         request=request,
         name="progetto.html",
         context={
             "project": project,
             "findings": findings,
+            "severities": SEVERITIES,
+            "statuses": STATUSES,
+            "sel_severity": severity or "",
+            "sel_status": status or "",
             "severity_labels": SEVERITY_LABELS,
             "status_labels": STATUS_LABELS,
         },
