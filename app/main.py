@@ -8,17 +8,29 @@ Qui facciamo tre cose:
      (es. "/") a cui corrisponde una funzione Python che decide cosa mostrare.
 """
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi import Depends, FastAPI, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import or_
 from sqlmodel import Session, func, select
 
 from app.database import create_db_and_tables, get_session
-from app.models import KIND_PORT, KIND_TECH, KIND_TECHNIQUE, Check, Topic
+from app.models import (
+    KIND_PORT,
+    KIND_TECH,
+    KIND_TECHNIQUE,
+    SEVERITIES,
+    STATUSES,
+    Check,
+    Finding,
+    Project,
+    Topic,
+)
+from app.reporting import build_markdown_report
 from app.seed import seed_if_empty, seed_payloads_if_absent
 
 # BASE_DIR = la cartella "app" dove si trova questo file.
@@ -62,6 +74,31 @@ KIND_LABELS = {
     KIND_TECHNIQUE: "Tecniche",
 }
 
+# Etichette in italiano per gravita' e stato dei findings.
+SEVERITY_LABELS = {
+    "critical": "Critica",
+    "high": "Alta",
+    "medium": "Media",
+    "low": "Bassa",
+    "info": "Info",
+}
+STATUS_LABELS = {
+    "open": "Aperto",
+    "confirmed": "Confermato",
+    "false_positive": "Falso positivo",
+    "resolved": "Risolto",
+}
+# Ordine di gravita' (0 = piu' grave): serve per ordinare i findings nel report.
+SEVERITY_RANK = {s: i for i, s in enumerate(SEVERITIES)}
+
+
+def _int_or_none(value):
+    """Converte in intero, oppure None se vuoto/non valido (usato per i form)."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request, session: Session = Depends(get_session)):
@@ -76,10 +113,11 @@ def home(request: Request, session: Session = Depends(get_session)):
         ).one()
         for kind in (KIND_PORT, KIND_TECH, KIND_TECHNIQUE)
     }
+    n_progetti = session.exec(select(func.count()).select_from(Project)).one()
     return templates.TemplateResponse(
         request=request,
         name="home.html",
-        context={"counts": counts},
+        context={"counts": counts, "n_progetti": n_progetti},
     )
 
 
@@ -143,4 +181,194 @@ def topic_detail(
         request=request,
         name="topic.html",
         context={"topic": topic, "checks": checks, "kind_labels": KIND_LABELS},
+    )
+
+
+# =====================  PROGETTI E FINDINGS  =====================
+
+@app.get("/progetti", response_class=HTMLResponse)
+def progetti(request: Request, session: Session = Depends(get_session)):
+    """Elenco dei progetti + form per crearne uno nuovo."""
+    projects = session.exec(select(Project).order_by(Project.created_at.desc())).all()
+    counts = dict(
+        session.exec(select(Finding.project_id, func.count()).group_by(Finding.project_id)).all()
+    )
+    return templates.TemplateResponse(
+        request=request,
+        name="progetti.html",
+        context={"projects": projects, "counts": counts},
+    )
+
+
+@app.post("/progetti")
+def crea_progetto(
+    name: str = Form(...),
+    client: str = Form(""),
+    scope: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    """Crea un progetto e reindirizza alla sua pagina.
+
+    Il reindirizzamento dopo un POST (codice 303) e' il pattern
+    'Post/Redirect/Get': evita che ricaricando la pagina si reinvii il form.
+    """
+    project = Project(
+        name=name.strip(),
+        client=client.strip() or None,
+        scope=scope.strip() or None,
+    )
+    session.add(project)
+    session.commit()
+    session.refresh(project)
+    return RedirectResponse(url=f"/progetti/{project.id}", status_code=303)
+
+
+@app.get("/progetti/{project_id}", response_class=HTMLResponse)
+def progetto_detail(project_id: int, request: Request, session: Session = Depends(get_session)):
+    """Dettaglio di un progetto: dati + findings ordinati per gravita'."""
+    project = session.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Progetto non trovato")
+    findings = session.exec(select(Finding).where(Finding.project_id == project_id)).all()
+    findings = sorted(findings, key=lambda f: (SEVERITY_RANK.get(f.severity, 99), f.id))
+    return templates.TemplateResponse(
+        request=request,
+        name="progetto.html",
+        context={
+            "project": project,
+            "findings": findings,
+            "severity_labels": SEVERITY_LABELS,
+            "status_labels": STATUS_LABELS,
+        },
+    )
+
+
+@app.get("/findings/nuovo", response_class=HTMLResponse)
+def finding_form(
+    request: Request,
+    session: Session = Depends(get_session),
+    project_id: int | None = None,
+    check_id: int | None = None,
+):
+    """Form per creare un finding. Puo' arrivare pre-compilato da un test del catalogo."""
+    projects = session.exec(select(Project).order_by(Project.name)).all()
+    prefill: dict = {}
+    topic = None
+    check = None
+    if check_id is not None:
+        check = session.get(Check, check_id)
+        if check is not None:
+            topic = session.get(Topic, check.topic_id)
+            prefill["title"] = f"{topic.name}: {check.title}" if topic else check.title
+            prefill["description"] = check.goal or ""
+            prefill["topic_id"] = check.topic_id
+            prefill["check_id"] = check.id
+    return templates.TemplateResponse(
+        request=request,
+        name="finding_nuovo.html",
+        context={
+            "projects": projects,
+            "project_id": project_id,
+            "prefill": prefill,
+            "topic": topic,
+            "check": check,
+            "severities": SEVERITIES,
+            "statuses": STATUSES,
+            "severity_labels": SEVERITY_LABELS,
+            "status_labels": STATUS_LABELS,
+        },
+    )
+
+
+@app.post("/findings")
+def crea_finding(
+    project_id: int = Form(...),
+    title: str = Form(...),
+    severity: str = Form("medium"),
+    status: str = Form("open"),
+    target_host: str = Form(""),
+    target_port: str = Form(""),
+    target_url: str = Form(""),
+    cve: str = Form(""),
+    cwe: str = Form(""),
+    description: str = Form(""),
+    evidence: str = Form(""),
+    remediation: str = Form(""),
+    topic_id: str = Form(""),
+    check_id: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    """Crea un finding dentro un progetto."""
+    project = session.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Progetto non trovato")
+    # Difesa di base: accettiamo solo valori previsti per gravita' e stato.
+    if severity not in SEVERITIES:
+        severity = "medium"
+    if status not in STATUSES:
+        status = "open"
+    finding = Finding(
+        project_id=project_id,
+        title=title.strip(),
+        severity=severity,
+        status=status,
+        target_host=target_host.strip() or None,
+        target_port=_int_or_none(target_port),
+        target_url=target_url.strip() or None,
+        cve=cve.strip() or None,
+        cwe=cwe.strip() or None,
+        description=description.strip() or None,
+        evidence=evidence.strip() or None,
+        remediation=remediation.strip() or None,
+        topic_id=_int_or_none(topic_id),
+        check_id=_int_or_none(check_id),
+    )
+    session.add(finding)
+    session.commit()
+    return RedirectResponse(url=f"/progetti/{project_id}", status_code=303)
+
+
+# =====================  REPORT  =====================
+
+@app.get("/progetti/{project_id}/report", response_class=HTMLResponse)
+def report_html(project_id: int, request: Request, session: Session = Depends(get_session)):
+    """Report del progetto, in una pagina pensata anche per la stampa / PDF."""
+    project = session.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Progetto non trovato")
+    findings = session.exec(select(Finding).where(Finding.project_id == project_id)).all()
+    findings = sorted(findings, key=lambda f: (SEVERITY_RANK.get(f.severity, 99), f.id))
+    sev_counts = {s: 0 for s in SEVERITIES}
+    for f in findings:
+        if f.severity in sev_counts:
+            sev_counts[f.severity] += 1
+    return templates.TemplateResponse(
+        request=request,
+        name="report.html",
+        context={
+            "project": project,
+            "findings": findings,
+            "sev_counts": sev_counts,
+            "severities": SEVERITIES,
+            "severity_labels": SEVERITY_LABELS,
+            "status_labels": STATUS_LABELS,
+            "now": datetime.now(),
+        },
+    )
+
+
+@app.get("/progetti/{project_id}/report.md")
+def report_md(project_id: int, session: Session = Depends(get_session)):
+    """Scarica il report in formato Markdown (un file di testo)."""
+    project = session.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Progetto non trovato")
+    findings = session.exec(select(Finding).where(Finding.project_id == project_id)).all()
+    findings = sorted(findings, key=lambda f: (SEVERITY_RANK.get(f.severity, 99), f.id))
+    markdown = build_markdown_report(project, findings, SEVERITY_LABELS, STATUS_LABELS)
+    filename = f"report-progetto-{project.id}.md"
+    return PlainTextResponse(
+        markdown,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

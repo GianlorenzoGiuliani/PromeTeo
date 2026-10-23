@@ -111,6 +111,6 @@ python tools/import_payloads.py --source /tmp/patt --out data/payloads_seed.json
 - [x] **M0** - Scheletro: il server parte e mostra la home
 - [x] **M1** - Database, modelli e riempimento del catalogo (base + import da PayloadsAllTheThings)
 - [x] **M2** - Catalogo navigabile: sezioni (porte/tecnologie/tecniche), ricerca e dettaglio voce
-- [ ] **M3** - Progetti e findings
-- [ ] **M4** - Report ed esportazione
-- [ ] **M5** - Rifiniture (ricerca, modifica del catalogo, grafica)
+- [x] **M3** - Progetti e findings (anche partendo da un test del catalogo)
+- [x] **M4** - Report del progetto (pagina stampabile/PDF + export Markdown)
+- [ ] **M5** - Rifiniture (modifica/eliminazione, migliorie grafiche, ecc.)

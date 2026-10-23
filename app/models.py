@@ -6,7 +6,7 @@ Due gruppi:
   - CATALOGO (consultazione):   Topic, Check
   - LAVORO (i tuoi progetti):   Project, Finding
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlmodel import Field, Relationship, SQLModel
@@ -70,7 +70,7 @@ class Project(SQLModel, table=True):
     name: str = Field(index=True)
     client: Optional[str] = None             # il cliente dell'attivita'
     scope: Optional[str] = None              # note sullo scope / autorizzazione
-    created_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     findings: list["Finding"] = Relationship(back_populates="project")
 
@@ -100,6 +100,6 @@ class Finding(SQLModel, table=True):
     topic_id: Optional[int] = Field(default=None, foreign_key="topic.id")
     check_id: Optional[int] = Field(default=None, foreign_key="check.id")
 
-    created_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     project: Optional[Project] = Relationship(back_populates="findings")

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.name }} - PromeTeus{% endblock %}
+
+{% block content %}
+  <p class="breadcrumb"><a href="/progetti">&larr; Progetti</a></p>
+
+  <header class="topic-head">
+    <h1>{{ project.name }}</h1>
+    {% if project.client %}<p class="desc">Cliente: {{ project.client }}</p>{% endif %}
+    {% if project.scope %}<p class="detection"><strong>Scope:</strong> {{ project.scope }}</p>{% endif %}
+    <p class="actions">
+      <a class="btn" href="/findings/nuovo?project_id={{ project.id }}">+ Aggiungi finding</a>
+      <a class="btn btn-secondary" href="/progetti/{{ project.id }}/report">Vedi report</a>
+      <a class="btn btn-secondary" href="/progetti/{{ project.id }}/report.md">Scarica .md</a>
+    </p>
+  </header>
+
+  <h2>Findings ({{ findings|length }})</h2>
+
+  {% for f in findings %}
+    <article class="finding sev-{{ f.severity }}">
+      <div class="finding-head">
+        <span class="sev-badge sev-{{ f.severity }}">{{ severity_labels.get(f.severity, f.severity) }}</span>
+        <strong>{{ f.title }}</strong>
+        <span class="status-badge">{{ status_labels.get(f.status, f.status) }}</span>
+      </div>
+
+      {% if f.target_host or f.target_url %}
+        <p class="finding-target"><strong>Bersaglio:</strong>
+          {% if f.target_host %}{{ f.target_host }}{% if f.target_port %}:{{ f.target_port }}{% endif %}{% endif %}
+          {% if f.target_host and f.target_url %} | {% endif %}
+          {% if f.target_url %}{{ f.target_url }}{% endif %}
+        </p>
+      {% endif %}
+
+      {% if f.cve or f.cwe %}
+        <p class="finding-ids">
+          {% if f.cve %}<span class="idtag">{{ f.cve }}</span>{% endif %}
+          {% if f.cwe %}<span class="idtag">{{ f.cwe }}</span>{% endif %}
+        </p>
+      {% endif %}
+
+      {% if f.description %}<p>{{ f.description }}</p>{% endif %}
+      {% if f.evidence %}
+        <div class="cmd-label">Prova</div>
+        <pre class="cmd"><code>{{ f.evidence }}</code></pre>
+      {% endif %}
+      {% if f.remediation %}<p class="interp"><strong>Rimedio:</strong> {{ f.remediation }}</p>{% endif %}
+    </article>
+  {% else %}
+    <p class="empty">Nessun finding ancora. Usa &laquo;+ Aggiungi finding&raquo;,
+      oppure parti da un test nel <a href="/catalogo">catalogo</a>.</p>
+  {% endfor %}
+{% endblock %}

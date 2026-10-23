@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Report - {{ project.name }}{% endblock %}
+
+{% block content %}
+  <div class="report">
+    {# Questa barra non viene stampata (classe no-print). #}
+    <div class="report-toolbar no-print">
+      <a class="btn btn-secondary" href="/progetti/{{ project.id }}">&larr; Progetto</a>
+      <button class="btn" type="button" onclick="window.print()">Stampa / PDF</button>
+      <a class="btn btn-secondary" href="/progetti/{{ project.id }}/report.md">Scarica .md</a>
+    </div>
+
+    <header class="report-head">
+      <h1>Report &mdash; {{ project.name }}</h1>
+      <p class="report-meta">
+        {% if project.client %}Cliente: {{ project.client }} &middot; {% endif %}
+        Data: {{ now.strftime('%Y-%m-%d') }} &middot; Findings: {{ findings|length }}
+      </p>
+      {% if project.scope %}<p class="report-scope"><strong>Scope:</strong> {{ project.scope }}</p>{% endif %}
+    </header>
+
+    <h2>Riepilogo</h2>
+    <ul class="summary">
+      {% for s in severities %}
+        <li><span class="sev-badge sev-{{ s }}">{{ severity_labels.get(s, s) }}</span> {{ sev_counts.get(s, 0) }}</li>
+      {% endfor %}
+    </ul>
+
+    <h2>Findings</h2>
+    {% for f in findings %}
+      <article class="report-finding sev-{{ f.severity }}">
+        <h3>{{ loop.index }}. {{ f.title }}</h3>
+        <p class="finding-meta">
+          <span class="sev-badge sev-{{ f.severity }}">{{ severity_labels.get(f.severity, f.severity) }}</span>
+          <span class="status-badge">{{ status_labels.get(f.status, f.status) }}</span>
+          {% if f.cve %}<span class="idtag">{{ f.cve }}</span>{% endif %}
+          {% if f.cwe %}<span class="idtag">{{ f.cwe }}</span>{% endif %}
+        </p>
+        {% if f.target_host or f.target_url %}
+          <p><strong>Bersaglio:</strong>
+            {% if f.target_host %}{{ f.target_host }}{% if f.target_port %}:{{ f.target_port }}{% endif %}{% endif %}
+            {% if f.target_host and f.target_url %} | {% endif %}
+            {% if f.target_url %}{{ f.target_url }}{% endif %}
+          </p>
+        {% endif %}
+        {% if f.description %}<p>{{ f.description }}</p>{% endif %}
+        {% if f.evidence %}
+          <div class="cmd-label">Prova</div>
+          <pre class="cmd"><code>{{ f.evidence }}</code></pre>
+        {% endif %}
+        {% if f.remediation %}<p><strong>Rimedio:</strong> {{ f.remediation }}</p>{% endif %}
+      </article>
+    {% else %}
+      <p class="empty">Nessun finding registrato.</p>
+    {% endfor %}
+  </div>
+{% endblock %}

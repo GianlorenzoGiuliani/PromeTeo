@@ -42,6 +42,9 @@
           <a href="{{ c.references }}" target="_blank" rel="noopener noreferrer">Fonte</a>
         </p>
       {% endif %}
+      <p class="check-action">
+        <a class="btn-link" href="/findings/nuovo?check_id={{ c.id }}">+ Aggiungi come finding</a>
+      </p>
     </article>
   {% else %}
     <p class="empty">Nessun test per questa voce.</p>

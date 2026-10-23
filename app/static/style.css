@@ -207,3 +207,127 @@ pre.cmd code {
   white-space: pre;
 }
 .empty { color: var(--muted); padding: 1rem 0; }
+
+/* ===========================================================================
+   Milestone 3/4: progetti, findings e report.
+   =========================================================================== */
+.muted { color: var(--muted); }
+.hint { color: var(--muted); font-size: 0.9rem; }
+
+/* --- Pulsanti --- */
+.btn {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: var(--accent);
+  color: #1a1206;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.btn:hover { filter: brightness(1.08); text-decoration: none; }
+.btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--surface-2); }
+.actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+
+/* --- Form --- */
+.form-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.2rem 1.4rem;
+  margin-bottom: 1.5rem;
+  max-width: 680px;
+}
+.form-card h2 { margin-top: 0; }
+.form-card label { display: block; margin-bottom: 0.9rem; font-size: 0.9rem; color: var(--muted); }
+.form-card input, .form-card select, .form-card textarea {
+  display: block;
+  width: 100%;
+  margin-top: 0.3rem;
+  padding: 0.55rem 0.7rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+.form-card textarea { resize: vertical; }
+.form-row { display: flex; gap: 1rem; }
+.form-row label { flex: 1; }
+
+/* --- Findings --- */
+.finding {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1rem;
+}
+.finding-head { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.finding-head strong { font-size: 1.05rem; }
+.finding-target, .finding-ids { font-size: 0.9rem; color: var(--muted); margin: 0.5rem 0 0; }
+
+/* --- Badge gravità e stato --- */
+.sev-badge, .status-badge {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 0.12rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.status-badge { color: var(--muted); }
+.sev-critical { color: #ff6b6b; border-color: #7a2a2a; }
+.sev-high     { color: #ff9f6b; border-color: #7a4524; }
+.sev-medium   { color: #ffd36b; border-color: #7a6424; }
+.sev-low      { color: #9fd3ff; border-color: #2f5d6e; }
+.sev-info     { color: #b7c0cc; border-color: var(--border); }
+.finding.sev-critical, .report-finding.sev-critical { border-left-color: #ff6b6b; }
+.finding.sev-high,     .report-finding.sev-high     { border-left-color: #ff9f6b; }
+.finding.sev-medium,   .report-finding.sev-medium   { border-left-color: #ffd36b; }
+.finding.sev-low,      .report-finding.sev-low      { border-left-color: #9fd3ff; }
+.finding.sev-info,     .report-finding.sev-info     { border-left-color: #b7c0cc; }
+
+.idtag {
+  font-size: 0.75rem;
+  font-family: ui-monospace, monospace;
+  color: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.05rem 0.4rem;
+}
+
+/* --- Report --- */
+.report-toolbar { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+.report-head { border-bottom: 2px solid var(--border); padding-bottom: 0.8rem; margin-bottom: 1.2rem; }
+.report-meta { color: var(--muted); }
+.summary { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 1rem; }
+.summary li { display: flex; align-items: center; gap: 0.4rem; }
+.report-finding {
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1rem;
+}
+.finding-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0 0 0.6rem; }
+
+/* --- Stampa: sfondo bianco, niente barre --- */
+@media print {
+  .topbar, .footer, .no-print { display: none !important; }
+  body { background: #fff; color: #000; }
+  .container { max-width: none; padding: 0; }
+  .report-finding, pre.cmd { break-inside: avoid; }
+  pre.cmd { background: #f4f4f4; }
+  pre.cmd code { color: #000; }
+  .sev-badge, .status-badge, .idtag { border-color: #999; }
+}
+
+/* Collegamento "aggiungi come finding" nei test del catalogo */
+.check-action { margin: 0.8rem 0 0; }
+.btn-link { color: var(--accent); font-size: 0.9rem; font-weight: 600; }
