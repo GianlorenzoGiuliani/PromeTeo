@@ -1,0 +1,101 @@
+/* ===========================================================================
+   style.css - l'aspetto grafico di PromeTeus.
+   Tema scuro, sobrio, adatto a uno strumento da lavoro.
+   I colori sono definiti una volta sola qui sotto (le "variabili"): se un
+   domani vorrai cambiare colore, cambi un valore solo e cambia ovunque.
+   =========================================================================== */
+:root {
+  --bg:        #0f1216;   /* sfondo pagina */
+  --surface:   #171c23;   /* sfondo di card e barre */
+  --surface-2: #1f262f;   /* sfondo al passaggio del mouse */
+  --border:    #2a323c;
+  --text:      #e6e9ee;   /* testo principale */
+  --muted:     #9aa6b2;   /* testo secondario */
+  --accent:    #ff7a1a;   /* arancione "fuoco" (Prometeo) */
+  --radius:    12px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.6;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* --- Barra in alto --- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.brand {
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: var(--text);
+  letter-spacing: 0.5px;
+}
+.nav a { color: var(--muted); margin-left: 1rem; }
+
+/* --- Contenuto centrale --- */
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.hero h1 {
+  font-size: 2.4rem;
+  margin: 0 0 0.3rem;
+}
+.subtitle {
+  color: var(--muted);
+  font-size: 1.1rem;
+  max-width: 640px;
+}
+
+/* --- Le card delle sezioni --- */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+  margin-top: 2rem;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+.card h2 { margin-top: 0; font-size: 1.2rem; }
+.card p { color: var(--muted); margin-bottom: 1rem; }
+
+/* le card "in arrivo" sono leggermente spente */
+.card--soon { opacity: 0.75; }
+
+.badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+}
+
+/* --- Pie' di pagina --- */
+.footer {
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 2rem 1.5rem;
+  border-top: 1px solid var(--border);
+  margin-top: 2rem;
+}

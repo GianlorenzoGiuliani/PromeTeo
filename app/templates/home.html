@@ -1,0 +1,38 @@
+{# home.html estende lo scheletro base.html e riempie i suoi "block". #}
+{% extends "base.html" %}
+
+{% block title %}PromeTeus - Home{% endblock %}
+
+{% block content %}
+  <section class="hero">
+    <h1>PromeTeus</h1>
+    <p class="subtitle">
+      Il tuo copilota durante i penetration test: cosa testare, con quali
+      strumenti, come leggere i risultati &mdash; e dove segnare i findings.
+    </p>
+  </section>
+
+  {# Le tre sezioni principali dell'app.
+     Per ora sono "segnaposto" (card--soon): le attiviamo nei prossimi step. #}
+  <section class="cards">
+    <div class="card card--soon">
+      <h2>Per porta</h2>
+      <p>Trovi una porta aperta? Scopri quali test fare e quali tool usare
+         (es. RDP, SMB, SSH&hellip;).</p>
+      <span class="badge">in arrivo</span>
+    </div>
+
+    <div class="card card--soon">
+      <h2>Per tecnologia</h2>
+      <p>Riconosci una tecnologia? Vai dritto ai controlli giusti
+         (es. WordPress &rarr; wpscan).</p>
+      <span class="badge">in arrivo</span>
+    </div>
+
+    <div class="card card--soon">
+      <h2>Progetti &amp; findings</h2>
+      <p>Segna le vulnerabilita' trovate e genera il report finale.</p>
+      <span class="badge">in arrivo</span>
+    </div>
+  </section>
+{% endblock %}

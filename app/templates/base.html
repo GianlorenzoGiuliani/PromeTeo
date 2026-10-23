@@ -1,0 +1,33 @@
+{# ===========================================================================
+   base.html = lo "scheletro" comune a TUTTE le pagine.
+   Le altre pagine (es. home.html) lo estendono e riempiono solo i "block".
+   Cosi' non riscriviamo ogni volta <head>, intestazione, pie' di pagina...
+   (principio da buon ingegnere: non ripeterti -> "DRY", Don't Repeat Yourself)
+   =========================================================================== #}
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {# Il titolo della scheda del browser. Ogni pagina puo' sovrascriverlo. #}
+  <title>{% block title %}PromeTeus{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">PromeTeus</a>
+    <nav class="nav">
+      <a href="/">Home</a>
+    </nav>
+  </header>
+
+  {# Qui dentro ogni pagina inserisce il proprio contenuto. #}
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    Assistente per penetration test autorizzati
+  </footer>
+</body>
+</html>

@@ -1,0 +1,17 @@
+# Cose che NON vogliamo salvare su git (non sono "codice sorgente").
+
+# Ambiente virtuale Python (lo ricrea ognuno sulla propria macchina)
+.venv/
+venv/
+
+# File temporanei generati da Python
+__pycache__/
+*.pyc
+
+# Il database locale (lo creeremo al Milestone 1): contiene dati, non codice
+*.db
+*.sqlite3
+
+# File di sistema del sistema operativo
+.DS_Store
+Thumbs.db

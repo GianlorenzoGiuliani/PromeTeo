@@ -1,1 +1,72 @@
 # PromeTeus
+
+Assistente per penetration test **autorizzati**. Ti aiuta a ricordare:
+
+- **cosa testare** quando trovi una porta aperta o riconosci una tecnologia;
+- **quali strumenti e comandi** usare;
+- **come interpretare i risultati** ("se nell'output vedi X, c'e' la vulnerabilita' Y");
+- a **tenere traccia dei findings** per generare il **report** finale.
+
+> ⚠️ Usa PromeTeus solo su sistemi per cui hai un'autorizzazione esplicita
+> (ingaggio di pentest, programma di bug bounty in scope, laboratori o CTF).
+
+## Com'e' fatto (in breve)
+
+- **Python + FastAPI**: un piccolo server web che gira sul tuo computer.
+- **Jinja2**: i template delle pagine HTML.
+- **SQLite** (dal prossimo step): i dati, salvati in un file **in locale**.
+
+## Requisiti
+
+- [Python 3.10+](https://www.python.org/downloads/)
+
+## Come avviarlo
+
+Dal terminale, dentro la cartella del progetto:
+
+```bash
+# 1) Crea un "ambiente virtuale": una sandbox per le librerie di questo progetto
+python -m venv .venv
+
+# 2) Attivalo
+#    Linux / macOS:
+source .venv/bin/activate
+#    Windows (PowerShell):
+#    .venv\Scripts\Activate.ps1
+
+# 3) Installa le librerie elencate in requirements.txt
+pip install -r requirements.txt
+
+# 4) Avvia l'app
+uvicorn app.main:app --reload
+```
+
+Apri il browser su **http://127.0.0.1:8000**
+(la documentazione automatica delle API e' su **/docs**).
+Per fermare il server: `Ctrl + C`.
+
+## Struttura del progetto
+
+```
+PromeTeus/
+├─ app/
+│  ├─ __init__.py        # rende "app" un pacchetto Python
+│  ├─ main.py            # il cuore: crea l'app e definisce le pagine (route)
+│  ├─ templates/         # le pagine HTML
+│  │  ├─ base.html       # struttura comune a tutte le pagine
+│  │  └─ home.html       # la home
+│  └─ static/
+│     └─ style.css       # lo stile grafico
+├─ requirements.txt      # elenco delle librerie da installare
+├─ .gitignore            # file che git deve ignorare
+└─ README.md             # questo file
+```
+
+## Stato dei lavori
+
+- [x] **M0** - Scheletro: il server parte e mostra la home
+- [ ] **M1** - Database e modelli (Porte, Tecnologie, Test, Progetti, Findings)
+- [ ] **M2** - Catalogo: consultazione per porta / per tecnologia
+- [ ] **M3** - Progetti e findings
+- [ ] **M4** - Report ed esportazione
+- [ ] **M5** - Rifiniture (ricerca, modifica del catalogo, grafica)
