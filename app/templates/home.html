@@ -12,23 +12,31 @@
     </p>
   </section>
 
-  {# Le tre sezioni principali dell'app.
-     Per ora sono "segnaposto" (card--soon): le attiviamo nei prossimi step. #}
+  {# Le tre sezioni del catalogo. Ora sono link veri e mostrano i conteggi. #}
   <section class="cards">
-    <div class="card card--soon">
+    <a class="card" href="/catalogo?kind=port">
       <h2>Per porta</h2>
       <p>Trovi una porta aperta? Scopri quali test fare e quali tool usare
          (es. RDP, SMB, SSH&hellip;).</p>
-      <span class="badge">in arrivo</span>
-    </div>
+      <span class="badge">{{ counts.port }} voci</span>
+    </a>
 
-    <div class="card card--soon">
+    <a class="card" href="/catalogo?kind=tech">
       <h2>Per tecnologia</h2>
       <p>Riconosci una tecnologia? Vai dritto ai controlli giusti
          (es. WordPress &rarr; wpscan).</p>
-      <span class="badge">in arrivo</span>
-    </div>
+      <span class="badge">{{ counts.tech }} voci</span>
+    </a>
 
+    <a class="card" href="/catalogo?kind=technique">
+      <h2>Per tecnica</h2>
+      <p>Classi di vulnerabilita' e payload (SQLi, XSS, SSRF&hellip;),
+         da PayloadsAllTheThings.</p>
+      <span class="badge">{{ counts.technique }} voci</span>
+    </a>
+  </section>
+
+  <section class="cards">
     <div class="card card--soon">
       <h2>Progetti &amp; findings</h2>
       <p>Segna le vulnerabilita' trovate e genera il report finale.</p>
