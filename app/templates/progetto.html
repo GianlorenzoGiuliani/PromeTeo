@@ -8,6 +8,13 @@
   <header class="topic-head">
     <h1>{{ project.name }}</h1>
     {% if project.client %}<p class="desc">Cliente: {{ project.client }}</p>{% endif %}
+    {% if project.company or project.author %}
+      <p class="desc">
+        {% if project.company %}Azienda: {{ project.company }}{% endif %}
+        {% if project.company and project.author %} &middot; {% endif %}
+        {% if project.author %}Autore: {{ project.author }}{% endif %}
+      </p>
+    {% endif %}
     {% if project.scope %}<p class="detection"><strong>Scope:</strong> {{ project.scope }}</p>{% endif %}
     <div class="actions">
       <a class="btn" href="/findings/nuovo?project_id={{ project.id }}">+ Aggiungi finding</a>

@@ -379,3 +379,24 @@ pre.cmd code {
   color: var(--text);
   font-size: 0.9rem;
 }
+
+/* M6: report piu' ricco (intestazione, riepilogo, raggruppamento) */
+.report-company {
+  font-weight: 700;
+  color: var(--accent);
+  margin: 0 0 0.3rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+}
+.report-project { font-size: 1.2rem; color: var(--muted); margin: 0.1rem 0 0.6rem; }
+.summary-table { border-collapse: collapse; margin: 0.5rem 0 1.5rem; }
+.summary-table th, .summary-table td {
+  text-align: left;
+  padding: 0.35rem 1.4rem 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.summary-table th { color: var(--muted); font-weight: 600; font-size: 0.82rem; }
+.summary-total td { font-weight: 700; border-bottom: none; }
+.sev-group { margin-top: 1.6rem; padding-bottom: 0.3rem; border-bottom: 2px solid var(--border); }
+.report-finding h4 { margin: 0 0 0.5rem; }

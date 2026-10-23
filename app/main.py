@@ -208,6 +208,8 @@ def progetti(request: Request, session: Session = Depends(get_session), q: str |
 def crea_progetto(
     name: str = Form(...),
     client: str = Form(""),
+    company: str = Form(""),
+    author: str = Form(""),
     scope: str = Form(""),
     session: Session = Depends(get_session),
 ):
@@ -219,6 +221,8 @@ def crea_progetto(
     project = Project(
         name=name.strip(),
         client=client.strip() or None,
+        company=company.strip() or None,
+        author=author.strip() or None,
         scope=scope.strip() or None,
     )
     session.add(project)
@@ -523,6 +527,8 @@ def progetto_update(
     project_id: int,
     name: str = Form(...),
     client: str = Form(""),
+    company: str = Form(""),
+    author: str = Form(""),
     scope: str = Form(""),
     session: Session = Depends(get_session),
 ):
@@ -532,6 +538,8 @@ def progetto_update(
         raise HTTPException(status_code=404, detail="Progetto non trovato")
     project.name = name.strip()
     project.client = client.strip() or None
+    project.company = company.strip() or None
+    project.author = author.strip() or None
     project.scope = scope.strip() or None
     session.add(project)
     session.commit()

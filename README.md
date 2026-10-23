@@ -114,4 +114,4 @@ python tools/import_payloads.py --source /tmp/patt --out data/payloads_seed.json
 - [x] **M3** - Progetti e findings (anche partendo da un test del catalogo)
 - [x] **M4** - Report del progetto (pagina stampabile/PDF + export Markdown)
 - [x] **M5** - Modifica ed eliminazione di progetti e findings (CRUD completo)
-- [ ] **M6** - Altre rifiniture (gestione del catalogo dall'app, filtri, copia comando...)
+- [x] **M6** - Gestione del catalogo dall'app, comodità (copia comando, filtri, ricerca) e report più ricco

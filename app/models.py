@@ -69,6 +69,8 @@ class Project(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True)
     client: Optional[str] = None             # il cliente dell'attivita'
+    company: Optional[str] = None            # la tua azienda (intestazione del report)
+    author: Optional[str] = None             # chi ha eseguito il test
     scope: Optional[str] = None              # note sullo scope / autorizzazione
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

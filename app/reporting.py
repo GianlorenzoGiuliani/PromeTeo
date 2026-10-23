@@ -32,10 +32,17 @@ def build_markdown_report(
 ) -> str:
     """Costruisce il testo Markdown del report a partire dai dati."""
     out: list[str] = []
-    out.append(f"# Report - {project.name}")
+
+    # Intestazione (con azienda e autore, se presenti).
+    if project.company:
+        out.append(f"**{project.company}**")
+        out.append("")
+    out.append(f"# Report di penetration test - {project.name}")
     out.append("")
     if project.client:
         out.append(f"**Cliente:** {project.client}  ")
+    if project.author:
+        out.append(f"**Autore:** {project.author}  ")
     out.append(f"**Data:** {datetime.now():%Y-%m-%d}  ")
     out.append(f"**Findings totali:** {len(findings)}")
     out.append("")
@@ -57,45 +64,50 @@ def build_markdown_report(
         out.append(f"- {severity_labels.get(s, s)}: {counts[s]}")
     out.append("")
 
-    # Dettaglio dei findings (gia' ordinati per gravita' da chi ci chiama).
+    # Dettaglio dei findings, raggruppati per gravita' e numerati di seguito.
     out.append("## Findings")
     out.append("")
     if not findings:
         out.append("_Nessun finding registrato._")
 
-    for i, f in enumerate(findings, start=1):
-        out.append(f"### {i}. {f.title}")
+    n = 0
+    for s in SEVERITIES:
+        group = [f for f in findings if f.severity == s]
+        if not group:
+            continue
+        out.append(f"### {severity_labels.get(s, s)} ({len(group)})")
         out.append("")
-        meta = [
-            f"**Gravità:** {severity_labels.get(f.severity, f.severity)}",
-            f"**Stato:** {status_labels.get(f.status, f.status)}",
-        ]
-        target = target_str(f)
-        if target:
-            meta.append(f"**Bersaglio:** {target}")
-        if f.cve:
-            meta.append(f"**CVE:** {f.cve}")
-        if f.cwe:
-            meta.append(f"**CWE:** {f.cwe}")
-        out.append("  \n".join(meta))
-        out.append("")
+        for f in group:
+            n += 1
+            out.append(f"#### {n}. {f.title}")
+            out.append("")
+            meta = [f"**Stato:** {status_labels.get(f.status, f.status)}"]
+            target = target_str(f)
+            if target:
+                meta.append(f"**Bersaglio:** {target}")
+            if f.cve:
+                meta.append(f"**CVE:** {f.cve}")
+            if f.cwe:
+                meta.append(f"**CWE:** {f.cwe}")
+            out.append("  \n".join(meta))
+            out.append("")
 
-        if f.description:
-            out.append("**Descrizione**")
-            out.append("")
-            out.append(f.description)
-            out.append("")
-        if f.evidence:
-            out.append("**Prova (evidence)**")
-            out.append("")
-            out.append("```")
-            out.append(f.evidence)
-            out.append("```")
-            out.append("")
-        if f.remediation:
-            out.append("**Rimedio**")
-            out.append("")
-            out.append(f.remediation)
-            out.append("")
+            if f.description:
+                out.append("**Descrizione**")
+                out.append("")
+                out.append(f.description)
+                out.append("")
+            if f.evidence:
+                out.append("**Prova (evidence)**")
+                out.append("")
+                out.append("```")
+                out.append(f.evidence)
+                out.append("```")
+                out.append("")
+            if f.remediation:
+                out.append("**Rimedio**")
+                out.append("")
+                out.append(f.remediation)
+                out.append("")
 
     return "\n".join(out)
