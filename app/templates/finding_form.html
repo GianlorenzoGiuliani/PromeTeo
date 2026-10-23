@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}{{ form_title }} - PromeTeus{% endblock %}
+
+{% block content %}
+  <p class="breadcrumb"><a href="{{ back_url }}">&larr; Indietro</a></p>
+  <h1>{{ form_title }}</h1>
+
+  {% if check %}
+    <p class="hint">Partito dal test del catalogo: <strong>{{ check.title }}</strong>.</p>
+  {% endif %}
+
+  {% if not projects %}
+    <p class="empty">Devi prima <a href="/progetti">creare un progetto</a>,
+      poi potrai aggiungerci i findings.</p>
+  {% else %}
+    {# Un solo form per creare E modificare: cambiano solo 'form_action' e i valori. #}
+    <form class="form-card" method="post" action="{{ form_action }}">
+      <label>Progetto *
+        <select name="project_id" required>
+          {% for p in projects %}
+            <option value="{{ p.id }}"{% if p.id == values.project_id %} selected{% endif %}>{{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Titolo *
+        <input type="text" name="title" required value="{{ values.title }}"
+               placeholder="Es. RDP: login senza NLA">
+      </label>
+
+      <div class="form-row">
+        <label>Gravità
+          <select name="severity">
+            {% for s in severities %}
+              <option value="{{ s }}"{% if s == values.severity %} selected{% endif %}>{{ severity_labels.get(s, s) }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Stato
+          <select name="status">
+            {% for s in statuses %}
+              <option value="{{ s }}"{% if s == values.status %} selected{% endif %}>{{ status_labels.get(s, s) }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+
+      <div class="form-row">
+        <label>Host / IP
+          <input type="text" name="target_host" value="{{ values.target_host }}" placeholder="Es. 10.0.0.5">
+        </label>
+        <label>Porta
+          <input type="text" name="target_port" value="{{ values.target_port }}" placeholder="Es. 3389">
+        </label>
+      </div>
+      <label>URL / endpoint
+        <input type="text" name="target_url" value="{{ values.target_url }}" placeholder="Es. https://app.acme.it/login">
+      </label>
+
+      <div class="form-row">
+        <label>CVE
+          <input type="text" name="cve" value="{{ values.cve }}" placeholder="Es. CVE-2019-0708">
+        </label>
+        <label>CWE
+          <input type="text" name="cwe" value="{{ values.cwe }}" placeholder="Es. CWE-89">
+        </label>
+      </div>
+
+      <label>Descrizione
+        <textarea name="description" rows="3">{{ values.description }}</textarea>
+      </label>
+      <label>Prova (evidence) &mdash; output del comando, screenshot...
+        <textarea name="evidence" rows="4"
+                  placeholder="Incolla qui l'output che dimostra la vulnerabilità">{{ values.evidence }}</textarea>
+      </label>
+      <label>Rimedio
+        <textarea name="remediation" rows="3"
+                  placeholder="Come correggerla (finirà nel report)">{{ values.remediation }}</textarea>
+      </label>
+
+      {# Collegamento facoltativo al test del catalogo da cui nasce il finding. #}
+      <input type="hidden" name="topic_id" value="{{ values.topic_id }}">
+      <input type="hidden" name="check_id" value="{{ values.check_id }}">
+
+      <button type="submit">{{ submit_label }}</button>
+    </form>
+  {% endif %}
+{% endblock %}

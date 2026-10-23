@@ -331,3 +331,20 @@ pre.cmd code {
 /* Collegamento "aggiungi come finding" nei test del catalogo */
 .check-action { margin: 0.8rem 0 0; }
 .btn-link { color: var(--accent); font-size: 0.9rem; font-weight: 600; }
+
+/* Milestone 5: modifica / elimina */
+.inline-form { display: inline; margin: 0; }
+.btn-danger { background: #b23a3a; color: #fff; }
+.btn-danger:hover { filter: brightness(1.12); }
+.finding-actions { display: flex; align-items: center; gap: 1rem; margin-top: 0.9rem; }
+.btn-link-danger {
+  color: #ff8080;
+  background: none;
+  border: none;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0;
+}
+.btn-link-danger:hover { text-decoration: underline; }

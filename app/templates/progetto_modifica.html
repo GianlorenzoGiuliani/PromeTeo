@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Modifica progetto - PromeTeus{% endblock %}
+
+{% block content %}
+  <p class="breadcrumb"><a href="/progetti/{{ project.id }}">&larr; Torna al progetto</a></p>
+  <h1>Modifica progetto</h1>
+
+  <form class="form-card" method="post" action="/progetti/{{ project.id }}">
+    <label>Nome *
+      <input type="text" name="name" required value="{{ project.name }}">
+    </label>
+    <label>Cliente
+      <input type="text" name="client" value="{{ project.client or '' }}">
+    </label>
+    <label>Scope / note
+      <textarea name="scope" rows="2">{{ project.scope or '' }}</textarea>
+    </label>
+    <button type="submit">Salva modifiche</button>
+  </form>
+{% endblock %}

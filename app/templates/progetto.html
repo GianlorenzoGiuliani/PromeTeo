@@ -9,11 +9,16 @@
     <h1>{{ project.name }}</h1>
     {% if project.client %}<p class="desc">Cliente: {{ project.client }}</p>{% endif %}
     {% if project.scope %}<p class="detection"><strong>Scope:</strong> {{ project.scope }}</p>{% endif %}
-    <p class="actions">
+    <div class="actions">
       <a class="btn" href="/findings/nuovo?project_id={{ project.id }}">+ Aggiungi finding</a>
       <a class="btn btn-secondary" href="/progetti/{{ project.id }}/report">Vedi report</a>
       <a class="btn btn-secondary" href="/progetti/{{ project.id }}/report.md">Scarica .md</a>
-    </p>
+      <a class="btn btn-secondary" href="/progetti/{{ project.id }}/modifica">Modifica</a>
+      <form class="inline-form" method="post" action="/progetti/{{ project.id }}/elimina"
+            onsubmit="return confirm('Eliminare il progetto e TUTTI i suoi findings?');">
+        <button class="btn btn-danger" type="submit">Elimina</button>
+      </form>
+    </div>
   </header>
 
   <h2>Findings ({{ findings|length }})</h2>
@@ -47,6 +52,13 @@
         <pre class="cmd"><code>{{ f.evidence }}</code></pre>
       {% endif %}
       {% if f.remediation %}<p class="interp"><strong>Rimedio:</strong> {{ f.remediation }}</p>{% endif %}
+      <div class="finding-actions">
+        <a class="btn-link" href="/findings/{{ f.id }}/modifica">Modifica</a>
+        <form class="inline-form" method="post" action="/findings/{{ f.id }}/elimina"
+              onsubmit="return confirm('Eliminare questo finding?');">
+          <button class="btn-link-danger" type="submit">Elimina</button>
+        </form>
+      </div>
     </article>
   {% else %}
     <p class="empty">Nessun finding ancora. Usa &laquo;+ Aggiungi finding&raquo;,
