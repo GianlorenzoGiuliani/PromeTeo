@@ -36,6 +36,7 @@ class Topic(SQLModel, table=True):
     protocol: Optional[str] = None           # es. "tcp" (solo per le porte)
     description: str = ""                     # cos'e' / a cosa serve
     detection: Optional[str] = None          # come riconoscerlo durante il test
+    references: Optional[str] = None         # link di approfondimento (es. HackTricks)
 
     # Una voce ha molti test. `back_populates` collega i due lati della relazione:
     # da un Topic arrivo ai suoi Check, e da un Check torno al suo Topic.

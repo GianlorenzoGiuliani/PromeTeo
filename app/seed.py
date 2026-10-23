@@ -34,6 +34,7 @@ def build_starter_topics() -> list[Topic]:
         kind=KIND_PORT, name="RDP", port=3389, protocol="tcp",
         description="Remote Desktop Protocol: il desktop remoto di Windows.",
         detection="Porta 3389/tcp aperta; nmap la riconosce come 'ms-wbt-server'.",
+        references="https://book.hacktricks.xyz/network-services-pentesting/pentesting-rdp",
     )
     rdp.checks = [
         Check(
@@ -59,6 +60,7 @@ def build_starter_topics() -> list[Topic]:
         kind=KIND_PORT, name="SMB", port=445, protocol="tcp",
         description="Server Message Block: condivisione file e stampanti su rete Windows.",
         detection="Porte 445/tcp (e 139/tcp) aperte; nmap mostra 'microsoft-ds'.",
+        references="https://book.hacktricks.xyz/network-services-pentesting/pentesting-smb",
     )
     smb.checks = [
         Check(
@@ -84,6 +86,7 @@ def build_starter_topics() -> list[Topic]:
         kind=KIND_PORT, name="FTP", port=21, protocol="tcp",
         description="File Transfer Protocol: trasferimento file (spesso in chiaro).",
         detection="Porta 21/tcp aperta; il banner mostra il software del server FTP.",
+        references="https://book.hacktricks.xyz/network-services-pentesting/pentesting-ftp",
     )
     ftp.checks = [
         Check(
@@ -103,6 +106,7 @@ def build_starter_topics() -> list[Topic]:
         kind=KIND_TECH, name="WordPress",
         description="CMS molto diffuso per siti e blog.",
         detection="Presenza di /wp-login.php, /wp-admin/, meta generator 'WordPress', cartella /wp-content/.",
+        references="https://book.hacktricks.xyz/network-services-pentesting/pentesting-web/wordpress",
     )
     wp.checks = [
         Check(
@@ -128,6 +132,7 @@ def build_starter_topics() -> list[Topic]:
         kind=KIND_TECH, name="Campo di input / login (web)",
         description="Qualsiasi campo di una web app dove l'utente inserisce dati (login, ricerca, filtri...).",
         detection="Form HTML, parametri nell'URL (?id=1), campi user/password.",
+        references="https://book.hacktricks.xyz/pentesting-web/sql-injection",
     )
     webinput.checks = [
         Check(
@@ -186,6 +191,7 @@ def load_payload_topics() -> list[Topic]:
             name=t["name"],
             description=t.get("description", ""),
             detection=t.get("detection"),
+            references=t.get("source_url"),
         )
         topic.checks = [
             Check(

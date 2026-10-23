@@ -36,3 +36,17 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+---
+
+## HackTricks
+
+- **Fonte:** https://book.hacktricks.xyz
+- **Uso in PromeTeus:** **solo collegamenti.** Alcune voci del catalogo
+  contengono un link alla pagina HackTricks corrispondente (campo
+  `references`). Nessun testo di HackTricks è copiato nel database.
+- **Licenza:** Creative Commons Attribution-NonCommercial 4.0 (CC BY-NC 4.0),
+  © Carlos Polop. La clausola *NonCommercial* non permette di incorporare il
+  contenuto in uno strumento usato per lavoro a pagamento, perciò ci limitiamo
+  a collegarlo (linkare è sempre lecito e tiene i contenuti aggiornati).
+

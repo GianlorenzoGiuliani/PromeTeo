@@ -92,6 +92,12 @@ Al primo avvio il catalogo si riempie con:
   [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings)
   (licenza MIT — vedi `THIRD_PARTY_NOTICES.md` per l'attribuzione).
 
+Ogni voce ha anche un **link di approfondimento** (campo `references`): le voci
+di base rimandano alla pagina [HackTricks](https://book.hacktricks.xyz)
+corrispondente, le tecniche alla loro pagina su PayloadsAllTheThings.
+HackTricks **non** viene copiato nel database: la sua licenza è CC BY-NC
+(non commerciale), quindi lo **colleghiamo** soltanto.
+
 Le tecniche sono già pronte nel file `data/payloads_seed.json`. Per
 **rigenerarle** dalla fonte (serve una copia clonata del repository):
 
