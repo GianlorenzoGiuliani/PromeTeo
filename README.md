@@ -10,6 +10,8 @@ Assistente per penetration test **autorizzati**. Ti aiuta a ricordare:
 > ⚠️ Usa PromeTeus solo su sistemi per cui hai un'autorizzazione esplicita
 > (ingaggio di pentest, programma di bug bounty in scope, laboratori o CTF).
 
+📖 **Nuovo qui?** Parti dalla [guida passo-passo con screenshot](GUIDA.md).
+
 ## Com'e' fatto (in breve)
 
 - **Python + FastAPI**: un piccolo server web che gira sul tuo computer.
