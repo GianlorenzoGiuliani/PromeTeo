@@ -1,5 +1,5 @@
 """
-I "modelli" di PromeTeus: descrivono QUALI dati salviamo e COME si collegano.
+I "modelli" di Prometeo: descrivono QUALI dati salviamo e COME si collegano.
 Ogni classe con `table=True` diventa una tabella nel database.
 
 Due gruppi:

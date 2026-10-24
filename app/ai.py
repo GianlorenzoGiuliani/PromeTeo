@@ -12,14 +12,14 @@ l'utente, e la rotta lo mostra senza far crashare nulla.
 
 Configurazione (variabili d'ambiente):
   - ANTHROPIC_API_KEY  -> la tua chiave API di Claude (obbligatoria).
-  - PROMETEUS_AI_MODEL -> modello da usare (facoltativa; default qui sotto).
+  - PROMETEO_AI_MODEL -> modello da usare (facoltativa; default qui sotto).
 """
 import json
 import os
 
 from app.models import LIKELIHOODS, SEVERITIES
 
-# Modello di default. Si puo' cambiare con la variabile PROMETEUS_AI_MODEL
+# Modello di default. Si puo' cambiare con la variabile PROMETEO_AI_MODEL
 # (es. "claude-haiku-5-5" per spendere molto meno, "claude-sonnet-5-5" via di mezzo).
 DEFAULT_MODEL = "claude-opus-5-5"
 
@@ -91,7 +91,7 @@ def suggest_finding(description: str) -> dict:
             "Libreria 'anthropic' non installata. Esegui: pip install -r requirements.txt"
         )
 
-    model = os.environ.get("PROMETEUS_AI_MODEL", DEFAULT_MODEL)
+    model = os.environ.get("PROMETEO_AI_MODEL", DEFAULT_MODEL)
     client = anthropic.Anthropic()
     try:
         response = client.messages.create(

@@ -1,4 +1,4 @@
-// JavaScript lato browser di PromeTeus.
+// JavaScript lato browser di Prometeo.
 //
 // A differenza del resto dell'app (che gira sul server), questo codice gira
 // nel browser dell'utente. Fa due cose:

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Avvio di PromeTeus per macOS e Linux.
+# Avvio di Prometeo per macOS e Linux.
 # La prima volta prepara tutto da solo; le volte dopo avvia e basta.
 # Usarlo:  da terminale  ->  ./avvia.sh
 #          (su macOS il doppio clic potrebbe aprirlo in un editor: in quel
@@ -35,7 +35,7 @@ if [ ! -x "./.venv/bin/uvicorn" ]; then
 fi
 
 echo ""
-echo "PromeTeus e' in avvio su http://127.0.0.1:8000"
+echo "Prometeo e' in avvio su http://127.0.0.1:8000"
 echo "Per fermarlo: premi Ctrl+C in questa finestra."
 echo ""
 

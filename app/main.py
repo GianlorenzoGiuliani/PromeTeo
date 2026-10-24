@@ -1,5 +1,5 @@
 """
-PromeTeus - punto di ingresso dell'applicazione.
+Prometeo - punto di ingresso dell'applicazione.
 
 Questo file fa solo da "regia": e' corto di proposito.
   1) crea l'app FastAPI (l'oggetto "app" che il server esegue);
@@ -47,14 +47,14 @@ async def lifespan(app: FastAPI):
     for etichetta, n in [("Porte", porte), ("Tecnologie", tecno),
                          ("Tecniche", tecniche), ("Active Directory", ad), ("Web App", web)]:
         if n:
-            print(f"[PromeTeus] {etichetta} caricate: {n}.")
+            print(f"[Prometeo] {etichetta} caricate: {n}.")
     yield
     # (allo spegnimento non c'e' nulla di speciale da fare)
 
 
 # L'applicazione. "title" compare nella documentazione automatica di FastAPI
 # (la trovi su http://127.0.0.1:8000/docs quando il server e' avviato).
-app = FastAPI(title="PromeTeus", lifespan=lifespan)
+app = FastAPI(title="Prometeo", lifespan=lifespan)
 
 
 # A ogni richiesta assicuriamo un token CSRF: lo mettiamo in request.state (lo

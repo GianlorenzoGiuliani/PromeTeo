@@ -1,7 +1,7 @@
 """
-Configurazione del database di PromeTeus.
+Configurazione del database di Prometeo.
 
-Usiamo SQLite: salva TUTTO in un unico file (prometeus.db) nella cartella del
+Usiamo SQLite: salva TUTTO in un unico file (prometeo.db) nella cartella del
 progetto. Nessun server da installare e i dati restano sul tuo computer.
 """
 from pathlib import Path
@@ -10,7 +10,7 @@ from sqlmodel import Session, SQLModel, create_engine
 
 # Il file del database sta nella cartella radice del progetto (una sopra "app").
 BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = BASE_DIR / "prometeus.db"
+DB_PATH = BASE_DIR / "prometeo.db"
 
 # L'"engine" e' l'oggetto che sa come parlare col database.
 #   - echo=True stamperebbe ogni query SQL: utile per imparare o per il debug.

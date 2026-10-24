@@ -53,7 +53,7 @@ def cerca_cve(cpe: str, max_results: int = 50) -> list[dict]:
         raise NvdError("CPE non valido: deve iniziare con 'cpe:2.3:' (formato CPE 2.3).")
 
     url = NVD_URL + "?" + urllib.parse.urlencode({"cpeName": cpe, "resultsPerPage": max_results})
-    headers = {"User-Agent": "PromeTeus"}
+    headers = {"User-Agent": "Prometeo"}
     key = os.environ.get("NVD_API_KEY")
     if key:
         headers["apiKey"] = key

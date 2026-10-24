@@ -1,9 +1,9 @@
-# Guida rapida a PromeTeus
+# Guida rapida a Prometeo
 
-Questa guida ti accompagna nell'uso di PromeTeus passo per passo, con le
+Questa guida ti accompagna nell'uso di Prometeo passo per passo, con le
 immagini di ogni schermata. È pensata per chi parte da zero.
 
-> ⚠️ **Promemoria:** usa PromeTeus solo su sistemi per cui hai
+> ⚠️ **Promemoria:** usa Prometeo solo su sistemi per cui hai
 > un'autorizzazione esplicita (ingaggio di pentest, bug bounty in scope,
 > laboratori o CTF).
 
@@ -22,11 +22,11 @@ La prima volta lo script prepara tutto da solo, poi apre il browser su
 
 ## 2. La home
 
-Appena apri PromeTeus trovi il **catalogo**, diviso in cinque sezioni (Porte,
+Appena apri Prometeo trovi il **catalogo**, diviso in cinque sezioni (Porte,
 Tecnologie, Tecniche, Active Directory, Web App), e l'area **Progetti &
 findings**. Ogni card mostra quante voci contiene.
 
-![La home di PromeTeus](docs/img/01-home.png)
+![La home di Prometeo](docs/img/01-home.png)
 
 ---
 
@@ -124,7 +124,7 @@ numerati** (ognuno col suo bersaglio). Da lì puoi:
 
 ## 10. Personalizzare il catalogo
 
-PromeTeus parte con un catalogo già pieno, ma è **tutto tuo**: da
+Prometeo parte con un catalogo già pieno, ma è **tutto tuo**: da
 **Catalogo → `+ Nuova voce`** aggiungi le tue porte/tecnologie/tecniche, e dentro
 ogni voce i tuoi test con i comandi che usi davvero.
 

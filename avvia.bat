@@ -1,6 +1,6 @@
 @echo off
 REM ==========================================================================
-REM  Avvio di PromeTeus per Windows.
+REM  Avvio di Prometeo per Windows.
 REM  La prima volta prepara tutto da solo; le volte dopo avvia e basta.
 REM  Usarlo: doppio clic su "avvia.bat".
 REM ==========================================================================
@@ -31,7 +31,7 @@ if not exist ".venv\Scripts\uvicorn.exe" (
 )
 
 echo.
-echo PromeTeus e' in avvio su http://127.0.0.1:8000
+echo Prometeo e' in avvio su http://127.0.0.1:8000
 echo Per fermarlo: premi Ctrl+C in questa finestra.
 echo.
 
