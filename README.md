@@ -75,8 +75,10 @@ PromeTeus/
 │     ├─ style.css       # lo stile grafico
 │     └─ app.js          # il poco JavaScript lato browser (tasto Copia)
 ├─ data/
+│  ├─ ports_seed.json    # catalogo delle porte/servizi comuni
 │  └─ payloads_seed.json # tecniche importate da PayloadsAllTheThings
 ├─ tools/
+│  ├─ build_ports.py     # genera data/ports_seed.json (porte curate a mano)
 │  └─ import_payloads.py # trasforma PayloadsAllTheThings nel formato di PromeTeus
 ├─ requirements.txt      # elenco delle librerie da installare
 ├─ avvia.sh / avvia.bat  # avvio rapido (macOS-Linux / Windows)
@@ -102,7 +104,8 @@ python -m app.seed
 
 Al primo avvio il catalogo si riempie con:
 
-- una **base** di porte e tecnologie comuni, scritta a mano in `app/seed.py`;
+- un catalogo di **porte/servizi comuni** (`data/ports_seed.json`, con tool e
+  comandi noti) e di **tecnologie** (`app/seed.py`);
 - un'ampia raccolta di **tecniche e payload** importata da
   [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings)
   (licenza MIT — vedi `THIRD_PARTY_NOTICES.md` per l'attribuzione).

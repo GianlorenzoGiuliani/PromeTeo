@@ -32,7 +32,7 @@ from app.models import (
     Topic,
 )
 from app.reporting import build_markdown_report, finding_target_str, target_label
-from app.seed import seed_if_empty, seed_payloads_if_absent
+from app.seed import seed_payloads_if_absent, seed_ports_if_absent, seed_tech_if_absent
 
 # BASE_DIR = la cartella "app" dove si trova questo file.
 # La calcoliamo in automatico cosi' l'app funziona ovunque venga copiata,
@@ -45,12 +45,15 @@ async def lifespan(app: FastAPI):
     # All'avvio: creiamo il database (se non esiste) e, se il catalogo e' vuoto,
     # carichiamo la base pronta di porte e tecnologie.
     create_db_and_tables()
-    base = seed_if_empty()
+    porte = seed_ports_if_absent()
+    tecno = seed_tech_if_absent()
     tecniche = seed_payloads_if_absent()
-    if base:
-        print(f"[PromeTeus] Base del catalogo caricata: {base} voci.")
+    if porte:
+        print(f"[PromeTeus] Porte caricate: {porte}.")
+    if tecno:
+        print(f"[PromeTeus] Tecnologie caricate: {tecno}.")
     if tecniche:
-        print(f"[PromeTeus] Tecniche (PayloadsAllTheThings) caricate: {tecniche} categorie.")
+        print(f"[PromeTeus] Tecniche (PayloadsAllTheThings) caricate: {tecniche}.")
     yield
     # (allo spegnimento non c'e' nulla di speciale da fare)
 

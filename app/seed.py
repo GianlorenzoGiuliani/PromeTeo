@@ -7,9 +7,12 @@ corsi di sicurezza e nella documentazione ufficiale dei tool. Nei comandi,
 
     ⚠️ Usa questi test solo su sistemi per cui hai un'autorizzazione esplicita.
 
-Due modi per popolare il catalogo:
-  - automatico: al primo avvio dell'app, se il catalogo e' vuoto;
-  - manuale:    python -m app.seed
+Il catalogo si popola da tre fonti, ognuna con il suo controllo anti-doppioni:
+  - PORTE: da data/ports_seed.json (generato da tools/build_ports.py);
+  - TECNOLOGIE: scritte a mano qui sotto;
+  - TECNICHE: da data/payloads_seed.json (PayloadsAllTheThings).
+
+Due modi per popolare: automatico al primo avvio, oppure  python -m app.seed
 """
 import json
 
@@ -18,89 +21,48 @@ from sqlmodel import Session, select
 from app.database import BASE_DIR, create_db_and_tables, engine
 from app.models import KIND_PORT, KIND_TECH, KIND_TECHNIQUE, Check, Topic
 
-# JSON con le tecniche importate da PayloadsAllTheThings (prodotto da
-# tools/import_payloads.py). Lo teniamo versionato: cosi' chiunque cloni il
-# progetto ottiene lo stesso catalogo, senza dover riscaricare la fonte.
+PORTS_SEED_PATH = BASE_DIR / "data" / "ports_seed.json"
 PAYLOADS_SEED_PATH = BASE_DIR / "data" / "payloads_seed.json"
 
 
-def build_starter_topics() -> list[Topic]:
-    """Costruisce (in memoria) le voci di partenza con i loro test."""
+def load_topics_json(path, default_kind: str) -> list[Topic]:
+    """Legge un file JSON e costruisce i Topic + Check (in memoria).
+
+    Funziona sia per le porte sia per le tecniche: il riferimento della voce
+    si prende da 'references' oppure da 'source_url', a seconda del file.
+    """
+    if not path.exists():
+        return []
+    data = json.loads(path.read_text(encoding="utf-8"))
     topics: list[Topic] = []
+    for t in data.get("topics", []):
+        topic = Topic(
+            kind=t.get("kind", default_kind),
+            name=t["name"],
+            port=t.get("port"),
+            protocol=t.get("protocol"),
+            description=t.get("description", ""),
+            detection=t.get("detection"),
+            references=t.get("references") or t.get("source_url"),
+        )
+        topic.checks = [
+            Check(
+                title=c["title"],
+                goal=c.get("goal"),
+                tool=c.get("tool"),
+                command=c.get("command"),
+                interpretation=c.get("interpretation"),
+                references=c.get("references"),
+            )
+            for c in t.get("checks", [])
+        ]
+        topics.append(topic)
+    return topics
 
-    # ---------------------------- PORTE ----------------------------
 
-    rdp = Topic(
-        kind=KIND_PORT, name="RDP", port=3389, protocol="tcp",
-        description="Remote Desktop Protocol: il desktop remoto di Windows.",
-        detection="Porta 3389/tcp aperta; nmap la riconosce come 'ms-wbt-server'.",
-        references="https://book.hacktricks.xyz/network-services-pentesting/pentesting-rdp",
-    )
-    rdp.checks = [
-        Check(
-            title="Ricognizione del servizio (cifratura e NLA)",
-            goal="Capire versione, cifratura e se e' richiesta la Network Level Authentication.",
-            tool="nmap",
-            command="nmap -p 3389 --script rdp-enum-encryption,rdp-ntlm-info <ip>",
-            interpretation="Se la NLA risulta disabilitata, il servizio e' piu' esposto: annota il dettaglio.",
-            references="https://nmap.org/nsedoc/scripts/rdp-ntlm-info.html",
-        ),
-        Check(
-            title="BlueKeep (CVE-2019-0708)",
-            goal="Verificare la presenza della vulnerabilita' pre-autenticazione BlueKeep.",
-            tool="nmap",
-            command="nmap -p 3389 --script rdp-vuln-ms12-020 <ip>",
-            interpretation="Un esito 'VULNERABLE' = sistema non aggiornato: finding critico (CVE-2019-0708).",
-            references="https://msrc.microsoft.com/update-guide/vulnerability/CVE-2019-0708",
-        ),
-    ]
-    topics.append(rdp)
-
-    smb = Topic(
-        kind=KIND_PORT, name="SMB", port=445, protocol="tcp",
-        description="Server Message Block: condivisione file e stampanti su rete Windows.",
-        detection="Porte 445/tcp (e 139/tcp) aperte; nmap mostra 'microsoft-ds'.",
-        references="https://book.hacktricks.xyz/network-services-pentesting/pentesting-smb",
-    )
-    smb.checks = [
-        Check(
-            title="Enumerazione senza credenziali (null session)",
-            goal="Verificare se si possono elencare share/utenti senza autenticazione.",
-            tool="smbclient / enum4linux",
-            command="smbclient -L //<ip>/ -N    #   oppure:   enum4linux -a <ip>",
-            interpretation="Se ottieni l'elenco delle share senza password, la 'null session' e' abilitata: da segnalare.",
-            references="https://www.samba.org/samba/docs/current/man-html/smbclient.1.html",
-        ),
-        Check(
-            title="EternalBlue (MS17-010)",
-            goal="Verificare la vulnerabilita' SMBv1 MS17-010.",
-            tool="nmap",
-            command="nmap -p 445 --script smb-vuln-ms17-010 <ip>",
-            interpretation="Esito 'VULNERABLE' = finding critico (CVE-2017-0144). Spesso indica anche SMBv1 attivo.",
-            references="https://nmap.org/nsedoc/scripts/smb-vuln-ms17-010.html",
-        ),
-    ]
-    topics.append(smb)
-
-    ftp = Topic(
-        kind=KIND_PORT, name="FTP", port=21, protocol="tcp",
-        description="File Transfer Protocol: trasferimento file (spesso in chiaro).",
-        detection="Porta 21/tcp aperta; il banner mostra il software del server FTP.",
-        references="https://book.hacktricks.xyz/network-services-pentesting/pentesting-ftp",
-    )
-    ftp.checks = [
-        Check(
-            title="Login anonimo",
-            goal="Verificare se e' permesso l'accesso anonimo.",
-            tool="nmap",
-            command="nmap -p 21 --script ftp-anon <ip>    #   o a mano: ftp <ip>  (utente: anonymous)",
-            interpretation="Se compare 'Anonymous login allowed' puoi entrare senza credenziali: da segnalare.",
-            references="https://nmap.org/nsedoc/scripts/ftp-anon.html",
-        ),
-    ]
-    topics.append(ftp)
-
-    # -------------------------- TECNOLOGIE --------------------------
+def build_tech_topics() -> list[Topic]:
+    """Le voci "tecnologia" di base, scritte a mano (WordPress, campo web)."""
+    topics: list[Topic] = []
 
     wp = Topic(
         kind=KIND_TECH, name="WordPress",
@@ -114,7 +76,7 @@ def build_starter_topics() -> list[Topic]:
             goal="Rilevare versione, utenti, plugin e temi vulnerabili.",
             tool="wpscan",
             command="wpscan --url <url> --enumerate u,vp,vt",
-            interpretation="Plugin/temi segnalati come vulnerabili e relativi CVE diventano findings. (Per i dati sulle vulnerabilita' serve un API token gratuito di WPScan.)",
+            interpretation="Plugin/temi segnalati come vulnerabili e relativi CVE diventano findings. (Serve un API token gratuito di WPScan per i dati sulle vulnerabilita'.)",
             references="https://github.com/wpscanteam/wpscan",
         ),
         Check(
@@ -157,84 +119,40 @@ def build_starter_topics() -> list[Topic]:
     return topics
 
 
-def seed_if_empty() -> int:
-    """Inserisce i contenuti di partenza SOLO se il catalogo e' ancora vuoto.
-
-    Restituisce il numero di voci inserite (0 se il catalogo era gia' popolato).
-    Questo controllo evita di creare doppioni a ogni avvio.
-    """
+def _seed_if_absent(kind: str, topics: list[Topic]) -> int:
+    """Inserisce 'topics' solo se non esistono gia' voci di quel 'kind'."""
+    if not topics:
+        return 0
     with Session(engine) as session:
-        # Controlliamo solo le voci "di base" (porte e tecnologie): le tecniche
-        # importate hanno un loro controllo separato, piu' sotto.
-        gia_presenti = session.exec(
-            select(Topic).where(Topic.kind.in_([KIND_PORT, KIND_TECH]))
-        ).first()
+        gia_presenti = session.exec(select(Topic).where(Topic.kind == kind)).first()
         if gia_presenti is not None:
             return 0
-
-        topics = build_starter_topics()
         session.add_all(topics)
         session.commit()
         return len(topics)
 
 
-def load_payload_topics() -> list[Topic]:
-    """Legge il JSON di PayloadsAllTheThings e costruisce Topic + Check (in memoria)."""
-    if not PAYLOADS_SEED_PATH.exists():
-        return []
+def seed_ports_if_absent() -> int:
+    """Carica le porte da data/ports_seed.json, se non ancora presenti."""
+    return _seed_if_absent(KIND_PORT, load_topics_json(PORTS_SEED_PATH, KIND_PORT))
 
-    data = json.loads(PAYLOADS_SEED_PATH.read_text(encoding="utf-8"))
-    topics: list[Topic] = []
-    for t in data.get("topics", []):
-        topic = Topic(
-            kind=t.get("kind", KIND_TECHNIQUE),
-            name=t["name"],
-            description=t.get("description", ""),
-            detection=t.get("detection"),
-            references=t.get("source_url"),
-        )
-        topic.checks = [
-            Check(
-                title=c["title"],
-                goal=c.get("goal"),
-                tool=c.get("tool"),
-                command=c.get("command"),
-                interpretation=c.get("interpretation"),
-                references=c.get("references"),
-            )
-            for c in t.get("checks", [])
-        ]
-        topics.append(topic)
-    return topics
+
+def seed_tech_if_absent() -> int:
+    """Carica le tecnologie di base, se non ancora presenti."""
+    return _seed_if_absent(KIND_TECH, build_tech_topics())
 
 
 def seed_payloads_if_absent() -> int:
-    """Carica le tecniche (PayloadsAllTheThings) solo se non gia' presenti.
-
-    Restituisce il numero di categorie inserite (0 se erano gia' nel database).
-    """
-    with Session(engine) as session:
-        gia_presenti = session.exec(
-            select(Topic).where(Topic.kind == KIND_TECHNIQUE)
-        ).first()
-        if gia_presenti is not None:
-            return 0
-
-        topics = load_payload_topics()
-        if not topics:
-            return 0
-
-        session.add_all(topics)
-        session.commit()
-        return len(topics)
+    """Carica le tecniche (PayloadsAllTheThings), se non ancora presenti."""
+    return _seed_if_absent(KIND_TECHNIQUE, load_topics_json(PAYLOADS_SEED_PATH, KIND_TECHNIQUE))
 
 
 if __name__ == "__main__":
     # Eseguito con:  python -m app.seed
     create_db_and_tables()
-    base = seed_if_empty()
+    porte = seed_ports_if_absent()
+    tecno = seed_tech_if_absent()
     tecniche = seed_payloads_if_absent()
-    print(f"Base del catalogo (porte/tecnologie): {base} voci inserite."
-          if base else "Base del catalogo gia' presente.")
-    print(f"Tecniche (PayloadsAllTheThings): {tecniche} categorie inserite."
-          if tecniche else "Tecniche gia' presenti.")
+    print(f"Porte: {porte} inserite." if porte else "Porte gia' presenti.")
+    print(f"Tecnologie: {tecno} inserite." if tecno else "Tecnologie gia' presenti.")
+    print(f"Tecniche (PayloadsAllTheThings): {tecniche} inserite." if tecniche else "Tecniche gia' presenti.")
