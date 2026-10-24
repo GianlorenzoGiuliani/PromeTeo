@@ -20,7 +20,18 @@ Assistente per penetration test **autorizzati**. Ti aiuta a ricordare:
 
 - [Python 3.10+](https://www.python.org/downloads/)
 
-## Come avviarlo
+## Avvio rapido (con un doppio clic)
+
+Se hai gia' [Python 3.10+](https://www.python.org/downloads/) installato, non serve il terminale:
+
+- **Windows:** doppio clic su **`avvia.bat`**
+- **macOS / Linux:** esegui **`./avvia.sh`** (su macOS, se il doppio clic apre un
+  editor, lancialo da Terminale oppure rinominalo in `avvia.command`)
+
+La prima volta lo script prepara l'ambiente e installa le librerie da solo; poi
+avvia PromeTeus e apre il browser su http://127.0.0.1:8000. Per fermarlo: `Ctrl + C`.
+
+## Come avviarlo (manuale)
 
 Dal terminale, dentro la cartella del progetto:
 
@@ -59,12 +70,14 @@ PromeTeus/
 │  │  ├─ base.html       # struttura comune a tutte le pagine
 │  │  └─ home.html       # la home
 │  └─ static/
-│     └─ style.css       # lo stile grafico
+│     ├─ style.css       # lo stile grafico
+│     └─ app.js          # il poco JavaScript lato browser (tasto Copia)
 ├─ data/
 │  └─ payloads_seed.json # tecniche importate da PayloadsAllTheThings
 ├─ tools/
 │  └─ import_payloads.py # trasforma PayloadsAllTheThings nel formato di PromeTeus
 ├─ requirements.txt      # elenco delle librerie da installare
+├─ avvia.sh / avvia.bat  # avvio rapido (macOS-Linux / Windows)
 ├─ .gitignore            # file che git deve ignorare
 ├─ prometeus.db          # il database (creato in automatico; NON su git)
 ├─ THIRD_PARTY_NOTICES.md # licenze/attribuzioni dei contenuti di terze parti
