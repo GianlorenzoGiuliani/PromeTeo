@@ -19,10 +19,14 @@ import json
 from sqlmodel import Session, select
 
 from app.database import BASE_DIR, create_db_and_tables, engine
-from app.models import KIND_PORT, KIND_TECH, KIND_TECHNIQUE, Check, Topic
+from app.models import (
+    KIND_AD, KIND_PORT, KIND_TECH, KIND_TECHNIQUE, KIND_WEB, Check, Topic,
+)
 
 PORTS_SEED_PATH = BASE_DIR / "data" / "ports_seed.json"
 PAYLOADS_SEED_PATH = BASE_DIR / "data" / "payloads_seed.json"
+AD_SEED_PATH = BASE_DIR / "data" / "ad_seed.json"
+WEB_SEED_PATH = BASE_DIR / "data" / "web_seed.json"
 
 
 def load_topics_json(path, default_kind: str) -> list[Topic]:
@@ -148,12 +152,26 @@ def seed_payloads_if_absent() -> int:
     return _seed_if_absent(KIND_TECHNIQUE, load_topics_json(PAYLOADS_SEED_PATH, KIND_TECHNIQUE))
 
 
+def seed_ad_if_absent() -> int:
+    """Carica la metodologia Active Directory, se non ancora presente."""
+    return _seed_if_absent(KIND_AD, load_topics_json(AD_SEED_PATH, KIND_AD))
+
+
+def seed_web_if_absent() -> int:
+    """Carica la metodologia Web App, se non ancora presente."""
+    return _seed_if_absent(KIND_WEB, load_topics_json(WEB_SEED_PATH, KIND_WEB))
+
+
 if __name__ == "__main__":
     # Eseguito con:  python -m app.seed
     create_db_and_tables()
     porte = seed_ports_if_absent()
     tecno = seed_tech_if_absent()
     tecniche = seed_payloads_if_absent()
+    ad = seed_ad_if_absent()
+    web = seed_web_if_absent()
     print(f"Porte: {porte} inserite." if porte else "Porte gia' presenti.")
     print(f"Tecnologie: {tecno} inserite." if tecno else "Tecnologie gia' presenti.")
-    print(f"Tecniche (PayloadsAllTheThings): {tecniche} inserite." if tecniche else "Tecniche gia' presenti.")
+    print(f"Tecniche: {tecniche} inserite." if tecniche else "Tecniche gia' presenti.")
+    print(f"Active Directory: {ad} inserite." if ad else "Active Directory gia' presente.")
+    print(f"Web App: {web} inserite." if web else "Web App gia' presente.")

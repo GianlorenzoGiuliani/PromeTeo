@@ -16,6 +16,8 @@ from sqlmodel import Field, Relationship, SQLModel
 KIND_PORT = "port"            # una voce del catalogo che rappresenta una porta
 KIND_TECH = "tech"            # una voce del catalogo che rappresenta una tecnologia
 KIND_TECHNIQUE = "technique"  # una tecnica / classe di vulnerabilita' (es. SQL Injection)
+KIND_AD = "ad"               # metodologia su Active Directory
+KIND_WEB = "web"             # metodologia su applicazioni web
 
 # Gravita' di un finding, dalla piu' grave alla meno grave.
 SEVERITIES = ["critical", "high", "medium", "low", "info"]

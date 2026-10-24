@@ -27,6 +27,10 @@
        href="/catalogo?kind=tech{% if q %}&q={{ q }}{% endif %}">Tecnologie</a>
     <a class="filter {% if kind == 'technique' %}active{% endif %}"
        href="/catalogo?kind=technique{% if q %}&q={{ q }}{% endif %}">Tecniche</a>
+    <a class="filter {% if kind == 'ad' %}active{% endif %}"
+       href="/catalogo?kind=ad{% if q %}&q={{ q }}{% endif %}">Active Directory</a>
+    <a class="filter {% if kind == 'web' %}active{% endif %}"
+       href="/catalogo?kind=web{% if q %}&q={{ q }}{% endif %}">Web App</a>
   </nav>
 
   {% if topics %}

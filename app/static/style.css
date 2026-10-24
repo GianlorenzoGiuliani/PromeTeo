@@ -424,3 +424,7 @@ pre.cmd code {
 }
 .intro-box h2 { margin-top: 0; font-size: 1.1rem; }
 .intro-text { white-space: pre-line; color: var(--text); }
+
+/* Badge dei nuovi tipi di voce */
+.kind-ad  { color: #c9a0ff; border-color: #5a3f7a; }
+.kind-web { color: #7fe0d0; border-color: #2f6e63; }

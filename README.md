@@ -76,9 +76,13 @@ PromeTeus/
 │     └─ app.js          # il poco JavaScript lato browser (tasto Copia)
 ├─ data/
 │  ├─ ports_seed.json    # catalogo delle porte/servizi comuni
+│  ├─ ad_seed.json       # metodologia Active Directory
+│  ├─ web_seed.json      # metodologia Web App
 │  └─ payloads_seed.json # tecniche importate da PayloadsAllTheThings
 ├─ tools/
-│  ├─ build_ports.py     # genera data/ports_seed.json (porte curate a mano)
+│  ├─ build_ports.py     # genera data/ports_seed.json
+│  ├─ build_ad.py        # genera data/ad_seed.json
+│  ├─ build_web.py       # genera data/web_seed.json
 │  └─ import_payloads.py # trasforma PayloadsAllTheThings nel formato di PromeTeus
 ├─ requirements.txt      # elenco delle librerie da installare
 ├─ avvia.sh / avvia.bat  # avvio rapido (macOS-Linux / Windows)
@@ -106,6 +110,8 @@ Al primo avvio il catalogo si riempie con:
 
 - un catalogo di **porte/servizi comuni** (`data/ports_seed.json`, con tool e
   comandi noti) e di **tecnologie** (`app/seed.py`);
+- sezioni di metodologia per **Active Directory** (`data/ad_seed.json`) e
+  **Web App** (`data/web_seed.json`);
 - un'ampia raccolta di **tecniche e payload** importata da
   [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings)
   (licenza MIT — vedi `THIRD_PARTY_NOTICES.md` per l'attribuzione).

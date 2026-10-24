@@ -20,9 +20,11 @@ from sqlmodel import Session, func, select
 
 from app.database import create_db_and_tables, get_session
 from app.models import (
+    KIND_AD,
     KIND_PORT,
     KIND_TECH,
     KIND_TECHNIQUE,
+    KIND_WEB,
     SEVERITIES,
     STATUSES,
     Check,
@@ -32,7 +34,13 @@ from app.models import (
     Topic,
 )
 from app.reporting import build_markdown_report, finding_target_str, target_label
-from app.seed import seed_payloads_if_absent, seed_ports_if_absent, seed_tech_if_absent
+from app.seed import (
+    seed_ad_if_absent,
+    seed_payloads_if_absent,
+    seed_ports_if_absent,
+    seed_tech_if_absent,
+    seed_web_if_absent,
+)
 
 # BASE_DIR = la cartella "app" dove si trova questo file.
 # La calcoliamo in automatico cosi' l'app funziona ovunque venga copiata,
@@ -48,12 +56,12 @@ async def lifespan(app: FastAPI):
     porte = seed_ports_if_absent()
     tecno = seed_tech_if_absent()
     tecniche = seed_payloads_if_absent()
-    if porte:
-        print(f"[PromeTeus] Porte caricate: {porte}.")
-    if tecno:
-        print(f"[PromeTeus] Tecnologie caricate: {tecno}.")
-    if tecniche:
-        print(f"[PromeTeus] Tecniche (PayloadsAllTheThings) caricate: {tecniche}.")
+    ad = seed_ad_if_absent()
+    web = seed_web_if_absent()
+    for etichetta, n in [("Porte", porte), ("Tecnologie", tecno),
+                         ("Tecniche", tecniche), ("Active Directory", ad), ("Web App", web)]:
+        if n:
+            print(f"[PromeTeus] {etichetta} caricate: {n}.")
     yield
     # (allo spegnimento non c'e' nulla di speciale da fare)
 
@@ -76,6 +84,8 @@ KIND_LABELS = {
     KIND_PORT: "Porte",
     KIND_TECH: "Tecnologie",
     KIND_TECHNIQUE: "Tecniche",
+    KIND_AD: "Active Directory",
+    KIND_WEB: "Web App",
 }
 
 # Etichette in italiano per gravita' e stato dei findings.
@@ -147,7 +157,7 @@ def home(request: Request, session: Session = Depends(get_session)):
         kind: session.exec(
             select(func.count()).select_from(Topic).where(Topic.kind == kind)
         ).one()
-        for kind in (KIND_PORT, KIND_TECH, KIND_TECHNIQUE)
+        for kind in (KIND_PORT, KIND_TECH, KIND_TECHNIQUE, KIND_AD, KIND_WEB)
     }
     n_progetti = session.exec(select(func.count()).select_from(Project)).one()
     return templates.TemplateResponse(
@@ -171,7 +181,7 @@ def catalogo(
     default.
     """
     statement = select(Topic)
-    if kind in (KIND_PORT, KIND_TECH, KIND_TECHNIQUE):
+    if kind in KIND_LABELS:
         statement = statement.where(Topic.kind == kind)
     if q:
         like = f"%{q}%"
@@ -704,7 +714,7 @@ def topic_new_form(request: Request):
             "form_title": "Nuova voce del catalogo",
             "submit_label": "Crea voce",
             "back_url": "/catalogo",
-            "kinds": [KIND_PORT, KIND_TECH, KIND_TECHNIQUE],
+            "kinds": list(KIND_LABELS),
             "kind_labels": KIND_LABELS,
         },
     )
@@ -723,7 +733,7 @@ def topic_create(
     session: Session = Depends(get_session),
 ):
     """Crea una voce del catalogo."""
-    if kind not in (KIND_PORT, KIND_TECH, KIND_TECHNIQUE):
+    if kind not in KIND_LABELS:
         kind = KIND_TECH
     topic = Topic(
         kind=kind,
@@ -766,7 +776,7 @@ def topic_edit_form(topic_id: int, request: Request, session: Session = Depends(
             "form_title": "Modifica voce",
             "submit_label": "Salva modifiche",
             "back_url": f"/topic/{topic.id}",
-            "kinds": [KIND_PORT, KIND_TECH, KIND_TECHNIQUE],
+            "kinds": list(KIND_LABELS),
             "kind_labels": KIND_LABELS,
         },
     )
@@ -789,7 +799,7 @@ def topic_update(
     topic = session.get(Topic, topic_id)
     if topic is None:
         raise HTTPException(status_code=404, detail="Voce non trovata")
-    if kind not in (KIND_PORT, KIND_TECH, KIND_TECHNIQUE):
+    if kind not in KIND_LABELS:
         kind = topic.kind
     topic.kind = kind
     topic.name = name.strip()
