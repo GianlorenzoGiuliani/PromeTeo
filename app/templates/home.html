@@ -1,0 +1,60 @@
+{# home.html estende lo scheletro base.html e riempie i suoi "block". #}
+{% extends "base.html" %}
+
+{% block title %}PromeTeus - Home{% endblock %}
+
+{% block content %}
+  <section class="hero">
+    <h1>PromeTeus</h1>
+    <p class="subtitle">
+      Il tuo copilota durante i penetration test: cosa testare, con quali
+      strumenti, come leggere i risultati &mdash; e dove segnare i findings.
+    </p>
+  </section>
+
+  {# Le tre sezioni del catalogo. Ora sono link veri e mostrano i conteggi. #}
+  <section class="cards">
+    <a class="card" href="/catalogo?kind=port">
+      <h2>Per porta</h2>
+      <p>Trovi una porta aperta? Scopri quali test fare e quali tool usare
+         (es. RDP, SMB, SSH&hellip;).</p>
+      <span class="badge">{{ counts.port }} voci</span>
+    </a>
+
+    <a class="card" href="/catalogo?kind=tech">
+      <h2>Per tecnologia</h2>
+      <p>Riconosci una tecnologia? Vai dritto ai controlli giusti
+         (es. WordPress &rarr; wpscan).</p>
+      <span class="badge">{{ counts.tech }} voci</span>
+    </a>
+
+    <a class="card" href="/catalogo?kind=technique">
+      <h2>Per tecnica</h2>
+      <p>Classi di vulnerabilita' e payload (SQLi, XSS, SSRF&hellip;),
+         da PayloadsAllTheThings.</p>
+      <span class="badge">{{ counts.technique }} voci</span>
+    </a>
+
+    <a class="card" href="/catalogo?kind=ad">
+      <h2>Active Directory</h2>
+      <p>Metodologia per il pentest dei domini Windows (enumerazione,
+         kerberoasting, movimento laterale&hellip;).</p>
+      <span class="badge">{{ counts.ad }} voci</span>
+    </a>
+
+    <a class="card" href="/catalogo?kind=web">
+      <h2>Web App</h2>
+      <p>Come approcciare un test su applicazioni web (ricognizione,
+         autenticazione, injection, upload&hellip;).</p>
+      <span class="badge">{{ counts.web }} voci</span>
+    </a>
+  </section>
+
+  <section class="cards">
+    <a class="card" href="/progetti">
+      <h2>Progetti &amp; findings</h2>
+      <p>Segna le vulnerabilita' trovate e genera il report finale.</p>
+      <span class="badge">{{ n_progetti }} progetti</span>
+    </a>
+  </section>
+{% endblock %}

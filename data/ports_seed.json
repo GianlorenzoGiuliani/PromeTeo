@@ -1,0 +1,549 @@
+{
+  "source": "curato a mano (metodologia standard)",
+  "topics": [
+    {
+      "kind": "port",
+      "name": "FTP",
+      "port": 21,
+      "protocol": "tcp",
+      "description": "File Transfer Protocol: trasferimento file, spesso in chiaro.",
+      "detection": "Porta 21/tcp aperta; il banner mostra il software del server FTP.",
+      "references": "https://book.hacktricks.xyz/network-services-pentesting/pentesting-ftp",
+      "checks": [
+        {
+          "title": "Ricognizione e login anonimo",
+          "goal": "Versione del server e accesso anonimo.",
+          "tool": "nmap",
+          "command": "nmap -sV -p21 --script ftp-anon,ftp-syst <ip>",
+          "interpretation": "'Anonymous login allowed' = accesso senza credenziali. Il banner rivela software e versione (cerca exploit noti).",
+          "references": null
+        },
+        {
+          "title": "Connessione manuale",
+          "goal": "Provare l'accesso anonimo e sfogliare i file.",
+          "tool": "ftp",
+          "command": "ftp <ip>    # utente: anonymous  -  password: qualsiasi",
+          "interpretation": "Se entri, scarica (get) ed eventualmente carica (put) file. Spesso ci sono dati sensibili.",
+          "references": null
+        },
+        {
+          "title": "Brute force credenziali",
+          "goal": "Trovare credenziali valide (occhio al lockout).",
+          "tool": "hydra",
+          "command": "hydra -L users.txt -P pass.txt ftp://<ip>",
+          "interpretation": "Una riga 'login: ... password: ...' indica credenziali valide.",
+          "references": null
+        }
+      ],
+      "intro": "Il File Transfer Protocol trasferisce file tra client e server. Nasce senza cifratura: credenziali e dati viaggiano in chiaro e sono intercettabili sulla rete (a meno di FTPS). Usa due canali separati: uno di controllo (porta 21) e uno per i dati.\nPer il pentester e' interessante soprattutto per il login anonimo (spesso abilitato per sbaglio), le credenziali deboli e i file sensibili lasciati sulle cartelle condivise."
+    },
+    {
+      "kind": "port",
+      "name": "SSH",
+      "port": 22,
+      "protocol": "tcp",
+      "description": "Secure Shell: accesso remoto cifrato.",
+      "detection": "Porta 22/tcp aperta; il banner mostra versione (es. OpenSSH 8.9).",
+      "references": "https://book.hacktricks.xyz/network-services-pentesting/pentesting-ssh",
+      "checks": [
+        {
+          "title": "Ricognizione",
+          "goal": "Versione, algoritmi e metodi di autenticazione.",
+          "tool": "nmap",
+          "command": "nmap -sV -p22 --script ssh2-enum-algos,ssh-auth-methods --script-args ssh.user=root <ip>",
+          "interpretation": "Mostra i metodi auth (password/publickey) e algoritmi deboli. Versioni vecchie = possibili CVE.",
+          "references": null
+        },
+        {
+          "title": "Audit di sicurezza",
+          "goal": "Trovare algoritmi/cifrari deboli o obsoleti.",
+          "tool": "ssh-audit",
+          "command": "ssh-audit <ip>",
+          "interpretation": "Evidenzia in rosso cifrari/chiavi deboli e CVE note per quella versione.",
+          "references": null
+        },
+        {
+          "title": "Brute force / login",
+          "goal": "Provare credenziali deboli o default.",
+          "tool": "hydra",
+          "command": "hydra -l <user> -P pass.txt ssh://<ip>    # poi:  ssh <user>@<ip>",
+          "interpretation": "Credenziali valide se hydra le riporta. Attenzione a fail2ban/blocchi.",
+          "references": null
+        }
+      ],
+      "intro": "Secure Shell fornisce accesso remoto a riga di comando in modo cifrato, ed e' il sostituto sicuro di Telnet. L'autenticazione puo' avvenire a password o, meglio, con chiave pubblica.\nE' generalmente robusto: i punti deboli reali sono credenziali deboli o riutilizzate, chiavi private rubate, versioni vecchie con CVE note e algoritmi di cifratura obsoleti. Un accesso SSH valido e' spesso gia' un piede dentro il sistema."
+    },
+    {
+      "kind": "port",
+      "name": "Telnet",
+      "port": 23,
+      "protocol": "tcp",
+      "description": "Accesso remoto NON cifrato (tutto in chiaro).",
+      "detection": "Porta 23/tcp aperta; prompt di login testuale.",
+      "references": "https://book.hacktricks.xyz/network-services-pentesting/pentesting-telnet",
+      "checks": [
+        {
+          "title": "Ricognizione",
+          "goal": "Banner e informazioni di sistema.",
+          "tool": "nmap",
+          "command": "nmap -sV -p23 --script telnet-ntlm-info,telnet-encryption <ip>",
+          "interpretation": "Il banner rivela device/OS. 'encryption: no' = credenziali trasmesse in chiaro (sniffabili).",
+          "references": null
+        },
+        {
+          "title": "Login e credenziali default",
+          "goal": "Provare accessi deboli/default.",
+          "tool": "telnet",
+          "command": "telnet <ip>",
+          "interpretation": "Molti dispositivi hanno credenziali di default (admin/admin). Traffico intercettabile sulla rete.",
+          "references": null
+        }
+      ],
+      "intro": "Telnet e' un vecchio protocollo di accesso remoto testuale, completamente NON cifrato: nome utente, password e comandi viaggiano in chiaro. E' considerato insicuro e andrebbe sostituito da SSH.\nSi trova ancora su apparati di rete, stampanti e sistemi legacy, spesso con credenziali di default. Chi si trova sulla stessa rete puo' intercettare l'intera sessione."
+    },
+    {
+      "kind": "port",
+      "name": "SMTP",
+      "port": 25,
+      "protocol": "tcp",
+      "description": "Simple Mail Transfer Protocol: invio email.",
+      "detection": "Porte 25/465/587 aperte; il banner mostra il server di posta.",
+      "references": "https://book.hacktricks.xyz/network-services-pentesting/pentesting-smtp",
+      "checks": [
+        {
+          "title": "Ricognizione",
+          "goal": "Comandi supportati, open relay, utenti.",
+          "tool": "nmap",
+          "command": "nmap -sV -p25 --script smtp-commands,smtp-open-relay,smtp-enum-users <ip>",
+          "interpretation": "'smtp-open-relay' positivo = relay aperto (abuso per spam). Comandi VRFY/EXPN abilitati = enum utenti.",
+          "references": null
+        },
+        {
+          "title": "Enumerazione utenti",
+          "goal": "Scoprire account validi.",
+          "tool": "smtp-user-enum",
+          "command": "smtp-user-enum -M VRFY -U users.txt -t <ip>",
+          "interpretation": "Gli utenti riconosciuti dal server sono validi: utili per attacchi di autenticazione altrove.",
+          "references": null
+        }
+      ],
+      "intro": "Il Simple Mail Transfer Protocol gestisce l'invio della posta tra i server.\nPer il pentester conta per tre motivi: l'enumerazione utenti (i comandi VRFY, EXPN e RCPT confermano se un account esiste), l'open relay (un server mal configurato che inoltra posta per chiunque, sfruttabile per spam e phishing) e le informazioni rivelate dai banner."
+    },
+    {
+      "kind": "port",
+      "name": "DNS",
+      "port": 53,
+      "protocol": "tcp/udp",
+      "description": "Domain Name System: risoluzione dei nomi.",
+      "detection": "Porta 53 aperta (udp e/o tcp).",
+      "references": "https://book.hacktricks.xyz/network-services-pentesting/pentesting-dns",
+      "checks": [
+        {
+          "title": "Trasferimento di zona (AXFR)",
+          "goal": "Scaricare tutti i record di un dominio.",
+          "tool": "dig",
+          "command": "dig axfr @<ip> <dominio>",
+          "interpretation": "Se ricevi l'elenco completo dei record, l'AXFR e' aperto (configurazione errata, grave): mappa tutta l'infrastruttura.",
+          "references": null
+        },
+        {
+          "title": "Ricognizione server",
+          "goal": "Ricorsione e informazioni del resolver.",
+          "tool": "nmap",
+          "command": "nmap -sSU -p53 --script dns-recursion,dns-nsid <ip>",
+          "interpretation": "Ricorsione aperta verso l'esterno = possibile abuso (amplification). NSID rivela info sul server.",
+          "references": null
+        },
+        {
+          "title": "Enumerazione sottodomini",
+          "goal": "Scoprire host del dominio.",
+          "tool": "dnsrecon",
+          "command": "dnsrecon -d <dominio>    # oppure: dnsenum <dominio>",
+          "interpretation": "Nuovi sottodomini/record ampliano la superficie d'attacco.",
+          "references": null
+        }
+      ],
+      "intro": "Il Domain Name System traduce i nomi (es. acme.it) negli indirizzi IP.\nIn un pentest e' una miniera di informazioni: il trasferimento di zona (AXFR), se mal configurato, rivela l'intera mappa dei nomi interni; la ricorsione aperta puo' essere abusata; l'enumerazione di sottodomini amplia la superficie d'attacco. Spesso e' il primo passo della ricognizione."
+    },
+    {
+      "kind": "port",
+      "name": "HTTP/HTTPS",
+      "port": 80,
+      "protocol": "tcp",
+      "description": "Server web (HTTP su 80, HTTPS su 443).",
+      "detection": "Porte 80/443 aperte; risponde una pagina o un'API.",
+      "references": "https://book.hacktricks.xyz/network-services-pentesting/pentesting-web",
+      "checks": [
+        {
+          "title": "Fingerprint tecnologie",
+          "goal": "Capire server, framework, CMS, metodi.",
+          "tool": "whatweb / nmap",
+          "command": "whatweb http://<ip>    # e:  nmap -p80,443 --script http-headers,http-methods,http-title <ip>",
+          "interpretation": "Identifica tecnologie (poi cercale nel catalogo, es. WordPress). Metodi PUT/DELETE abilitati sono pericolosi.",
+          "references": null
+        },
+        {
+          "title": "Scanner di vulnerabilita' note",
+          "goal": "Misconfig, file noti, header mancanti.",
+          "tool": "nikto / nuclei",
+          "command": "nikto -h http://<ip>    # e:  nuclei -u http://<ip>",
+          "interpretation": "Segnala file/pannelli esposti, header di sicurezza mancanti e CVE note dei componenti.",
+          "references": null
+        },
+        {
+          "title": "Brute force di directory e file",
+          "goal": "Scoprire contenuti nascosti.",
+          "tool": "feroxbuster",
+          "command": "feroxbuster -u http://<ip> -w /usr/share/wordlists/dirb/common.txt    # o gobuster/ffuf",
+          "interpretation": "Pagine/cartelle non linkate (admin, backup, .git) spesso rivelano vulnerabilita' o dati.",
+          "references": null
+        },
+        {
+          "title": "Analisi TLS (HTTPS)",
+          "goal": "Cifrari deboli, certificati, protocolli vecchi.",
+          "tool": "testssl.sh / sslscan",
+          "command": "testssl.sh <ip>:443    # o:  sslscan <ip>:443",
+          "interpretation": "Protocolli obsoleti (SSLv3/TLS1.0), cifrari deboli o certificati scaduti/non validi.",
+          "references": null
+        }
+      ],
+      "intro": "Sono i protocolli del web: HTTP in chiaro (porta 80) e HTTPS cifrato con TLS (443).\nDietro una porta web puo' esserci qualunque cosa: un sito, un pannello di amministrazione, un'API, un'applicazione complessa. E' la superficie d'attacco piu' ricca e variegata: prima si identificano le tecnologie, poi si cercano contenuti nascosti e vulnerabilita'. Vedi anche le sezioni Web App e Tecniche."
+    },
+    {
+      "kind": "port",
+      "name": "POP3 / IMAP",
+      "port": 110,
+      "protocol": "tcp",
+      "description": "Lettura della posta (POP3 110/995, IMAP 143/993).",
+      "detection": "Porte 110/143/993/995 aperte.",
+      "references": "https://book.hacktricks.xyz/network-services-pentesting/pentesting-pop",
+      "checks": [
+        {
+          "title": "Ricognizione",
+          "goal": "Capacita' del server e STARTTLS.",
+          "tool": "nmap",
+          "command": "nmap -sV -p110,143,993,995 --script pop3-capabilities,imap-capabilities <ip>",
+          "interpretation": "Mostra i meccanismi di autenticazione e se la cifratura (STARTTLS) e' disponibile.",
+          "references": null
+        },
+        {
+          "title": "Brute force",
+          "goal": "Provare credenziali deboli.",
+          "tool": "hydra",
+          "command": "hydra -l <user> -P pass.txt pop3://<ip>",
+          "interpretation": "Credenziali valide = accesso alla casella (spesso info sensibili e reset password).",
+          "references": null
+        }
+      ],
+      "intro": "Sono i protocolli per leggere la posta: POP3 (scarica e in genere rimuove i messaggi) e IMAP (li sincronizza mantenendoli sul server). Esistono in versione in chiaro (110/143) e cifrata (995/993).\nPer il pentester contano per le credenziali deboli: una casella compromessa spesso contiene dati sensibili e permette di resettare le password di altri servizi."
+    },
+    {
+      "kind": "port",
+      "name": "SMB",
+      "port": 445,
+      "protocol": "tcp",
+      "description": "Server Message Block: condivisione file/stampanti su Windows.",
+      "detection": "Porte 445/tcp (e 139/tcp) aperte; nmap mostra 'microsoft-ds'.",
+      "references": "https://book.hacktricks.xyz/network-services-pentesting/pentesting-smb",
+      "checks": [
+        {
+          "title": "Ricognizione e vulnerabilita'",
+          "goal": "OS, versione del protocollo, falle note.",
+          "tool": "nmap",
+          "command": "nmap -p139,445 --script smb-os-discovery,smb-protocols,smb-vuln-ms17-010 <ip>",
+          "interpretation": "SMBv1 attivo = rischio. 'smb-vuln-ms17-010: VULNERABLE' = EternalBlue (CVE-2017-0144), critico.",
+          "references": null
+        },
+        {
+          "title": "Enumerazione completa",
+          "goal": "Utenti, gruppi, share, policy password.",
+          "tool": "enum4linux-ng",
+          "command": "enum4linux-ng -A <ip>",
+          "interpretation": "Elenca utenti e share: base per attacchi mirati. Policy password utile per il brute force.",
+          "references": null
+        },
+        {
+          "title": "Accesso senza credenziali (null session)",
+          "goal": "Elencare/accedere alle share anonimamente.",
+          "tool": "netexec / smbclient",
+          "command": "netexec smb <ip> -u '' -p '' --shares    # o:  smbclient -L //<ip>/ -N",
+          "interpretation": "Share leggibili/scrivibili senza password = esposizione di dati (da segnalare).",
+          "references": null
+        },
+        {
+          "title": "Accesso con credenziali",
+          "goal": "Verificare share ed eventuale esecuzione.",
+          "tool": "netexec",
+          "command": "netexec smb <ip> -u <user> -p <pass> --shares",
+          "interpretation": "'(Pwn3d!)' indica privilegi amministrativi (possibile esecuzione comandi).",
+          "references": null
+        }
+      ],
+      "intro": "Server Message Block e' il protocollo Windows per condividere file e stampanti e per far comunicare le macchine; e' anche un pilastro di Active Directory.\nE' uno dei servizi piu' preziosi in un pentest: consente l'enumerazione di utenti, share e policy, a volte l'accesso anonimo (null session), ed e' stato bersaglio di falle gravi come EternalBlue (MS17-010). La versione SMBv1 e' obsoleta e pericolosa."
+    },
+    {
+      "kind": "port",
+      "name": "SNMP",
+      "port": 161,
+      "protocol": "udp",
+      "description": "Simple Network Management Protocol: gestione dispositivi.",
+      "detection": "Porta 161/udp aperta (spesso su router, stampanti, server).",
+      "references": "https://book.hacktricks.xyz/network-services-pentesting/pentesting-snmp",
+      "checks": [
+        {
+          "title": "Community di default",
+          "goal": "Trovare community string valide.",
+          "tool": "onesixtyone",
+          "command": "onesixtyone -c /usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt <ip>",
+          "interpretation": "Una community valida (spesso 'public') da' accesso in lettura a molte info del dispositivo.",
+          "references": null
+        },
+        {
+          "title": "Estrazione informazioni",
+          "goal": "Leggere sistema, processi, utenti, rete.",
+          "tool": "snmpwalk",
+          "command": "snmpwalk -v2c -c public <ip>    # riepilogo:  snmp-check <ip> -c public",
+          "interpretation": "Rivela processi, software, interfacce e a volte credenziali in chiaro nelle configurazioni.",
+          "references": null
+        }
+      ],
+      "intro": "Il Simple Network Management Protocol serve a monitorare e gestire dispositivi di rete (router, switch, stampanti, server). L'accesso e' protetto da una 'community string', spesso lasciata al valore di default (public/private). Viaggia su UDP.\nCon una community valida si leggono moltissime informazioni: processi, software installato, interfacce di rete e a volte credenziali in chiaro nelle configurazioni."
+    },
+    {
+      "kind": "port",
+      "name": "LDAP",
+      "port": 389,
+      "protocol": "tcp",
+      "description": "Directory service (Active Directory su Windows).",
+      "detection": "Porte 389/636 aperte; tipico dei Domain Controller.",
+      "references": "https://book.hacktricks.xyz/network-services-pentesting/pentesting-ldap",
+      "checks": [
+        {
+          "title": "Base DN e bind anonimo",
+          "goal": "Capire il dominio e tentare lettura senza credenziali.",
+          "tool": "ldapsearch",
+          "command": "ldapsearch -x -H ldap://<ip> -s base namingcontexts",
+          "interpretation": "Rivela il base DN (es. DC=acme,DC=local). Se poi -b '<baseDN>' restituisce oggetti senza login, il bind anonimo e' abilitato.",
+          "references": null
+        },
+        {
+          "title": "Enumerazione directory",
+          "goal": "Elencare utenti e gruppi.",
+          "tool": "ldapsearch / nmap",
+          "command": "ldapsearch -x -H ldap://<ip> -b \"DC=acme,DC=local\"    # e:  nmap -p389 --script ldap-rootdse <ip>",
+          "interpretation": "Utenti, gruppi e attributi del dominio: base per attacchi su Active Directory.",
+          "references": null
+        }
+      ],
+      "intro": "Il Lightweight Directory Access Protocol interroga una directory di utenti, gruppi e risorse; su Windows e' il protocollo con cui si parla ad Active Directory.\nSe il bind anonimo e' permesso si enumerano utenti e gruppi senza credenziali; anche con un account qualsiasi, LDAP e' lo strumento principale per mappare il dominio. Porta 389 (in chiaro) e 636 (LDAPS)."
+    },
+    {
+      "kind": "port",
+      "name": "MSSQL",
+      "port": 1433,
+      "protocol": "tcp",
+      "description": "Microsoft SQL Server.",
+      "detection": "Porta 1433/tcp aperta; tipico su server Windows.",
+      "references": "https://book.hacktricks.xyz/network-services-pentesting/pentesting-mssql-microsoft-sql-server",
+      "checks": [
+        {
+          "title": "Ricognizione",
+          "goal": "Versione, istanza, password vuota per 'sa'.",
+          "tool": "nmap",
+          "command": "nmap -p1433 --script ms-sql-info,ms-sql-ntlm-info,ms-sql-empty-password <ip>",
+          "interpretation": "'sa' con password vuota = accesso totale. NTLM-info rivela hostname e dominio.",
+          "references": null
+        },
+        {
+          "title": "Accesso ed esecuzione comandi",
+          "goal": "Connettersi ed eventualmente eseguire comandi.",
+          "tool": "impacket-mssqlclient",
+          "command": "impacket-mssqlclient <user>:<pass>@<ip>    # o:  -windows-auth",
+          "interpretation": "Con privilegi adeguati, 'enable_xp_cmdshell' permette l'esecuzione di comandi sul sistema.",
+          "references": null
+        }
+      ],
+      "intro": "Microsoft SQL Server e' il database di Microsoft, molto diffuso in ambienti Windows.\nOltre ai dati, e' interessante perche' un account con privilegi puo' eseguire comandi sul sistema operativo (xp_cmdshell) e perche' si integra con l'autenticazione di Windows e Active Directory. Password vuote o deboli per l'utente 'sa' sono un classico punto d'ingresso."
+    },
+    {
+      "kind": "port",
+      "name": "MySQL",
+      "port": 3306,
+      "protocol": "tcp",
+      "description": "Database MySQL/MariaDB.",
+      "detection": "Porta 3306/tcp aperta.",
+      "references": "https://book.hacktricks.xyz/network-services-pentesting/pentesting-mysql",
+      "checks": [
+        {
+          "title": "Ricognizione",
+          "goal": "Versione, utenti, password vuota per root.",
+          "tool": "nmap",
+          "command": "nmap -p3306 --script mysql-info,mysql-empty-password,mysql-users <ip>",
+          "interpretation": "'root' con password vuota = accesso completo al database.",
+          "references": null
+        },
+        {
+          "title": "Accesso",
+          "goal": "Connettersi con credenziali deboli/default.",
+          "tool": "mysql",
+          "command": "mysql -h <ip> -u root -p",
+          "interpretation": "Se entri, leggi i dati; con privilegi FILE puoi leggere/scrivere file sul server.",
+          "references": null
+        }
+      ],
+      "intro": "MySQL (e il fork MariaDB) e' un database relazionale diffusissimo, spesso dietro le applicazioni web.\nPer il pentester conta per le credenziali deboli o di default (root senza password e' comune nelle installazioni di sviluppo), per i dati che contiene, e perche' con il privilegio FILE si possono leggere o scrivere file sul server."
+    },
+    {
+      "kind": "port",
+      "name": "RDP",
+      "port": 3389,
+      "protocol": "tcp",
+      "description": "Remote Desktop Protocol: desktop remoto di Windows.",
+      "detection": "Porta 3389/tcp aperta; nmap la riconosce come 'ms-wbt-server'.",
+      "references": "https://book.hacktricks.xyz/network-services-pentesting/pentesting-rdp",
+      "checks": [
+        {
+          "title": "Ricognizione (cifratura e NLA)",
+          "goal": "Capire versione, cifratura e Network Level Authentication.",
+          "tool": "nmap",
+          "command": "nmap -p3389 --script rdp-enum-encryption,rdp-ntlm-info <ip>",
+          "interpretation": "NLA disabilitata = servizio piu' esposto. NTLM-info rivela hostname e dominio.",
+          "references": null
+        },
+        {
+          "title": "BlueKeep (CVE-2019-0708)",
+          "goal": "Verificare la falla pre-autenticazione.",
+          "tool": "nmap",
+          "command": "nmap -p3389 --script rdp-vuln-ms12-020 <ip>",
+          "interpretation": "'VULNERABLE' = sistema non aggiornato: finding critico, RCE pre-auth.",
+          "references": null
+        },
+        {
+          "title": "Accesso (anche Pass-the-Hash)",
+          "goal": "Verificare credenziali o hash.",
+          "tool": "xfreerdp",
+          "command": "xfreerdp /u:<user> /p:<pass> /v:<ip>    # con hash:  /pth:<NTLM-hash>",
+          "interpretation": "Se ottieni il desktop, le credenziali/hash sono validi.",
+          "references": null
+        }
+      ],
+      "intro": "Remote Desktop Protocol fornisce il desktop grafico remoto di Windows. E' un bersaglio ad alto valore: un accesso RDP valido equivale a sedersi davanti alla macchina.\nI punti d'attenzione sono le credenziali deboli (occhio ai blocchi account), l'assenza di NLA, le vulnerabilita' pre-autenticazione come BlueKeep (CVE-2019-0708) e il riuso di hash (Pass-the-Hash)."
+    },
+    {
+      "kind": "port",
+      "name": "PostgreSQL",
+      "port": 5432,
+      "protocol": "tcp",
+      "description": "Database PostgreSQL.",
+      "detection": "Porta 5432/tcp aperta.",
+      "references": "https://book.hacktricks.xyz/network-services-pentesting/pentesting-postgresql",
+      "checks": [
+        {
+          "title": "Credenziali deboli",
+          "goal": "Trovare login validi.",
+          "tool": "nmap / psql",
+          "command": "nmap -p5432 --script pgsql-brute <ip>    # o:  psql -h <ip> -U postgres",
+          "interpretation": "Coppia default 'postgres/postgres' molto comune. Con privilegi, COPY ... FROM PROGRAM esegue comandi.",
+          "references": null
+        }
+      ],
+      "intro": "PostgreSQL e' un potente database relazionale open source.\nCome gli altri database interessa per le credenziali deboli o di default (postgres/postgres), per i dati, e perche' con i giusti privilegi permette l'esecuzione di comandi sul server (COPY ... FROM PROGRAM). Spesso e' esposto dietro un'applicazione."
+    },
+    {
+      "kind": "port",
+      "name": "WinRM",
+      "port": 5985,
+      "protocol": "tcp",
+      "description": "Windows Remote Management (shell remota Windows).",
+      "detection": "Porte 5985 (http) / 5986 (https) aperte.",
+      "references": "https://book.hacktricks.xyz/network-services-pentesting/5985-5986-pentesting-winrm",
+      "checks": [
+        {
+          "title": "Verifica accesso",
+          "goal": "Controllare se le credenziali danno accesso.",
+          "tool": "netexec",
+          "command": "netexec winrm <ip> -u <user> -p <pass>",
+          "interpretation": "'(Pwn3d!)' = accesso valido (di solito amministrativo).",
+          "references": null
+        },
+        {
+          "title": "Shell interattiva",
+          "goal": "Ottenere una shell se le credenziali sono valide.",
+          "tool": "evil-winrm",
+          "command": "evil-winrm -i <ip> -u <user> -p <pass>",
+          "interpretation": "Shell PowerShell remota: utile anche con hash (-H) per Pass-the-Hash.",
+          "references": null
+        }
+      ],
+      "intro": "Windows Remote Management e' il servizio con cui si amministrano da remoto le macchine Windows (e' il trasporto di PowerShell Remoting).\nNon e' una vulnerabilita' di per se', ma con credenziali valide (o un hash) e i giusti privilegi offre una shell PowerShell remota: e' una via di movimento laterale molto usata in Active Directory."
+    },
+    {
+      "kind": "port",
+      "name": "Redis",
+      "port": 6379,
+      "protocol": "tcp",
+      "description": "Database in memoria chiave-valore.",
+      "detection": "Porta 6379/tcp aperta.",
+      "references": "https://book.hacktricks.xyz/network-services-pentesting/6379-pentesting-redis",
+      "checks": [
+        {
+          "title": "Accesso non autenticato",
+          "goal": "Verificare se risponde senza password.",
+          "tool": "redis-cli",
+          "command": "redis-cli -h <ip>    # poi:  INFO   e   CONFIG GET *",
+          "interpretation": "Se risponde senza auth, e' esposto: possibile lettura dati e, in certi casi, scrittura file/RCE.",
+          "references": null
+        }
+      ],
+      "intro": "Redis e' un database in memoria di tipo chiave-valore, usato per cache, code e sessioni.\nIl problema classico e' l'esposizione senza autenticazione: in molte installazioni di default chi raggiunge la porta puo' leggere e scrivere dati. In certe configurazioni si arriva all'esecuzione di codice o alla scrittura di file (chiavi SSH, webshell)."
+    },
+    {
+      "kind": "port",
+      "name": "MongoDB",
+      "port": 27017,
+      "protocol": "tcp",
+      "description": "Database NoSQL orientato ai documenti.",
+      "detection": "Porta 27017/tcp aperta.",
+      "references": "https://book.hacktricks.xyz/network-services-pentesting/27017-27018-mongodb",
+      "checks": [
+        {
+          "title": "Accesso non autenticato",
+          "goal": "Verificare se i database sono leggibili senza credenziali.",
+          "tool": "mongosh",
+          "command": "mongosh \"mongodb://<ip>:27017\"    # poi:  show dbs",
+          "interpretation": "Se elenca i database senza login, l'autenticazione e' disabilitata (esposizione dati).",
+          "references": null
+        }
+      ],
+      "intro": "MongoDB e' un database NoSQL orientato ai documenti, comune dietro le applicazioni moderne.\nIl rischio tipico e' l'esposizione in rete con l'autenticazione disabilitata: chi raggiunge la porta puo' elencare e leggere interi database senza credenziali. Molte fughe di dati sono nate da istanze MongoDB aperte su Internet."
+    },
+    {
+      "kind": "port",
+      "name": "NFS",
+      "port": 2049,
+      "protocol": "tcp",
+      "description": "Network File System: condivisione file su rete Unix.",
+      "detection": "Porta 2049/tcp aperta (spesso con 111 rpcbind).",
+      "references": "https://book.hacktricks.xyz/network-services-pentesting/nfs-service-pentesting",
+      "checks": [
+        {
+          "title": "Export disponibili",
+          "goal": "Vedere quali cartelle sono condivise e a chi.",
+          "tool": "showmount",
+          "command": "showmount -e <ip>",
+          "interpretation": "Un export verso '*' (tutti) e' una misconfigurazione. Annota i percorsi condivisi.",
+          "references": null
+        },
+        {
+          "title": "Montaggio",
+          "goal": "Accedere ai file condivisi.",
+          "tool": "mount",
+          "command": "mount -t nfs <ip>:/percorso/share /mnt",
+          "interpretation": "Se monti e leggi/scrivi, i dati sono esposti. Con no_root_squash si puo' arrivare a privilegi elevati.",
+          "references": null
+        }
+      ],
+      "intro": "Il Network File System condivide cartelle tra sistemi Unix/Linux sulla rete.\nLe condivisioni (export) possono essere mal configurate e accessibili a chiunque; l'opzione 'no_root_squash' e' particolarmente pericolosa perche' permette a chi ha accesso di agire come root sui file, aprendo la strada a un'escalation di privilegi."
+    }
+  ]
+}

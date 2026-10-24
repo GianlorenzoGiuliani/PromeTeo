@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Progetti - PromeTeus{% endblock %}
+
+{% block content %}
+  <h1>Progetti</h1>
+
+  {# Form per creare un nuovo progetto. method="post" invia i dati a /progetti. #}
+  <form class="form-card" method="post" action="/progetti">
+    <h2>Nuovo progetto</h2>
+    <label>Nome *
+      <input type="text" name="name" required placeholder="Es. Pentest Acme Srl - Web">
+    </label>
+    <label>Cliente
+      <input type="text" name="client" placeholder="Es. Acme Srl">
+    </label>
+    <div class="form-row">
+      <label>La tua azienda
+        <input type="text" name="company" placeholder="Es. SecLab">
+      </label>
+      <label>Autore (chi esegue il test)
+        <input type="text" name="author" placeholder="Es. Mario Rossi">
+      </label>
+    </div>
+    <label>Scope / note
+      <textarea name="scope" rows="2"
+                placeholder="Es. 10.0.0.0/24, https://app.acme.it - autorizzazione del ..."></textarea>
+    </label>
+    <label>Info operative (VPN, credenziali, accessi...) &mdash; restano private, NON vanno nel report
+      <textarea name="info" rows="2" placeholder="Es. VPN: openvpn client.ovpn ; jump host 10.0.0.1"></textarea>
+    </label>
+    <button type="submit">Crea progetto</button>
+  </form>
+
+  <form class="search" method="get" action="/progetti">
+    <input type="search" name="q" value="{{ q }}" placeholder="Cerca per nome o cliente…">
+    <button type="submit">Cerca</button>
+  </form>
+
+  {% if projects %}
+    <ul class="topic-list">
+      {% for p in projects %}
+        <li class="topic-item">
+          <a class="topic-link" href="/progetti/{{ p.id }}">
+            <strong>{{ p.name }}</strong>
+            {% if p.client %}<span class="muted">&middot; {{ p.client }}</span>{% endif %}
+            <span class="count">{{ counts.get(p.id, 0) }} findings</span>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    {% if q %}
+      <p class="empty">Nessun progetto trovato per &laquo;{{ q }}&raquo;.</p>
+    {% else %}
+      <p class="empty">Nessun progetto ancora. Creane uno qui sopra per iniziare a segnare i findings.</p>
+    {% endif %}
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}{{ form_title }} - PromeTeus{% endblock %}
+
+{% block content %}
+  <p class="breadcrumb"><a href="{{ back_url }}">&larr; Indietro</a></p>
+  <h1>{{ form_title }}</h1>
+
+  <form class="form-card" method="post" action="{{ form_action }}">
+    <label>Tipo
+      <select name="kind">
+        {% for k in kinds %}
+          <option value="{{ k }}"{% if k == values.kind %} selected{% endif %}>{{ kind_labels.get(k, k) }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>Nome *
+      <input type="text" name="name" required value="{{ values.name }}"
+             placeholder="Es. RDP, WordPress, SQL Injection">
+    </label>
+
+    <div class="form-row">
+      <label>Porta
+        <input type="text" name="port" value="{{ values.port }}" placeholder="solo per le porte, es. 3389">
+      </label>
+      <label>Protocollo
+        <input type="text" name="protocol" value="{{ values.protocol }}" placeholder="es. tcp">
+      </label>
+    </div>
+
+    <label>Descrizione (riga breve)
+      <textarea name="description" rows="2">{{ values.description }}</textarea>
+    </label>
+    <label>Introduzione (spiegazione approfondita)
+      <textarea name="intro" rows="5">{{ values.intro }}</textarea>
+    </label>
+    <label>Come riconoscerlo
+      <textarea name="detection" rows="2">{{ values.detection }}</textarea>
+    </label>
+    <label>Link di approfondimento
+      <input type="text" name="references" value="{{ values.references }}" placeholder="https://...">
+    </label>
+
+    <button type="submit">{{ submit_label }}</button>
+  </form>
+{% endblock %}

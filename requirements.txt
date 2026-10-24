@@ -1,0 +1,8 @@
+# Librerie necessarie a PromeTeus.
+# Le versioni sono "bloccate" (==) di proposito: cosi' su qualsiasi computer
+# vengono installate le stesse identiche versioni e l'app si comporta uguale.
+fastapi==0.161.1
+uvicorn[standard]==0.54.0
+jinja2==3.1.6
+sqlmodel==0.0.48
+python-multipart==0.0.32

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Report - {{ project.name }}{% endblock %}
+
+{% block content %}
+  <div class="report">
+    {# Questa barra non viene stampata (classe no-print). #}
+    <div class="report-toolbar no-print">
+      <a class="btn btn-secondary" href="/progetti/{{ project.id }}">&larr; Progetto</a>
+      <button class="btn" type="button" onclick="window.print()">Stampa / PDF</button>
+      <a class="btn btn-secondary" href="/progetti/{{ project.id }}/report.md">Scarica .md</a>
+    </div>
+
+    <header class="report-head">
+      {% if project.company %}<p class="report-company">{{ project.company }}</p>{% endif %}
+      <h1>Report di penetration test</h1>
+      <p class="report-project">{{ project.name }}</p>
+      <p class="report-meta">
+        {% if project.client %}Cliente: {{ project.client }} &middot; {% endif %}
+        {% if project.author %}Autore: {{ project.author }} &middot; {% endif %}
+        Data: {{ now.strftime('%Y-%m-%d') }} &middot; Findings: {{ findings|length }}
+      </p>
+      {% if project.scope %}<p class="report-scope"><strong>Scope:</strong> {{ project.scope }}</p>{% endif %}
+    </header>
+
+    <h2>Riepilogo</h2>
+    <table class="summary-table">
+      <thead><tr><th>Gravità</th><th>Numero</th></tr></thead>
+      <tbody>
+        {% for s in severities %}
+          <tr>
+            <td><span class="sev-badge sev-{{ s }}">{{ severity_labels.get(s, s) }}</span></td>
+            <td>{{ sev_counts.get(s, 0) }}</td>
+          </tr>
+        {% endfor %}
+        <tr class="summary-total"><td>Totale</td><td>{{ findings|length }}</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Findings</h2>
+    {% if not findings %}
+      <p class="empty">Nessun finding registrato.</p>
+    {% endif %}
+
+    {# Raggruppiamo per gravita'. 'namespace' tiene un contatore globale (ns.n)
+       che prosegue tra i gruppi, cosi' i findings restano numerati 1, 2, 3... #}
+    {% set ns = namespace(n=0) %}
+    {% for sev in severities %}
+      {% set group = findings | selectattr('severity', 'equalto', sev) | list %}
+      {% if group %}
+        <h3 class="sev-group sev-{{ sev }}">{{ severity_labels.get(sev, sev) }} ({{ group|length }})</h3>
+        {% for f in group %}
+          {% set ns.n = ns.n + 1 %}
+          <article class="report-finding sev-{{ f.severity }}">
+            <h4>{{ ns.n }}. {{ f.title }}</h4>
+            <p class="finding-meta">
+              <span class="status-badge">{{ status_labels.get(f.status, f.status) }}</span>
+              {% if f.cve %}<span class="idtag">{{ f.cve }}</span>{% endif %}
+              {% if f.cwe %}<span class="idtag">{{ f.cwe }}</span>{% endif %}
+            </p>
+            {% set tstr = target_strings.get(f.id) %}
+            {% if tstr %}<p><strong>Bersaglio:</strong> {{ tstr }}</p>{% endif %}
+            {% if f.description %}<p>{{ f.description }}</p>{% endif %}
+            {% if f.evidence %}
+              <div class="cmd-label">Prova</div>
+              <pre class="cmd"><code>{{ f.evidence }}</code></pre>
+            {% endif %}
+            {% if f.remediation %}<p><strong>Rimedio:</strong> {{ f.remediation }}</p>{% endif %}
+          </article>
+        {% endfor %}
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endblock %}

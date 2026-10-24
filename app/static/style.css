@@ -1,0 +1,430 @@
+/* ===========================================================================
+   style.css - l'aspetto grafico di PromeTeus.
+   Tema scuro, sobrio, adatto a uno strumento da lavoro.
+   I colori sono definiti una volta sola qui sotto (le "variabili"): se un
+   domani vorrai cambiare colore, cambi un valore solo e cambia ovunque.
+   =========================================================================== */
+:root {
+  --bg:        #0f1216;   /* sfondo pagina */
+  --surface:   #171c23;   /* sfondo di card e barre */
+  --surface-2: #1f262f;   /* sfondo al passaggio del mouse */
+  --border:    #2a323c;
+  --text:      #e6e9ee;   /* testo principale */
+  --muted:     #9aa6b2;   /* testo secondario */
+  --accent:    #ff7a1a;   /* arancione "fuoco" (Prometeo) */
+  --radius:    12px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.6;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* --- Barra in alto --- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.brand {
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: var(--text);
+  letter-spacing: 0.5px;
+}
+.nav a { color: var(--muted); margin-left: 1rem; }
+
+/* --- Contenuto centrale --- */
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.hero h1 {
+  font-size: 2.4rem;
+  margin: 0 0 0.3rem;
+}
+.subtitle {
+  color: var(--muted);
+  font-size: 1.1rem;
+  max-width: 640px;
+}
+
+/* --- Le card delle sezioni --- */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+  margin-top: 2rem;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+.card h2 { margin-top: 0; font-size: 1.2rem; }
+.card p { color: var(--muted); margin-bottom: 1rem; }
+
+/* le card "in arrivo" sono leggermente spente */
+.card--soon { opacity: 0.75; }
+
+.badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+}
+
+/* --- Pie' di pagina --- */
+.footer {
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 2rem 1.5rem;
+  border-top: 1px solid var(--border);
+  margin-top: 2rem;
+}
+
+/* ===========================================================================
+   Milestone 2: catalogo (ricerca, filtri, elenco) e dettaglio voce.
+   =========================================================================== */
+
+/* --- Ricerca --- */
+.search { display: flex; gap: 0.5rem; margin: 1rem 0; }
+.search input[type="search"] {
+  flex: 1;
+  padding: 0.6rem 0.8rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 1rem;
+}
+.search button {
+  padding: 0.6rem 1.1rem;
+  background: var(--accent);
+  color: #1a1206;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.search button:hover { filter: brightness(1.08); }
+
+/* --- Filtri per tipo --- */
+.filters { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1.2rem; }
+.filter {
+  padding: 0.3rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.filter:hover { background: var(--surface-2); text-decoration: none; }
+.filter.active { background: var(--accent); color: #1a1206; border-color: var(--accent); }
+
+.result-count { color: var(--muted); font-size: 0.85rem; margin: 0 0 0.6rem; }
+
+/* --- Elenco voci --- */
+.topic-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.6rem; }
+.topic-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+}
+.topic-link { display: flex; align-items: center; gap: 0.6rem; color: var(--text); }
+.topic-link:hover { text-decoration: none; }
+.topic-link strong { font-size: 1.05rem; }
+.topic-item .desc { color: var(--muted); font-size: 0.9rem; margin: 0.4rem 0 0; }
+.count { margin-left: auto; color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+.port { color: var(--muted); }
+
+/* --- Badge per tipo di voce --- */
+.kind-badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0.12rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.kind-port { color: #6fd3ff; border-color: #2f5d6e; }
+.kind-tech { color: #7fe0a6; border-color: #2f6e4c; }
+.kind-technique { color: #ffb37a; border-color: #7a4a24; }
+
+/* --- Dettaglio voce --- */
+.breadcrumb { margin: 0 0 1rem; font-size: 0.9rem; }
+.topic-head { border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 1.5rem; }
+.topic-head h1 { margin: 0.4rem 0; }
+.topic-head .port { font-size: 1rem; margin-left: 0.3rem; }
+.detection, .topic-head .desc { color: var(--muted); }
+.refs { font-size: 0.85rem; word-break: break-all; }
+
+.check {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1rem;
+}
+.check h3 { margin: 0 0 0.5rem; }
+.check .goal { margin: 0 0 0.6rem; }
+.check .tool, .check .interp { font-size: 0.92rem; }
+.cmd-label {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--muted); margin-bottom: 0.3rem;
+}
+pre.cmd {
+  background: #0b0e12;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+  overflow-x: auto;
+  margin: 0 0 0.8rem;
+}
+pre.cmd code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  color: #d7e3ee;
+  white-space: pre;
+}
+.empty { color: var(--muted); padding: 1rem 0; }
+
+/* ===========================================================================
+   Milestone 3/4: progetti, findings e report.
+   =========================================================================== */
+.muted { color: var(--muted); }
+.hint { color: var(--muted); font-size: 0.9rem; }
+
+/* --- Pulsanti --- */
+.btn {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: var(--accent);
+  color: #1a1206;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.btn:hover { filter: brightness(1.08); text-decoration: none; }
+.btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--surface-2); }
+.actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+
+/* --- Form --- */
+.form-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.2rem 1.4rem;
+  margin-bottom: 1.5rem;
+  max-width: 680px;
+}
+.form-card h2 { margin-top: 0; }
+.form-card label { display: block; margin-bottom: 0.9rem; font-size: 0.9rem; color: var(--muted); }
+.form-card input, .form-card select, .form-card textarea {
+  display: block;
+  width: 100%;
+  margin-top: 0.3rem;
+  padding: 0.55rem 0.7rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+.form-card textarea { resize: vertical; }
+.form-row { display: flex; gap: 1rem; }
+.form-row label { flex: 1; }
+
+/* --- Findings --- */
+.finding {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1rem;
+}
+.finding-head { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.finding-head strong { font-size: 1.05rem; }
+.finding-target, .finding-ids { font-size: 0.9rem; color: var(--muted); margin: 0.5rem 0 0; }
+
+/* --- Badge gravità e stato --- */
+.sev-badge, .status-badge {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 0.12rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.status-badge { color: var(--muted); }
+.sev-critical { color: #ff6b6b; border-color: #7a2a2a; }
+.sev-high     { color: #ff9f6b; border-color: #7a4524; }
+.sev-medium   { color: #ffd36b; border-color: #7a6424; }
+.sev-low      { color: #9fd3ff; border-color: #2f5d6e; }
+.sev-info     { color: #b7c0cc; border-color: var(--border); }
+.finding.sev-critical, .report-finding.sev-critical { border-left-color: #ff6b6b; }
+.finding.sev-high,     .report-finding.sev-high     { border-left-color: #ff9f6b; }
+.finding.sev-medium,   .report-finding.sev-medium   { border-left-color: #ffd36b; }
+.finding.sev-low,      .report-finding.sev-low      { border-left-color: #9fd3ff; }
+.finding.sev-info,     .report-finding.sev-info     { border-left-color: #b7c0cc; }
+
+.idtag {
+  font-size: 0.75rem;
+  font-family: ui-monospace, monospace;
+  color: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.05rem 0.4rem;
+}
+
+/* --- Report --- */
+.report-toolbar { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+.report-head { border-bottom: 2px solid var(--border); padding-bottom: 0.8rem; margin-bottom: 1.2rem; }
+.report-meta { color: var(--muted); }
+.summary { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 1rem; }
+.summary li { display: flex; align-items: center; gap: 0.4rem; }
+.report-finding {
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1rem;
+}
+.finding-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0 0 0.6rem; }
+
+/* --- Stampa: sfondo bianco, niente barre --- */
+@media print {
+  .topbar, .footer, .no-print { display: none !important; }
+  body { background: #fff; color: #000; }
+  .container { max-width: none; padding: 0; }
+  .report-finding, pre.cmd { break-inside: avoid; }
+  pre.cmd { background: #f4f4f4; }
+  pre.cmd code { color: #000; }
+  .sev-badge, .status-badge, .idtag { border-color: #999; }
+}
+
+/* Collegamento "aggiungi come finding" nei test del catalogo */
+.check-action { margin: 0.8rem 0 0; }
+.btn-link { color: var(--accent); font-size: 0.9rem; font-weight: 600; }
+
+/* Milestone 5: modifica / elimina */
+.inline-form { display: inline; margin: 0; }
+.btn-danger { background: #b23a3a; color: #fff; }
+.btn-danger:hover { filter: brightness(1.12); }
+.finding-actions { display: flex; align-items: center; gap: 1rem; margin-top: 0.9rem; }
+.btn-link-danger {
+  color: #ff8080;
+  background: none;
+  border: none;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0;
+}
+.btn-link-danger:hover { text-decoration: underline; }
+
+/* Intestazione di pagina con pulsante a destra (es. Catalogo + Nuova voce) */
+.page-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.page-head h1 { margin: 0; }
+
+/* M6: tasto "Copia" sui comandi */
+.cmd-block { margin: 0 0 0.8rem; }
+.cmd-block pre.cmd { margin-bottom: 0; }
+.cmd-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.3rem; }
+.cmd-head .cmd-label { margin-bottom: 0; }
+.copy-btn {
+  background: var(--surface-2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.6rem;
+  cursor: pointer;
+}
+.copy-btn:hover { color: var(--text); }
+
+/* M6: filtri dei findings */
+.filter-form { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1.2rem; }
+.filter-form select {
+  padding: 0.4rem 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+/* M6: report piu' ricco (intestazione, riepilogo, raggruppamento) */
+.report-company {
+  font-weight: 700;
+  color: var(--accent);
+  margin: 0 0 0.3rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+}
+.report-project { font-size: 1.2rem; color: var(--muted); margin: 0.1rem 0 0.6rem; }
+.summary-table { border-collapse: collapse; margin: 0.5rem 0 1.5rem; }
+.summary-table th, .summary-table td {
+  text-align: left;
+  padding: 0.35rem 1.4rem 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.summary-table th { color: var(--muted); font-weight: 600; font-size: 0.82rem; }
+.summary-total td { font-weight: 700; border-bottom: none; }
+.sev-group { margin-top: 1.6rem; padding-bottom: 0.3rem; border-bottom: 2px solid var(--border); }
+.report-finding h4 { margin: 0 0 0.5rem; }
+
+/* Target di un progetto */
+.targets-section { margin-bottom: 2rem; }
+.target-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.target-detail { font-size: 0.9rem; margin-top: 0.2rem; word-break: break-word; }
+
+/* Findings raggruppati per target */
+.target-group {
+  margin: 1.6rem 0 0.8rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 2px solid var(--accent);
+  font-size: 1.1rem;
+}
+
+/* Introduzione approfondita di una voce del catalogo */
+.intro-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1.5rem;
+}
+.intro-box h2 { margin-top: 0; font-size: 1.1rem; }
+.intro-text { white-space: pre-line; color: var(--text); }
+
+/* Badge dei nuovi tipi di voce */
+.kind-ad  { color: #c9a0ff; border-color: #5a3f7a; }
+.kind-web { color: #7fe0d0; border-color: #2f6e63; }

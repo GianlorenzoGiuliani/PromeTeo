@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Catalogo - PromeTeus{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>Catalogo</h1>
+    <a class="btn" href="/catalogo/nuovo">+ Nuova voce</a>
+  </div>
+
+  {# Barra di ricerca: e' un form che invia 'q' all'indirizzo /catalogo.
+     Se stiamo filtrando per tipo, lo conserviamo con un campo nascosto. #}
+  <form class="search" method="get" action="/catalogo">
+    {% if kind %}<input type="hidden" name="kind" value="{{ kind }}">{% endif %}
+    <input type="search" name="q" value="{{ q }}" placeholder="Cerca per nome o descrizione…">
+    <button type="submit">Cerca</button>
+  </form>
+
+  {# Filtri per tipo. La classe 'active' evidenzia quello selezionato.
+     Conserviamo la ricerca 'q' nei link, cosi' filtro e ricerca convivono. #}
+  <nav class="filters">
+    <a class="filter {% if not kind %}active{% endif %}"
+       href="/catalogo{% if q %}?q={{ q }}{% endif %}">Tutte</a>
+    <a class="filter {% if kind == 'port' %}active{% endif %}"
+       href="/catalogo?kind=port{% if q %}&q={{ q }}{% endif %}">Porte</a>
+    <a class="filter {% if kind == 'tech' %}active{% endif %}"
+       href="/catalogo?kind=tech{% if q %}&q={{ q }}{% endif %}">Tecnologie</a>
+    <a class="filter {% if kind == 'technique' %}active{% endif %}"
+       href="/catalogo?kind=technique{% if q %}&q={{ q }}{% endif %}">Tecniche</a>
+    <a class="filter {% if kind == 'ad' %}active{% endif %}"
+       href="/catalogo?kind=ad{% if q %}&q={{ q }}{% endif %}">Active Directory</a>
+    <a class="filter {% if kind == 'web' %}active{% endif %}"
+       href="/catalogo?kind=web{% if q %}&q={{ q }}{% endif %}">Web App</a>
+  </nav>
+
+  {% if topics %}
+    <p class="result-count">{{ topics|length }} voci</p>
+    <ul class="topic-list">
+      {% for t in topics %}
+        <li class="topic-item">
+          <a class="topic-link" href="/topic/{{ t.id }}">
+            <span class="kind-badge kind-{{ t.kind }}">{{ kind_labels.get(t.kind, t.kind) }}</span>
+            <strong>{{ t.name }}</strong>{% if t.port %}<span class="port">:{{ t.port }}</span>{% endif %}
+            <span class="count">{{ counts.get(t.id, 0) }} test</span>
+          </a>
+          {% if t.description %}<p class="desc">{{ t.description }}</p>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty">Nessuna voce trovata{% if q %} per &laquo;{{ q }}&raquo;{% endif %}.</p>
+  {% endif %}
+{% endblock %}

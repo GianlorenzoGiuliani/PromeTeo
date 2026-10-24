@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}{{ topic.name }} - PromeTeus{% endblock %}
+
+{% block content %}
+  <p class="breadcrumb">
+    <a href="/catalogo?kind={{ topic.kind }}">&larr; {{ kind_labels.get(topic.kind, topic.kind) }}</a>
+  </p>
+
+  <header class="topic-head">
+    <span class="kind-badge kind-{{ topic.kind }}">{{ kind_labels.get(topic.kind, topic.kind) }}</span>
+    <h1>{{ topic.name }}{% if topic.port %}<span class="port">:{{ topic.port }}/{{ topic.protocol }}</span>{% endif %}</h1>
+    {% if topic.description %}<p class="desc">{{ topic.description }}</p>{% endif %}
+    {% if topic.detection %}
+      <p class="detection"><strong>Come riconoscerlo:</strong> {{ topic.detection }}</p>
+    {% endif %}
+    {% if topic.references %}
+      <p class="refs">Approfondisci:
+        <a href="{{ topic.references }}" target="_blank" rel="noopener noreferrer">{{ topic.references }}</a>
+      </p>
+    {% endif %}
+    <div class="actions">
+      <a class="btn" href="/topic/{{ topic.id }}/test/nuovo">+ Aggiungi test</a>
+      <a class="btn btn-secondary" href="/topic/{{ topic.id }}/modifica">Modifica voce</a>
+      <form class="inline-form" method="post" action="/topic/{{ topic.id }}/elimina"
+            onsubmit="return confirm('Eliminare questa voce e tutti i suoi test?');">
+        <button class="btn btn-danger" type="submit">Elimina voce</button>
+      </form>
+    </div>
+  </header>
+
+  {% if topic.intro %}
+    <section class="intro-box">
+      <h2>Cos'è e come funziona</h2>
+      <div class="intro-text">{{ topic.intro }}</div>
+    </section>
+  {% endif %}
+
+  <h2>Test ({{ checks|length }})</h2>
+
+  {% for c in checks %}
+    <article class="check">
+      <h3>{{ c.title }}</h3>
+      {% if c.goal %}<p class="goal">{{ c.goal }}</p>{% endif %}
+      {% if c.tool %}<p class="tool"><strong>Tool:</strong> {{ c.tool }}</p>{% endif %}
+      {% if c.command %}
+        {# NB sicurezza: {{ ... }} applica l'autoescaping di Jinja2, quindi anche
+           un payload come <script> viene mostrato come TESTO, non eseguito. #}
+        <div class="cmd-block">
+          <div class="cmd-head">
+            <span class="cmd-label">Comando / payload</span>
+            <button class="copy-btn" type="button">Copia</button>
+          </div>
+          <pre class="cmd"><code>{{ c.command }}</code></pre>
+        </div>
+      {% endif %}
+      {% if c.interpretation %}
+        <p class="interp"><strong>Come leggere il risultato:</strong> {{ c.interpretation }}</p>
+      {% endif %}
+      {% if c.references %}
+        <p class="refs">
+          <a href="{{ c.references }}" target="_blank" rel="noopener noreferrer">Fonte</a>
+        </p>
+      {% endif %}
+      <div class="finding-actions">
+        <a class="btn-link" href="/findings/nuovo?check_id={{ c.id }}">+ Aggiungi come finding</a>
+        <a class="btn-link" href="/test/{{ c.id }}/modifica">Modifica</a>
+        <form class="inline-form" method="post" action="/test/{{ c.id }}/elimina"
+              onsubmit="return confirm('Eliminare questo test?');">
+          <button class="btn-link-danger" type="submit">Elimina</button>
+        </form>
+      </div>
+    </article>
+  {% else %}
+    <p class="empty">Nessun test per questa voce.</p>
+  {% endfor %}
+{% endblock %}

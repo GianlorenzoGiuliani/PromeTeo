@@ -1,0 +1,223 @@
+{
+  "source": "curato a mano",
+  "topics": [
+    {
+      "kind": "web",
+      "name": "Ricognizione e fingerprint",
+      "description": "Identificare server, framework, CMS e tecnologie prima di testare.",
+      "intro": "Prima di attaccare conviene capire con cosa si ha a che fare: server web, linguaggio, framework, eventuale CMS, header di sicurezza. Questo orienta tutti i test successivi (es. se e' WordPress, vai alla voce WordPress nelle Tecnologie).",
+      "detection": null,
+      "references": "https://book.hacktricks.xyz/pentesting-web",
+      "checks": [
+        {
+          "title": "Fingerprint tecnologie",
+          "goal": "Riconoscere lo stack dell'applicazione.",
+          "tool": "whatweb / nmap",
+          "command": "whatweb http://<url>    # e:  nmap -p80,443 --script http-headers,http-methods,http-title <ip>",
+          "interpretation": "Rivela tecnologie e versioni (cercale poi nel catalogo). Metodi come PUT/DELETE abilitati sono pericolosi.",
+          "references": null
+        },
+        {
+          "title": "Header di sicurezza",
+          "goal": "Verificare le protezioni lato browser.",
+          "tool": "curl / browser",
+          "command": "curl -sI http://<url>",
+          "interpretation": "Mancanza di CSP, HSTS, X-Frame-Options, cookie senza HttpOnly/Secure: debolezze da annotare.",
+          "references": null
+        }
+      ]
+    },
+    {
+      "kind": "web",
+      "name": "Scoperta dei contenuti",
+      "description": "Trovare pagine, cartelle e file non collegati.",
+      "intro": "Gran parte della superficie d'attacco non e' linkata nelle pagine: pannelli di amministrazione, backup, file di configurazione, repository .git esposti. Si scoprono con il brute force di directory/file e controllando i file noti.",
+      "detection": null,
+      "references": "https://book.hacktricks.xyz/pentesting-web",
+      "checks": [
+        {
+          "title": "Brute force di directory",
+          "goal": "Enumerare percorsi nascosti.",
+          "tool": "feroxbuster / ffuf",
+          "command": "feroxbuster -u http://<url> -w /usr/share/wordlists/dirb/common.txt",
+          "interpretation": "Pagine come /admin, /backup, /.git, /api spesso rivelano funzioni o dati sensibili.",
+          "references": null
+        },
+        {
+          "title": "File noti e sensibili",
+          "goal": "Controllare i file che espongono informazioni.",
+          "tool": "browser / curl",
+          "command": "curl http://<url>/robots.txt    # poi: sitemap.xml, .git/, /backup.zip, /.env",
+          "interpretation": "robots.txt e sitemap svelano percorsi; un .git/ o .env esposto e' una fuga grave.",
+          "references": null
+        }
+      ]
+    },
+    {
+      "kind": "web",
+      "name": "Scanner automatici",
+      "description": "Primo passaggio per misconfigurazioni e CVE note.",
+      "intro": "Gli scanner automatici danno una fotografia rapida: componenti con CVE note, file esposti, misconfigurazioni comuni. Sono un punto di partenza, NON la fine: ogni segnalazione va verificata a mano per escludere i falsi positivi.",
+      "detection": null,
+      "references": "https://book.hacktricks.xyz/pentesting-web",
+      "checks": [
+        {
+          "title": "Scansione con nuclei",
+          "goal": "Cercare CVE note e misconfigurazioni con template.",
+          "tool": "nuclei",
+          "command": "nuclei -u http://<url>",
+          "interpretation": "Segnala vulnerabilita' note dei componenti e configurazioni errate. Verifica sempre manualmente.",
+          "references": null
+        },
+        {
+          "title": "Scansione con Nikto",
+          "goal": "Controlli classici su file e header.",
+          "tool": "nikto",
+          "command": "nikto -h http://<url>",
+          "interpretation": "File/pannelli di default, metodi pericolosi, header mancanti.",
+          "references": null
+        }
+      ]
+    },
+    {
+      "kind": "web",
+      "name": "Autenticazione e sessione",
+      "description": "Come l'app gestisce login, sessioni e reset password.",
+      "intro": "L'area di autenticazione e' critica: credenziali deboli o di default, gestione insicura della sessione, funzioni di 'password dimenticata' sfruttabili.\nSi verificano il login (forza bruta, default), i cookie di sessione e il flusso di reset.",
+      "detection": null,
+      "references": "https://book.hacktricks.xyz/pentesting-web",
+      "checks": [
+        {
+          "title": "Credenziali deboli / default",
+          "goal": "Provare accessi facili.",
+          "tool": "hydra / manuale",
+          "command": "hydra -l admin -P pass.txt <ip> http-post-form \"/login:user=^USER^&pass=^PASS^:fallita\"",
+          "interpretation": "Credenziali admin/admin o deboli = accesso. Occhio a eventuali blocchi e rate limiting.",
+          "references": null
+        },
+        {
+          "title": "Sicurezza della sessione",
+          "goal": "Analizzare i cookie e il ciclo della sessione.",
+          "tool": "browser (DevTools)",
+          "command": "Esamina il cookie di sessione: flag HttpOnly, Secure, SameSite.",
+          "interpretation": "Il token cambia dopo il login? Il logout lo invalida davvero? Flag mancanti = sessione a rischio.",
+          "references": null
+        }
+      ]
+    },
+    {
+      "kind": "web",
+      "name": "Controllo degli accessi (IDOR)",
+      "description": "Verificare che un utente non acceda a dati o azioni non suoi.",
+      "intro": "Molte app controllano chi sei al login ma non su ogni singola azione. Cosi' un utente puo' accedere ai dati di un altro cambiando un identificativo (IDOR) o usare funzioni da amministratore andando direttamente all'URL.\nE' una delle categorie piu' comuni e gravi.",
+      "detection": null,
+      "references": "https://book.hacktricks.xyz/pentesting-web",
+      "checks": [
+        {
+          "title": "IDOR (accesso orizzontale)",
+          "goal": "Accedere ai dati di altri utenti.",
+          "tool": "browser / Burp",
+          "command": "Cambia un id nell'URL o nel parametro: es. /ordine/123 -> /ordine/124",
+          "interpretation": "Se vedi dati di un altro utente senza autorizzazione, e' una IDOR (Insecure Direct Object Reference).",
+          "references": null
+        },
+        {
+          "title": "Accesso verticale (privilege)",
+          "goal": "Usare funzioni di livello superiore.",
+          "tool": "browser",
+          "command": "Da utente normale, apri direttamente URL/funzioni da amministratore.",
+          "interpretation": "Se la funzione si esegue, manca il controllo dei ruoli (broken access control).",
+          "references": null
+        }
+      ]
+    },
+    {
+      "kind": "web",
+      "name": "Injection (SQLi, XSS, Command)",
+      "description": "I classici: input non validati che finiscono dove non dovrebbero.",
+      "intro": "Quando l'input dell'utente finisce in una query, in una pagina o in un comando senza controlli, nascono le injection: SQL injection, Cross-Site Scripting (XSS), command injection e altre.\nQui trovi l'approccio; per i payload completi vai alla sezione Tecniche.",
+      "detection": null,
+      "references": "https://book.hacktricks.xyz/pentesting-web",
+      "checks": [
+        {
+          "title": "SQL injection",
+          "goal": "Verificare se un parametro e' iniettabile.",
+          "tool": "sqlmap",
+          "command": "sqlmap -u \"http://<url>?id=1\" --batch",
+          "interpretation": "Parametro 'injectable' = SQL injection (CWE-89): accesso/lettura del database.",
+          "references": null
+        },
+        {
+          "title": "Cross-Site Scripting (XSS)",
+          "goal": "Verificare l'esecuzione di codice nel browser.",
+          "tool": "browser",
+          "command": "Inserisci nei campi riflessi/memorizzati:  <script>alert(1)</script>",
+          "interpretation": "Se lo script viene eseguito, c'e' una XSS. Vedi la Tecnica 'Cross Site Scripting' per i payload.",
+          "references": null
+        }
+      ]
+    },
+    {
+      "kind": "web",
+      "name": "Upload di file",
+      "description": "Funzioni di upload mal validate che portano a webshell.",
+      "intro": "Se un'app accetta l'upload di file senza validarli bene (tipo, estensione, contenuto), si puo' caricare una webshell ed eseguire codice sul server.\nSi prova a bypassare i controlli con estensioni doppie, content-type falsi, estensioni alternative.",
+      "detection": null,
+      "references": "https://book.hacktricks.xyz/pentesting-web",
+      "checks": [
+        {
+          "title": "Test di upload",
+          "goal": "Caricare un file eseguibile o bypassare i filtri.",
+          "tool": "browser / Burp",
+          "command": "Carica una webshell (es. shell.php); se bloccato prova shell.php.jpg, shell.phtml, content-type image/jpeg",
+          "interpretation": "Se riesci a far eseguire il file caricato, hai una RCE. Controlla dove finisce il file (path prevedibile).",
+          "references": null
+        }
+      ]
+    },
+    {
+      "kind": "web",
+      "name": "SSRF e richieste lato server",
+      "description": "Far eseguire al server richieste verso risorse interne.",
+      "intro": "Se l'app prende un URL dall'utente e il server lo 'visita' (anteprime, import, webhook), si puo' puntarlo verso risorse interne non raggiungibili dall'esterno: e' la Server-Side Request Forgery (SSRF).",
+      "detection": null,
+      "references": "https://book.hacktricks.xyz/pentesting-web",
+      "checks": [
+        {
+          "title": "Test SSRF",
+          "goal": "Verificare se il server raggiunge risorse interne.",
+          "tool": "browser / Burp",
+          "command": "In un parametro che accetta URL, punta a:  http://169.254.169.254/  o a servizi interni",
+          "interpretation": "Una risposta da un servizio interno (o dai metadata cloud) conferma la SSRF. Vedi la Tecnica dedicata.",
+          "references": null
+        }
+      ]
+    },
+    {
+      "kind": "web",
+      "name": "API",
+      "description": "Le API hanno la loro superficie: endpoint, metodi, autorizzazione.",
+      "intro": "Le applicazioni moderne espongono API (REST/GraphQL). Spesso la sicurezza si concentra sull'interfaccia e le API restano meno protette: endpoint non documentati, metodi pericolosi, controlli di autorizzazione assenti.",
+      "detection": null,
+      "references": "https://book.hacktricks.xyz/pentesting-web",
+      "checks": [
+        {
+          "title": "Enumerazione e metodi",
+          "goal": "Scoprire endpoint e come rispondono.",
+          "tool": "browser / ffuf",
+          "command": "Cerca /api, /swagger, /openapi.json; prova metodi diversi (GET/POST/PUT/DELETE) sugli endpoint",
+          "interpretation": "Endpoint esposti, documentazione aperta o metodi che modificano dati senza autorizzazione = problemi.",
+          "references": null
+        },
+        {
+          "title": "Autorizzazione a livello di oggetto",
+          "goal": "Verificare l'accesso ai dati altrui via API.",
+          "tool": "Burp / curl",
+          "command": "Ripeti una chiamata cambiando l'id dell'oggetto (come una IDOR, ma sull'API)",
+          "interpretation": "Se ottieni dati non tuoi, l'API non verifica la proprieta' dell'oggetto (BOLA/IDOR).",
+          "references": null
+        }
+      ]
+    }
+  ]
+}
