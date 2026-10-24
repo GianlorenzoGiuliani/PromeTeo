@@ -57,6 +57,8 @@ STATUS_LABELS = {
     "false_positive": "Falso positivo",
     "resolved": "Risolto",
 }
+# Etichette per la probabilita' (valutazione del rischio).
+LIKELIHOOD_LABELS = {"high": "Alta", "medium": "Media", "low": "Bassa"}
 # Ordine di gravita' (0 = piu' grave): serve per ordinare i findings.
 SEVERITY_RANK = {s: i for i, s in enumerate(SEVERITIES)}
 

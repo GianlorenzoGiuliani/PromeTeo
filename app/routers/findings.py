@@ -1,50 +1,208 @@
 """
-Findings: creazione (sia dentro un progetto, sia scegliendo il progetto dal
-catalogo), modifica ed eliminazione.
+Findings: creazione (dentro un progetto o scegliendo il progetto dal catalogo),
+modifica ed eliminazione, con il loro ciclo di vita completo (campi di rischio,
+CVSS, assegnatario, date, verifica della correzione e storico delle modifiche).
 """
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session, select
 
 from app.database import get_session
-from app.models import SEVERITIES, STATUSES, Check, Finding, Project, Target, Topic
+from app.models import (
+    CLOSED_STATUSES,
+    LIKELIHOODS,
+    SEVERITIES,
+    STATUSES,
+    Check,
+    Finding,
+    FindingEvent,
+    Project,
+    Target,
+    Topic,
+)
 from app.reporting import target_label
-from app.web import SEVERITY_LABELS, STATUS_LABELS, int_or_none, templates
+from app.web import (
+    LIKELIHOOD_LABELS,
+    SEVERITY_LABELS,
+    STATUS_LABELS,
+    int_or_none,
+    templates,
+)
 
 router = APIRouter()
 
 
-def save_new_finding(session, project_id, title, target_id, severity, status,
-                     cve, cwe, description, evidence, remediation, topic_id, check_id):
-    """Crea e salva un finding. Usato sia dalla via 'dentro il progetto' sia da
-    quella globale (dal catalogo): la logica sta in un posto solo."""
+# ===========================================================================
+# Helpers: validazione, salvataggio e storico. Tenere qui la logica (fuori
+# dalle rotte) significa un solo posto da leggere e da correggere.
+# ===========================================================================
+
+def float_or_none(value):
+    """Converte in numero con la virgola (accetta anche '7,5'), oppure None."""
+    try:
+        return float(str(value).replace(",", "."))
+    except (TypeError, ValueError):
+        return None
+
+
+# Campi di testo del finding: li puliamo tutti allo stesso modo (strip -> None).
+TEXT_FIELDS = [
+    "cve", "cwe", "cvss_vector", "assignee", "description", "impact",
+    "reproduction", "evidence", "remediation", "references", "retest",
+]
+
+
+def clean_finding_fields(form) -> dict:
+    """Legge e VALIDA i campi di un finding da un form. Unico punto di
+    validazione: gravita'/stato/probabilita' devono stare nei valori ammessi,
+    i testi vuoti diventano None, i numeri vengono convertiti."""
+    def s(key):
+        return (form.get(key) or "").strip() or None
+
+    severity = form.get("severity") or "medium"
     if severity not in SEVERITIES:
         severity = "medium"
+    status = form.get("status") or "open"
     if status not in STATUSES:
         status = "open"
-    # Il target scelto deve appartenere a questo progetto, altrimenti lo ignoriamo.
-    tid = int_or_none(target_id)
-    if tid is not None:
-        t = session.get(Target, tid)
-        if t is None or t.project_id != project_id:
-            tid = None
-    finding = Finding(
-        project_id=project_id,
-        target_id=tid,
-        title=title.strip(),
-        severity=severity,
-        status=status,
-        cve=cve.strip() or None,
-        cwe=cwe.strip() or None,
-        description=description.strip() or None,
-        evidence=evidence.strip() or None,
-        remediation=remediation.strip() or None,
-        topic_id=int_or_none(topic_id),
-        check_id=int_or_none(check_id),
-    )
+    likelihood = (form.get("likelihood") or "").strip() or None
+    if likelihood is not None and likelihood not in LIKELIHOODS:
+        likelihood = None
+
+    fields = {
+        "title": (form.get("title") or "").strip(),
+        "severity": severity,
+        "status": status,
+        "likelihood": likelihood,
+        "cvss_score": float_or_none(form.get("cvss_score")),
+        "target_id": int_or_none(form.get("target_id")),
+        "topic_id": int_or_none(form.get("topic_id")),
+        "check_id": int_or_none(form.get("check_id")),
+    }
+    for key in TEXT_FIELDS:
+        fields[key] = s(key)
+    return fields
+
+
+def log_event(session, finding_id, message):
+    """Aggiunge una riga allo storico del finding (senza commit: lo fa il chiamante)."""
+    session.add(FindingEvent(finding_id=finding_id, message=message))
+
+
+def valid_target_id(session, project_id, target_id):
+    """Un target vale solo se appartiene a QUESTO progetto, altrimenti None."""
+    if target_id is None:
+        return None
+    t = session.get(Target, target_id)
+    if t is None or t.project_id != project_id:
+        return None
+    return target_id
+
+
+def create_finding(session, project_id, fields) -> Finding:
+    """Crea un finding dai campi gia' validati e ne registra la nascita."""
+    data = dict(fields)
+    data["target_id"] = valid_target_id(session, project_id, data.get("target_id"))
+    finding = Finding(project_id=project_id, **data)
+    if finding.status in CLOSED_STATUSES:
+        finding.closed_at = datetime.now(timezone.utc)
     session.add(finding)
     session.commit()
+    session.refresh(finding)
+    log_event(session, finding.id, "Creato")
+    session.commit()
+    return finding
 
+
+def apply_finding_update(session, finding, fields):
+    """Applica i campi validati a un finding esistente: registra i cambiamenti
+    piu' significativi nello storico e gestisce la data di chiusura."""
+    old_status, old_sev = finding.status, finding.severity
+    old_assignee = finding.assignee
+
+    data = dict(fields)
+    data["target_id"] = valid_target_id(session, finding.project_id, data.get("target_id"))
+    for key, value in data.items():
+        setattr(finding, key, value)
+
+    changes = []
+    if old_status != finding.status:
+        changes.append(f"Stato: {STATUS_LABELS.get(old_status, old_status)}"
+                       f" -> {STATUS_LABELS.get(finding.status, finding.status)}")
+    if old_sev != finding.severity:
+        changes.append(f"Gravita': {SEVERITY_LABELS.get(old_sev, old_sev)}"
+                       f" -> {SEVERITY_LABELS.get(finding.severity, finding.severity)}")
+    if (old_assignee or None) != (finding.assignee or None):
+        changes.append(f"Assegnatario: {old_assignee or '—'} -> {finding.assignee or '—'}")
+
+    # Data di chiusura: impostata entrando in uno stato chiuso, rimossa se riaperto.
+    if finding.status in CLOSED_STATUSES and finding.closed_at is None:
+        finding.closed_at = datetime.now(timezone.utc)
+    elif finding.status not in CLOSED_STATUSES:
+        finding.closed_at = None
+
+    session.add(finding)
+    session.commit()
+    for msg in (changes or ["Modificato"]):
+        log_event(session, finding.id, msg)
+    session.commit()
+
+
+def empty_values() -> dict:
+    """Valori di partenza di un form finding vuoto."""
+    return {
+        "title": "", "severity": "medium", "status": "open", "likelihood": "",
+        "target_id": "", "cve": "", "cwe": "", "cvss_vector": "", "cvss_score": "",
+        "assignee": "", "description": "", "impact": "", "reproduction": "",
+        "evidence": "", "remediation": "", "references": "", "retest": "",
+        "topic_id": "", "check_id": "",
+    }
+
+
+def values_from_finding(f: Finding) -> dict:
+    """Riempie i valori del form a partire da un finding esistente (per la modifica)."""
+    return {
+        "title": f.title, "severity": f.severity, "status": f.status,
+        "likelihood": f.likelihood or "", "target_id": f.target_id or "",
+        "cve": f.cve or "", "cwe": f.cwe or "", "cvss_vector": f.cvss_vector or "",
+        "cvss_score": f.cvss_score if f.cvss_score is not None else "",
+        "assignee": f.assignee or "", "description": f.description or "",
+        "impact": f.impact or "", "reproduction": f.reproduction or "",
+        "evidence": f.evidence or "", "remediation": f.remediation or "",
+        "references": f.references or "", "retest": f.retest or "",
+        "topic_id": f.topic_id or "", "check_id": f.check_id or "",
+    }
+
+
+def prefill_from_check(session, values, check_id):
+    """Se il finding nasce da un test del catalogo, precompila titolo e descrizione."""
+    check = session.get(Check, check_id)
+    if check is not None:
+        topic = session.get(Topic, check.topic_id)
+        values["title"] = f"{topic.name}: {check.title}" if topic else check.title
+        values["description"] = check.goal or ""
+        values["topic_id"] = check.topic_id
+        values["check_id"] = check.id
+    return check
+
+
+def _form_extras() -> dict:
+    """Le liste/etichette comuni a tutti i form dei findings."""
+    return {
+        "severities": SEVERITIES,
+        "statuses": STATUSES,
+        "likelihoods": LIKELIHOODS,
+        "severity_labels": SEVERITY_LABELS,
+        "status_labels": STATUS_LABELS,
+        "likelihood_labels": LIKELIHOOD_LABELS,
+    }
+
+
+# ===========================================================================
+# Rotte
+# ===========================================================================
 
 @router.get("/progetti/{project_id}/findings/nuovo", response_class=HTMLResponse)
 def finding_new_form(
@@ -60,21 +218,8 @@ def finding_new_form(
     targets = session.exec(
         select(Target).where(Target.project_id == project_id).order_by(Target.id)
     ).all()
-    check = None
-    values = {
-        "title": "", "severity": "medium", "status": "open",
-        "target_id": "", "cve": "", "cwe": "",
-        "description": "", "evidence": "", "remediation": "",
-        "topic_id": "", "check_id": "",
-    }
-    if check_id is not None:
-        check = session.get(Check, check_id)
-        if check is not None:
-            topic = session.get(Topic, check.topic_id)
-            values["title"] = f"{topic.name}: {check.title}" if topic else check.title
-            values["description"] = check.goal or ""
-            values["topic_id"] = check.topic_id
-            values["check_id"] = check.id
+    values = empty_values()
+    check = prefill_from_check(session, values, check_id) if check_id is not None else None
     return templates.TemplateResponse(
         request=request,
         name="finding_form.html",
@@ -84,40 +229,26 @@ def finding_new_form(
             "values": values,
             "check": check,
             "project_picker": False,
+            "events": [],
             "form_action": f"/progetti/{project_id}/findings",
             "form_title": "Nuovo finding",
             "submit_label": "Salva finding",
             "back_url": f"/progetti/{project_id}",
-            "severities": SEVERITIES,
-            "statuses": STATUSES,
-            "severity_labels": SEVERITY_LABELS,
-            "status_labels": STATUS_LABELS,
+            **_form_extras(),
         },
     )
 
 
 @router.post("/progetti/{project_id}/findings")
-def finding_create(
-    project_id: int,
-    title: str = Form(...),
-    target_id: str = Form(""),
-    severity: str = Form("medium"),
-    status: str = Form("open"),
-    cve: str = Form(""),
-    cwe: str = Form(""),
-    description: str = Form(""),
-    evidence: str = Form(""),
-    remediation: str = Form(""),
-    topic_id: str = Form(""),
-    check_id: str = Form(""),
-    session: Session = Depends(get_session),
-):
+async def finding_create(project_id: int, request: Request, session: Session = Depends(get_session)):
     """Crea un finding dentro un progetto (il target si seleziona)."""
     project = session.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Progetto non trovato")
-    save_new_finding(session, project_id, title, target_id, severity, status,
-                     cve, cwe, description, evidence, remediation, topic_id, check_id)
+    fields = clean_finding_fields(await request.form())
+    if not fields["title"]:
+        raise HTTPException(status_code=400, detail="Il titolo e' obbligatorio")
+    create_finding(session, project_id, fields)
     return RedirectResponse(url=f"/progetti/{project_id}", status_code=303)
 
 
@@ -140,21 +271,9 @@ def finding_new_global(
         labeled = [{"id": t.id, "label": target_label(t)} for t in ts]
         project_targets.append({"id": p.id, "name": p.name, "targets": labeled})
         targets_by_project[p.id] = labeled
-    check = None
-    values = {
-        "title": "", "severity": "medium", "status": "open",
-        "target_id": "", "cve": "", "cwe": "",
-        "description": "", "evidence": "", "remediation": "",
-        "project_id": project_id or "", "topic_id": "", "check_id": "",
-    }
-    if check_id is not None:
-        check = session.get(Check, check_id)
-        if check is not None:
-            topic = session.get(Topic, check.topic_id)
-            values["title"] = f"{topic.name}: {check.title}" if topic else check.title
-            values["description"] = check.goal or ""
-            values["topic_id"] = check.topic_id
-            values["check_id"] = check.id
+    values = empty_values()
+    values["project_id"] = project_id or ""
+    check = prefill_from_check(session, values, check_id) if check_id is not None else None
     return templates.TemplateResponse(
         request=request,
         name="finding_form.html",
@@ -165,46 +284,35 @@ def finding_new_global(
             "targets_by_project": targets_by_project,
             "values": values,
             "check": check,
+            "events": [],
             "form_action": "/findings",
             "form_title": "Nuovo finding",
             "submit_label": "Salva finding",
             "back_url": "/catalogo" if check else "/progetti",
-            "severities": SEVERITIES,
-            "statuses": STATUSES,
-            "severity_labels": SEVERITY_LABELS,
-            "status_labels": STATUS_LABELS,
+            **_form_extras(),
         },
     )
 
 
 @router.post("/findings")
-def finding_create_global(
-    project_id: int = Form(...),
-    title: str = Form(...),
-    target_id: str = Form(""),
-    severity: str = Form("medium"),
-    status: str = Form("open"),
-    cve: str = Form(""),
-    cwe: str = Form(""),
-    description: str = Form(""),
-    evidence: str = Form(""),
-    remediation: str = Form(""),
-    topic_id: str = Form(""),
-    check_id: str = Form(""),
-    session: Session = Depends(get_session),
-):
+async def finding_create_global(request: Request, session: Session = Depends(get_session)):
     """Crea un finding scegliendo il progetto nel form."""
-    project = session.get(Project, project_id)
+    form = await request.form()
+    project_id = int_or_none(form.get("project_id"))
+    project = session.get(Project, project_id) if project_id else None
     if project is None:
         raise HTTPException(status_code=404, detail="Progetto non trovato")
-    save_new_finding(session, project_id, title, target_id, severity, status,
-                     cve, cwe, description, evidence, remediation, topic_id, check_id)
-    return RedirectResponse(url=f"/progetti/{project_id}", status_code=303)
+    fields = clean_finding_fields(form)
+    if not fields["title"]:
+        raise HTTPException(status_code=400, detail="Il titolo e' obbligatorio")
+    create_finding(session, project.id, fields)
+    return RedirectResponse(url=f"/progetti/{project.id}", status_code=303)
 
 
 @router.get("/findings/{finding_id}/modifica", response_class=HTMLResponse)
 def finding_edit_form(finding_id: int, request: Request, session: Session = Depends(get_session)):
-    """Form per MODIFICARE un finding: riusa lo stesso template della creazione."""
+    """Form per MODIFICARE un finding: riusa lo stesso template della creazione
+    e mostra in fondo lo storico delle modifiche."""
     finding = session.get(Finding, finding_id)
     if finding is None:
         raise HTTPException(status_code=404, detail="Finding non trovato")
@@ -212,92 +320,51 @@ def finding_edit_form(finding_id: int, request: Request, session: Session = Depe
     targets = session.exec(
         select(Target).where(Target.project_id == finding.project_id).order_by(Target.id)
     ).all()
-    values = {
-        "title": finding.title,
-        "severity": finding.severity,
-        "status": finding.status,
-        "target_id": finding.target_id or "",
-        "cve": finding.cve or "",
-        "cwe": finding.cwe or "",
-        "description": finding.description or "",
-        "evidence": finding.evidence or "",
-        "remediation": finding.remediation or "",
-        "topic_id": finding.topic_id or "",
-        "check_id": finding.check_id or "",
-    }
+    events = session.exec(
+        select(FindingEvent).where(FindingEvent.finding_id == finding_id)
+        .order_by(FindingEvent.at.desc())
+    ).all()
     return templates.TemplateResponse(
         request=request,
         name="finding_form.html",
         context={
             "project": project,
             "targets": targets,
-            "values": values,
+            "values": values_from_finding(finding),
             "check": None,
             "project_picker": False,
+            "events": events,
             "form_action": f"/findings/{finding.id}",
             "form_title": "Modifica finding",
             "submit_label": "Salva modifiche",
             "back_url": f"/progetti/{finding.project_id}",
-            "severities": SEVERITIES,
-            "statuses": STATUSES,
-            "severity_labels": SEVERITY_LABELS,
-            "status_labels": STATUS_LABELS,
+            **_form_extras(),
         },
     )
 
 
 @router.post("/findings/{finding_id}")
-def finding_update(
-    finding_id: int,
-    title: str = Form(...),
-    target_id: str = Form(""),
-    severity: str = Form("medium"),
-    status: str = Form("open"),
-    cve: str = Form(""),
-    cwe: str = Form(""),
-    description: str = Form(""),
-    evidence: str = Form(""),
-    remediation: str = Form(""),
-    topic_id: str = Form(""),
-    check_id: str = Form(""),
-    session: Session = Depends(get_session),
-):
+async def finding_update(finding_id: int, request: Request, session: Session = Depends(get_session)):
     """Aggiorna un finding esistente (resta nel suo progetto)."""
     finding = session.get(Finding, finding_id)
     if finding is None:
         raise HTTPException(status_code=404, detail="Finding non trovato")
-    if severity not in SEVERITIES:
-        severity = "medium"
-    if status not in STATUSES:
-        status = "open"
-    tid = int_or_none(target_id)
-    if tid is not None:
-        t = session.get(Target, tid)
-        if t is None or t.project_id != finding.project_id:
-            tid = None
-    finding.target_id = tid
-    finding.title = title.strip()
-    finding.severity = severity
-    finding.status = status
-    finding.cve = cve.strip() or None
-    finding.cwe = cwe.strip() or None
-    finding.description = description.strip() or None
-    finding.evidence = evidence.strip() or None
-    finding.remediation = remediation.strip() or None
-    finding.topic_id = int_or_none(topic_id)
-    finding.check_id = int_or_none(check_id)
-    session.add(finding)
-    session.commit()
+    fields = clean_finding_fields(await request.form())
+    if not fields["title"]:
+        raise HTTPException(status_code=400, detail="Il titolo e' obbligatorio")
+    apply_finding_update(session, finding, fields)
     return RedirectResponse(url=f"/progetti/{finding.project_id}", status_code=303)
 
 
 @router.post("/findings/{finding_id}/elimina")
 def finding_delete(finding_id: int, session: Session = Depends(get_session)):
-    """Elimina un finding e torna al suo progetto."""
+    """Elimina un finding, il suo storico, e torna al suo progetto."""
     finding = session.get(Finding, finding_id)
     if finding is None:
         raise HTTPException(status_code=404, detail="Finding non trovato")
     project_id = finding.project_id
+    for ev in session.exec(select(FindingEvent).where(FindingEvent.finding_id == finding_id)).all():
+        session.delete(ev)
     session.delete(finding)
     session.commit()
     return RedirectResponse(url=f"/progetti/{project_id}", status_code=303)

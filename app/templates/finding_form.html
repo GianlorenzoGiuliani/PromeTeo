@@ -73,12 +73,35 @@
             {% endfor %}
           </select>
         </label>
+        <label>Probabilità
+          <select name="likelihood">
+            <option value="">&mdash; non valutata &mdash;</option>
+            {% for l in likelihoods %}
+              <option value="{{ l }}"{% if l == values.likelihood %} selected{% endif %}>{{ likelihood_labels.get(l, l) }}</option>
+            {% endfor %}
+          </select>
+        </label>
         <label>Stato
           <select name="status">
             {% for s in statuses %}
               <option value="{{ s }}"{% if s == values.status %} selected{% endif %}>{{ status_labels.get(s, s) }}</option>
             {% endfor %}
           </select>
+        </label>
+      </div>
+
+      <div class="form-row">
+        <label>CVSS (punteggio)
+          <input type="number" name="cvss_score" min="0" max="10" step="0.1"
+                 value="{{ values.cvss_score }}" placeholder="0.0 – 10.0">
+        </label>
+        <label>CVSS (vettore)
+          <input type="text" name="cvss_vector" value="{{ values.cvss_vector }}"
+                 placeholder="CVSS:3.1/AV:N/AC:L/…">
+        </label>
+        <label>Assegnatario
+          <input type="text" name="assignee" value="{{ values.assignee }}"
+                 placeholder="Chi se ne occupa">
         </label>
       </div>
 
@@ -94,6 +117,13 @@
       <label>Descrizione
         <textarea name="description" rows="3">{{ values.description }}</textarea>
       </label>
+      <label>Impatto &mdash; cosa comporta se sfruttata
+        <textarea name="impact" rows="2">{{ values.impact }}</textarea>
+      </label>
+      <label>Passi per riprodurre
+        <textarea name="reproduction" rows="3"
+                  placeholder="1) ... 2) ... 3) ...">{{ values.reproduction }}</textarea>
+      </label>
       <label>Prova (evidence) &mdash; output del comando, screenshot...
         <textarea name="evidence" rows="4"
                   placeholder="Incolla qui l'output che dimostra la vulnerabilità">{{ values.evidence }}</textarea>
@@ -102,10 +132,28 @@
         <textarea name="remediation" rows="3"
                   placeholder="Come correggerla (finirà nel report)">{{ values.remediation }}</textarea>
       </label>
+      <label>Riferimenti &mdash; link, advisory, fonti
+        <textarea name="references" rows="2">{{ values.references }}</textarea>
+      </label>
+      <label>Verifica della correzione (retest)
+        <textarea name="retest" rows="2"
+                  placeholder="Esito del retest: corretta? quando? come verificata?">{{ values.retest }}</textarea>
+      </label>
 
       <input type="hidden" name="topic_id" value="{{ values.topic_id }}">
       <input type="hidden" name="check_id" value="{{ values.check_id }}">
       <button type="submit">{{ submit_label }}</button>
     </form>
+
+    {% if events %}
+      <section class="history">
+        <h2>Storico delle modifiche</h2>
+        <ul class="timeline">
+          {% for e in events %}
+            <li><span class="t-when">{{ e.at.strftime('%Y-%m-%d %H:%M') }}</span> {{ e.message }}</li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
   {% endif %}
 {% endblock %}
