@@ -282,11 +282,13 @@ pre.cmd code {
   white-space: nowrap;
 }
 .status-badge { color: var(--muted); }
-.sev-critical { color: #ff6b6b; border-color: #7a2a2a; }
-.sev-high     { color: #ff9f6b; border-color: #7a4524; }
-.sev-medium   { color: #ffd36b; border-color: #7a6424; }
-.sev-low      { color: #9fd3ff; border-color: #2f5d6e; }
-.sev-info     { color: #b7c0cc; border-color: var(--border); }
+/* Il colore per gravita' vale SOLO per i badge e le intestazioni di gruppo:
+   non deve tingere il testo di un'intera scheda (che ha la stessa classe). */
+.sev-badge.sev-critical, .sev-group.sev-critical { color: #ff6b6b; border-color: #7a2a2a; }
+.sev-badge.sev-high,     .sev-group.sev-high     { color: #ff9f6b; border-color: #7a4524; }
+.sev-badge.sev-medium,   .sev-group.sev-medium   { color: #ffd36b; border-color: #7a6424; }
+.sev-badge.sev-low,      .sev-group.sev-low      { color: #9fd3ff; border-color: #2f5d6e; }
+.sev-badge.sev-info,     .sev-group.sev-info     { color: #b7c0cc; border-color: var(--border); }
 .finding.sev-critical, .report-finding.sev-critical { border-left-color: #ff6b6b; }
 .finding.sev-high,     .report-finding.sev-high     { border-left-color: #ff9f6b; }
 .finding.sev-medium,   .report-finding.sev-medium   { border-left-color: #ffd36b; }

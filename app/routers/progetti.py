@@ -8,7 +8,13 @@ from sqlmodel import Session, func, select
 from app.database import get_session
 from app.models import SEVERITIES, STATUSES, Finding, Project, Target
 from app.reporting import target_label
-from app.web import SEVERITY_LABELS, SEVERITY_RANK, STATUS_LABELS, templates
+from app.web import (
+    LIKELIHOOD_LABELS,
+    SEVERITY_LABELS,
+    SEVERITY_RANK,
+    STATUS_LABELS,
+    templates,
+)
 
 router = APIRouter()
 
@@ -139,6 +145,7 @@ def progetto_detail(
             "sel_status": status or "",
             "severity_labels": SEVERITY_LABELS,
             "status_labels": STATUS_LABELS,
+            "likelihood_labels": LIKELIHOOD_LABELS,
         },
     )
 

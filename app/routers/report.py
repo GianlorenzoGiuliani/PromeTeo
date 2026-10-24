@@ -8,7 +8,13 @@ from sqlmodel import Session, select
 from app.database import get_session
 from app.models import SEVERITIES, Finding, Project, Target
 from app.reporting import build_markdown_report, finding_target_str
-from app.web import SEVERITY_LABELS, SEVERITY_RANK, STATUS_LABELS, templates
+from app.web import (
+    LIKELIHOOD_LABELS,
+    SEVERITY_LABELS,
+    SEVERITY_RANK,
+    STATUS_LABELS,
+    templates,
+)
 
 router = APIRouter()
 
@@ -39,6 +45,7 @@ def report_html(project_id: int, request: Request, session: Session = Depends(ge
             "severities": SEVERITIES,
             "severity_labels": SEVERITY_LABELS,
             "status_labels": STATUS_LABELS,
+            "likelihood_labels": LIKELIHOOD_LABELS,
             "now": datetime.now(),
         },
     )
@@ -54,7 +61,9 @@ def report_md(project_id: int, session: Session = Depends(get_session)):
     findings = sorted(findings, key=lambda f: (SEVERITY_RANK.get(f.severity, 99), f.id))
     targets = session.exec(select(Target).where(Target.project_id == project_id)).all()
     targets_by_id = {t.id: t for t in targets}
-    markdown = build_markdown_report(project, findings, SEVERITY_LABELS, STATUS_LABELS, targets_by_id)
+    markdown = build_markdown_report(
+        project, findings, SEVERITY_LABELS, STATUS_LABELS, LIKELIHOOD_LABELS, targets_by_id
+    )
     filename = f"report-progetto-{project.id}.md"
     return PlainTextResponse(
         markdown,
