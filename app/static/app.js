@@ -1,10 +1,11 @@
-// JavaScript lato browser di PromeTeus.
+// JavaScript lato browser di Prometeo.
 //
 // A differenza del resto dell'app (che gira sul server), questo codice gira
 // nel browser dell'utente. Fa due cose:
 //   1) il tasto "Copia" sui blocchi di comando/payload;
 //   2) nel form "nuovo finding" globale, aggiorna il menu dei target quando
-//      cambi il progetto scelto.
+//      cambi il progetto scelto;
+//   3) l'assistente AI: manda la descrizione al server e riempie i campi.
 //
 // 'DOMContentLoaded' = aspetta che la pagina sia caricata prima di agire.
 document.addEventListener("DOMContentLoaded", function () {
@@ -58,5 +59,65 @@ document.addEventListener("DOMContentLoaded", function () {
 
     projSel.addEventListener("change", fillTargets);
     fillTargets();  // riempi subito in base al progetto gia' selezionato
+  }
+
+  // --- 3) Assistente AI: precompila il form da una descrizione ---
+  // Scrive i valori suggeriti nei campi del form, poi tocca all'utente
+  // controllare e correggere prima di salvare.
+  function fillFinding(form, fields) {
+    if (!form || !fields) return;
+    Object.keys(fields).forEach(function (name) {
+      var value = fields[name];
+      if (value === null || value === undefined || value === "") return;
+      var el = form.elements[name];
+      if (el) el.value = value;  // su una <select> seleziona l'opzione giusta
+    });
+  }
+
+  var aiBtn = document.getElementById("ai-btn");
+  if (aiBtn) {
+    aiBtn.addEventListener("click", function () {
+      var descEl = document.getElementById("ai-desc");
+      var statusEl = document.getElementById("ai-status");
+      var form = aiBtn.closest("form");
+      var desc = ((descEl && descEl.value) || "").trim();
+      if (!desc) {
+        if (statusEl) statusEl.textContent = "Scrivi prima una breve descrizione.";
+        return;
+      }
+      var tokenEl = form ? form.querySelector('input[name="csrf_token"]') : null;
+      var body = new URLSearchParams({
+        description: desc,
+        csrf_token: tokenEl ? tokenEl.value : "",
+      });
+      aiBtn.disabled = true;
+      if (statusEl) statusEl.textContent = "Sto generando…";
+      fetch(aiBtn.dataset.url, { method: "POST", body: body })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (!data.ok) {
+            if (statusEl) statusEl.textContent = data.error || "Errore.";
+            return;
+          }
+          fillFinding(form, data.fields);
+          if (statusEl) statusEl.textContent = "Fatto! Controlla e correggi prima di salvare.";
+        })
+        .catch(function () {
+          if (statusEl) statusEl.textContent = "Errore di rete.";
+        })
+        .finally(function () { aiBtn.disabled = false; });
+    });
+  }
+
+  // --- 4) Interruttore tema chiaro/scuro ---
+  var themeBtn = document.getElementById("theme-toggle");
+  if (themeBtn) {
+    themeBtn.addEventListener("click", function () {
+      var root = document.documentElement;
+      var current = root.getAttribute("data-theme") === "light" ? "light" : "dark";
+      var next = current === "light" ? "dark" : "light";
+      root.setAttribute("data-theme", next);
+      try { localStorage.setItem("tema", next); } catch (e) {}
+    });
   }
 });

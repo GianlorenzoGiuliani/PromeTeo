@@ -1,12 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}{{ form_title }} - PromeTeus{% endblock %}
+{% block title %}{{ form_title }} - Prometeo{% endblock %}
 
 {% block content %}
   <p class="breadcrumb"><a href="{{ back_url }}">&larr; Indietro</a></p>
   <h1>{{ form_title }}</h1>
 
   <form class="form-card" method="post" action="{{ form_action }}">
+    {% include "_csrf.html" %}
     <label>Tipo
       <select name="kind">
         {% for k in kinds %}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}CVE &mdash; {{ tech.name or 'tecnologia' }} - Prometeo{% endblock %}
+
+{% block content %}
+  <p class="breadcrumb"><a href="/progetti/{{ project.id }}">&larr; {{ project.name }}</a></p>
+
+  <header class="topic-head">
+    <h1>CVE note{% if tech.name %} &mdash; {{ tech.name }}{% if tech.version %} {{ tech.version }}{% endif %}{% endif %}</h1>
+    {% if tech.cpe %}<p class="refs"><code>{{ tech.cpe }}</code></p>{% endif %}
+    <p class="hint">Fonte: <a href="https://nvd.nist.gov" target="_blank" rel="noopener">NVD</a>
+      (National Vulnerability Database). I dati possono non essere esaustivi: verifica sempre.</p>
+  </header>
+
+  {% if error %}
+    <p class="empty">{{ error }}</p>
+  {% elif not cves %}
+    <p class="empty">Nessuna CVE trovata per questo CPE.</p>
+  {% else %}
+    <p class="result-count">{{ cves|length }} CVE trovate (le piu' gravi in cima).</p>
+    {% for c in cves %}
+      <article class="finding{% if c.severity %} sev-{{ c.severity|lower }}{% endif %}">
+        <div class="finding-head">
+          {% if c.severity %}<span class="sev-badge sev-{{ c.severity|lower }}">{{ c.severity }}</span>{% endif %}
+          <strong>{{ c.id }}</strong>
+          {% if c.cvss_score is not none %}<span class="cvss-badge">CVSS {{ c.cvss_score }}</span>{% endif %}
+          {% if c.published %}<span class="muted">{{ c.published }}</span>{% endif %}
+        </div>
+        {% if c.description %}<p>{{ c.description }}</p>{% endif %}
+        <div class="finding-actions">
+          <a class="btn-link" href="{{ c.url }}" target="_blank" rel="noopener">Scheda NVD &nearr;</a>
+          <a class="btn-link" href="{{ c.finding_url }}">+ Aggiungi come finding</a>
+        </div>
+      </article>
+    {% endfor %}
+  {% endif %}
+{% endblock %}

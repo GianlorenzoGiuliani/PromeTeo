@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - Prometeo{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>{{ title }}</h1>
+    <a class="btn" href="/catalogo/nuovo?kind={{ kind }}">+ Aggiungi voce</a>
+  </div>
+
+  <form class="search" method="get" action="{{ section_url }}">
+    <input type="search" name="q" value="{{ q }}" placeholder="Cerca in {{ title }}…">
+    <button type="submit">Cerca</button>
+  </form>
+
+  {% if topics %}
+    <p class="result-count">{{ topics|length }} voci</p>
+    <ul class="topic-list">
+      {% for t in topics %}
+        <li class="topic-item">
+          <a class="topic-link" href="/topic/{{ t.id }}">
+            {% if t.port %}<span class="kind-badge kind-port">{{ t.port }}{% if t.protocol %}/{{ t.protocol }}{% endif %}</span>{% endif %}
+            <strong>{{ t.name }}</strong>
+            <span class="count">{{ counts.get(t.id, 0) }} test</span>
+          </a>
+          {% if t.description %}<p class="desc">{{ t.description }}</p>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty">Nessuna voce{% if q %} per &laquo;{{ q }}&raquo;{% endif %}.</p>
+  {% endif %}
+{% endblock %}

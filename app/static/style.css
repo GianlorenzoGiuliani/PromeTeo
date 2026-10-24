@@ -1,5 +1,5 @@
 /* ===========================================================================
-   style.css - l'aspetto grafico di PromeTeus.
+   style.css - l'aspetto grafico di Prometeo.
    Tema scuro, sobrio, adatto a uno strumento da lavoro.
    I colori sono definiti una volta sola qui sotto (le "variabili"): se un
    domani vorrai cambiare colore, cambi un valore solo e cambia ovunque.
@@ -255,8 +255,8 @@ pre.cmd code {
   font-family: inherit;
 }
 .form-card textarea { resize: vertical; }
-.form-row { display: flex; gap: 1rem; }
-.form-row label { flex: 1; }
+.form-row { display: flex; flex-wrap: wrap; gap: 1rem; }
+.form-row label { flex: 1 1 160px; }
 
 /* --- Findings --- */
 .finding {
@@ -282,11 +282,13 @@ pre.cmd code {
   white-space: nowrap;
 }
 .status-badge { color: var(--muted); }
-.sev-critical { color: #ff6b6b; border-color: #7a2a2a; }
-.sev-high     { color: #ff9f6b; border-color: #7a4524; }
-.sev-medium   { color: #ffd36b; border-color: #7a6424; }
-.sev-low      { color: #9fd3ff; border-color: #2f5d6e; }
-.sev-info     { color: #b7c0cc; border-color: var(--border); }
+/* Il colore per gravita' vale SOLO per i badge e le intestazioni di gruppo:
+   non deve tingere il testo di un'intera scheda (che ha la stessa classe). */
+.sev-badge.sev-critical, .sev-group.sev-critical { color: #ff6b6b; border-color: #7a2a2a; }
+.sev-badge.sev-high,     .sev-group.sev-high     { color: #ff9f6b; border-color: #7a4524; }
+.sev-badge.sev-medium,   .sev-group.sev-medium   { color: #ffd36b; border-color: #7a6424; }
+.sev-badge.sev-low,      .sev-group.sev-low      { color: #9fd3ff; border-color: #2f5d6e; }
+.sev-badge.sev-info,     .sev-group.sev-info     { color: #b7c0cc; border-color: var(--border); }
 .finding.sev-critical, .report-finding.sev-critical { border-left-color: #ff6b6b; }
 .finding.sev-high,     .report-finding.sev-high     { border-left-color: #ff9f6b; }
 .finding.sev-medium,   .report-finding.sev-medium   { border-left-color: #ffd36b; }
@@ -428,3 +430,145 @@ pre.cmd code {
 /* Badge dei nuovi tipi di voce */
 .kind-ad  { color: #c9a0ff; border-color: #5a3f7a; }
 .kind-web { color: #7fe0d0; border-color: #2f6e63; }
+
+/* ===========================================================================
+   Mini-dashboard del progetto: numeri-chiave + distribuzione per gravita'.
+   =========================================================================== */
+.dashboard { margin: 1.5rem 0; }
+
+/* Riga di "stat tile" (numeri-chiave) */
+.kpi-row { display: flex; flex-wrap: wrap; gap: 0.8rem; }
+.kpi {
+  flex: 1 1 120px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.kpi-num { font-size: 1.8rem; font-weight: 700; line-height: 1; }
+.kpi-label {
+  color: var(--muted); font-size: 0.75rem;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+
+/* Barra di distribuzione per gravita' (segmenti con 2px di stacco) */
+.sev-bar {
+  display: flex;
+  height: 14px;
+  margin: 1.1rem 0 0.6rem;
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.sev-seg { box-sizing: border-box; border-right: 2px solid var(--bg); }
+.sev-seg:last-child { border-right: none; }
+
+/* Legenda: colore SEMPRE accompagnato da etichetta e numero */
+.sev-legend {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-wrap: wrap; gap: 0.3rem 1rem;
+  font-size: 0.85rem; color: var(--muted);
+}
+.sev-legend li { display: flex; align-items: center; gap: 0.4rem; }
+.sev-legend strong { color: var(--text); }
+.sev-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+/* Colori di sfondo per gravita' (coerenti coi badge e i bordi dei finding) */
+.sev-bg-critical { background: #ff6b6b; }
+.sev-bg-high     { background: #ff9f6b; }
+.sev-bg-medium   { background: #ffd36b; }
+.sev-bg-low      { background: #9fd3ff; }
+.sev-bg-info     { background: #b7c0cc; }
+
+/* ===========================================================================
+   Storico delle modifiche di un finding (timeline).
+   =========================================================================== */
+.history { margin-top: 1.8rem; max-width: 680px; }
+.history h2 { font-size: 1.1rem; margin-bottom: 0.6rem; }
+.timeline { list-style: none; padding: 0; margin: 0; border-left: 2px solid var(--border); }
+.timeline li {
+  padding: 0.35rem 0 0.35rem 0.9rem;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.timeline .t-when {
+  color: var(--muted); font-size: 0.78rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  margin-right: 0.5rem;
+}
+
+/* Riga di meta-dati del finding (CVSS, probabilita', assegnatario...) */
+.finding-meta {
+  display: flex; flex-wrap: wrap; gap: 0.3rem 0.8rem;
+  margin: 0.5rem 0 0; font-size: 0.85rem; color: var(--muted);
+}
+.finding-meta strong { color: var(--text); }
+.cvss-badge {
+  font-size: 0.75rem; font-weight: 600;
+  padding: 0.05rem 0.45rem; border-radius: 6px;
+  border: 1px solid var(--border); color: var(--accent);
+}
+
+/* ===========================================================================
+   Assistente AI nel form dei findings.
+   =========================================================================== */
+.ai-assist {
+  background: var(--surface-2);
+  border: 1px dashed var(--accent);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  margin-bottom: 1.2rem;
+}
+.ai-assist label {
+  display: block; font-size: 0.9rem; margin-bottom: 0.4rem; color: var(--text);
+}
+.ai-assist textarea {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.95rem;
+  resize: vertical;
+}
+.ai-assist-row {
+  display: flex; align-items: center; gap: 0.8rem;
+  margin-top: 0.6rem; flex-wrap: wrap;
+}
+.ai-assist-row .hint { margin: 0; }
+
+/* ===========================================================================
+   Tema CHIARO (grigio, non bianco). Si attiva con data-theme="light" su <html>.
+   L'assenza dell'attributo = tema scuro (quello di default).
+   Ridefiniamo solo le variabili: tutto il resto si adatta da solo.
+   =========================================================================== */
+:root[data-theme="light"] {
+  --bg:        #cfd4da;   /* grigio di sfondo (non bianco) */
+  --surface:   #e6e9ed;   /* card e barre, piu' chiare dello sfondo */
+  --surface-2: #dadee3;   /* hover */
+  --border:    #b3bac3;
+  --text:      #1b2027;   /* testo scuro */
+  --muted:     #566069;   /* testo secondario */
+  --accent:    #b24a00;   /* arancione piu' scuro: leggibile su chiaro */
+}
+
+/* Interruttore del tema nella barra in alto */
+.theme-toggle {
+  margin-left: 1rem;
+  width: 2rem;
+  height: 2rem;
+  line-height: 1;
+  font-size: 1rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  cursor: pointer;
+  vertical-align: middle;
+}
+.theme-toggle:hover { background: var(--surface-2); color: var(--text); }

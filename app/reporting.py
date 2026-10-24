@@ -41,6 +41,7 @@ def build_markdown_report(
     findings: list[Finding],
     severity_labels: dict[str, str],
     status_labels: dict[str, str],
+    likelihood_labels: dict[str, str],
     targets_by_id: dict[int, Target],
 ) -> str:
     """Costruisce il testo Markdown del report a partire dai dati."""
@@ -95,10 +96,25 @@ def build_markdown_report(
             target = finding_target_str(f, targets_by_id)
             if target:
                 meta.append(f"**Bersaglio:** {target}")
+            if f.port:
+                meta.append(f"**Porta:** {f.port}")
+            if f.likelihood:
+                meta.append(f"**Probabilità:** {likelihood_labels.get(f.likelihood, f.likelihood)}")
+            if f.cvss_score is not None:
+                cvss = f"**CVSS:** {f.cvss_score}"
+                if f.cvss_vector:
+                    cvss += f" ({f.cvss_vector})"
+                meta.append(cvss)
+            elif f.cvss_vector:
+                meta.append(f"**CVSS:** {f.cvss_vector}")
             if f.cve:
                 meta.append(f"**CVE:** {f.cve}")
             if f.cwe:
                 meta.append(f"**CWE:** {f.cwe}")
+            if f.assignee:
+                meta.append(f"**Assegnatario:** {f.assignee}")
+            if f.closed_at:
+                meta.append(f"**Chiuso il:** {f.closed_at:%Y-%m-%d}")
             out.append("  \n".join(meta))
             out.append("")
 
@@ -106,6 +122,16 @@ def build_markdown_report(
                 out.append("**Descrizione**")
                 out.append("")
                 out.append(f.description)
+                out.append("")
+            if f.impact:
+                out.append("**Impatto**")
+                out.append("")
+                out.append(f.impact)
+                out.append("")
+            if f.reproduction:
+                out.append("**Passi per riprodurre**")
+                out.append("")
+                out.append(f.reproduction)
                 out.append("")
             if f.evidence:
                 out.append("**Prova (evidence)**")
@@ -118,6 +144,16 @@ def build_markdown_report(
                 out.append("**Rimedio**")
                 out.append("")
                 out.append(f.remediation)
+                out.append("")
+            if f.references:
+                out.append("**Riferimenti**")
+                out.append("")
+                out.append(f.references)
+                out.append("")
+            if f.retest:
+                out.append("**Verifica della correzione**")
+                out.append("")
+                out.append(f.retest)
                 out.append("")
 
     return "\n".join(out)

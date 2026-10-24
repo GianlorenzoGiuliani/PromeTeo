@@ -1,5 +1,5 @@
 """
-I "modelli" di PromeTeus: descrivono QUALI dati salviamo e COME si collegano.
+I "modelli" di Prometeo: descrivono QUALI dati salviamo e COME si collegano.
 Ogni classe con `table=True` diventa una tabella nel database.
 
 Due gruppi:
@@ -24,6 +24,12 @@ SEVERITIES = ["critical", "high", "medium", "low", "info"]
 
 # Stato di un finding nel tempo.
 STATUSES = ["open", "confirmed", "false_positive", "resolved"]
+
+# Stati "chiusi": entrando in uno di questi registriamo la data di chiusura.
+CLOSED_STATUSES = {"resolved", "false_positive"}
+
+# Probabilita' che la vulnerabilita' venga sfruttata (valutazione del rischio).
+LIKELIHOODS = ["high", "medium", "low"]
 
 
 # ==============================  CATALOGO  ==============================
@@ -78,8 +84,9 @@ class Project(SQLModel, table=True):
     info: Optional[str] = None               # note operative: VPN, credenziali, accessi...
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    # Un progetto ha molti bersagli (target) e molti findings.
+    # Un progetto ha molti bersagli (target), tecnologie e findings.
     targets: list["Target"] = Relationship(back_populates="project")
+    technologies: list["Technology"] = Relationship(back_populates="project")
     findings: list["Finding"] = Relationship(back_populates="project")
 
 
@@ -95,6 +102,21 @@ class Target(SQLModel, table=True):
     notes: Optional[str] = None              # note sul singolo bersaglio
 
     project: Optional[Project] = Relationship(back_populates="targets")
+
+
+class Technology(SQLModel, table=True):
+    """Una tecnologia individuata in un progetto (es. 'nginx 1.18.0'), con il
+    suo CPE. Dal CPE si interroga l'NVD per sapere quali CVE la riguardano."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    project_id: int = Field(foreign_key="project.id", index=True)
+    name: Optional[str] = None            # es. "nginx", "Apache httpd"
+    version: Optional[str] = None         # es. "1.18.0"
+    cpe: Optional[str] = None             # es. "cpe:2.3:a:nginx:nginx:1.18.0:*:*:*:*:*:*:*"
+    notes: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    project: Optional[Project] = Relationship(back_populates="technologies")
 
 
 class Finding(SQLModel, table=True):
@@ -113,6 +135,18 @@ class Finding(SQLModel, table=True):
     remediation: Optional[str] = None        # come correggerla (va nel report)
     cve: Optional[str] = None                # es. "CVE-2019-0708"
     cwe: Optional[str] = None                # es. "CWE-89"
+    port: Optional[int] = None               # la porta dove e' stato trovato (es. 3389)
+
+    # --- Valutazione del rischio e ciclo di vita ---
+    impact: Optional[str] = None             # impatto se la vulnerabilita' e' sfruttata
+    likelihood: Optional[str] = None         # probabilita': uno tra LIKELIHOODS
+    reproduction: Optional[str] = None       # passi per riprodurre
+    references: Optional[str] = None         # riferimenti / link di approfondimento
+    cvss_vector: Optional[str] = None        # es. "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/..."
+    cvss_score: Optional[float] = None       # punteggio CVSS 0.0-10.0
+    assignee: Optional[str] = None           # a chi e' assegnata la verifica/correzione
+    retest: Optional[str] = None             # esito della verifica della correzione (retest)
+    closed_at: Optional[datetime] = None     # quando il finding e' stato chiuso
 
     # Campi "bersaglio" storici: restano per i findings creati prima dei target.
     # I nuovi findings usano 'target_id' qui sopra (si seleziona un target).
@@ -127,3 +161,16 @@ class Finding(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     project: Optional[Project] = Relationship(back_populates="findings")
+
+
+class FindingEvent(SQLModel, table=True):
+    """Una riga dello storico di un finding: cosa e' cambiato e quando.
+
+    Ogni volta che un finding viene creato o modificato, aggiungiamo qui una
+    riga leggibile (es. "Stato: aperto -> risolto"). Cosi' resta traccia del
+    ciclo di vita senza toccare il finding stesso."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    finding_id: int = Field(foreign_key="finding.id", index=True)
+    at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    message: str                             # descrizione leggibile del cambiamento

@@ -55,17 +55,26 @@
             <h4>{{ ns.n }}. {{ f.title }}</h4>
             <p class="finding-meta">
               <span class="status-badge">{{ status_labels.get(f.status, f.status) }}</span>
+              {% if f.port %}<span>Porta: <strong>{{ f.port }}</strong></span>{% endif %}
+              {% if f.cvss_score is not none %}<span class="cvss-badge">CVSS {{ f.cvss_score }}</span>{% endif %}
+              {% if f.likelihood %}<span>Probabilità: <strong>{{ likelihood_labels.get(f.likelihood, f.likelihood) }}</strong></span>{% endif %}
+              {% if f.assignee %}<span>Assegnatario: <strong>{{ f.assignee }}</strong></span>{% endif %}
               {% if f.cve %}<span class="idtag">{{ f.cve }}</span>{% endif %}
               {% if f.cwe %}<span class="idtag">{{ f.cwe }}</span>{% endif %}
             </p>
             {% set tstr = target_strings.get(f.id) %}
             {% if tstr %}<p><strong>Bersaglio:</strong> {{ tstr }}</p>{% endif %}
+            {% if f.cvss_vector %}<p class="muted"><strong>CVSS:</strong> {{ f.cvss_vector }}</p>{% endif %}
             {% if f.description %}<p>{{ f.description }}</p>{% endif %}
+            {% if f.impact %}<p><strong>Impatto:</strong> {{ f.impact }}</p>{% endif %}
+            {% if f.reproduction %}<p><strong>Passi per riprodurre:</strong> {{ f.reproduction }}</p>{% endif %}
             {% if f.evidence %}
               <div class="cmd-label">Prova</div>
               <pre class="cmd"><code>{{ f.evidence }}</code></pre>
             {% endif %}
             {% if f.remediation %}<p><strong>Rimedio:</strong> {{ f.remediation }}</p>{% endif %}
+            {% if f.references %}<p><strong>Riferimenti:</strong> {{ f.references }}</p>{% endif %}
+            {% if f.retest %}<p><strong>Verifica (retest):</strong> {{ f.retest }}</p>{% endif %}
           </article>
         {% endfor %}
       {% endif %}

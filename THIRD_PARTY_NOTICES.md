@@ -1,6 +1,6 @@
 # Attribuzioni di terze parti
 
-PromeTeus include contenuti provenienti da progetti di terzi. Qui sotto trovi
+Prometeo include contenuti provenienti da progetti di terzi. Qui sotto trovi
 la fonte e la licenza di ciascuno, come richiesto dalle rispettive licenze.
 
 ---
@@ -8,9 +8,9 @@ la fonte e la licenza di ciascuno, come richiesto dalle rispettive licenze.
 ## PayloadsAllTheThings
 
 - **Fonte:** https://github.com/swisskyrepo/PayloadsAllTheThings
-- **Uso in PromeTeus:** le voci del catalogo di tipo *tecnica* (payload e
+- **Uso in Prometeo:** le voci del catalogo di tipo *tecnica* (payload e
   tecniche per varie classi di vulnerabilità) sono derivate dai file del
-  progetto, trasformate nel formato di PromeTeus da `tools/import_payloads.py`.
+  progetto, trasformate nel formato di Prometeo da `tools/import_payloads.py`.
 - **Licenza:** MIT
 
 ```
@@ -42,7 +42,7 @@ SOFTWARE.
 ## HackTricks
 
 - **Fonte:** https://book.hacktricks.xyz
-- **Uso in PromeTeus:** **solo collegamenti.** Alcune voci del catalogo
+- **Uso in Prometeo:** **solo collegamenti.** Alcune voci del catalogo
   contengono un link alla pagina HackTricks corrispondente (campo
   `references`). Nessun testo di HackTricks è copiato nel database.
 - **Licenza:** Creative Commons Attribution-NonCommercial 4.0 (CC BY-NC 4.0),

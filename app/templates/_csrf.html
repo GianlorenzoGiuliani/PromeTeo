@@ -1,0 +1,3 @@
+{# Campo nascosto con il token CSRF. Va incluso dentro ogni <form method="post">.
+   Il valore arriva da request.state.csrf_token, impostato dal middleware. #}
+<input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">

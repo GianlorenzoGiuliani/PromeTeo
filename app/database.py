@@ -1,7 +1,7 @@
 """
-Configurazione del database di PromeTeus.
+Configurazione del database di Prometeo.
 
-Usiamo SQLite: salva TUTTO in un unico file (prometeus.db) nella cartella del
+Usiamo SQLite: salva TUTTO in un unico file (prometeo.db) nella cartella del
 progetto. Nessun server da installare e i dati restano sul tuo computer.
 """
 from pathlib import Path
@@ -10,7 +10,7 @@ from sqlmodel import Session, SQLModel, create_engine
 
 # Il file del database sta nella cartella radice del progetto (una sopra "app").
 BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = BASE_DIR / "prometeus.db"
+DB_PATH = BASE_DIR / "prometeo.db"
 
 # L'"engine" e' l'oggetto che sa come parlare col database.
 #   - echo=True stamperebbe ogni query SQL: utile per imparare o per il debug.
@@ -45,15 +45,34 @@ def _run_light_migrations() -> None:
     # (La tabella 'target', essendo nuova, la crea gia' create_all.)
     attese = {
         "project": [("company", "VARCHAR"), ("author", "VARCHAR"), ("info", "TEXT")],
-        "finding": [("target_id", "INTEGER")],
+        "finding": [
+            ("target_id", "INTEGER"),
+            ("port", "INTEGER"),
+            ("impact", "TEXT"),
+            ("likelihood", "VARCHAR"),
+            ("reproduction", "TEXT"),
+            ("references", "TEXT"),
+            ("cvss_vector", "VARCHAR"),
+            ("cvss_score", "FLOAT"),
+            ("assignee", "VARCHAR"),
+            ("retest", "TEXT"),
+            ("closed_at", "DATETIME"),
+        ],
         "topic": [("intro", "TEXT")],
     }
     with engine.connect() as conn:
         for tabella, colonne in attese.items():
             presenti = {row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({tabella})")}
+            if not presenti:
+                # La tabella non esiste ancora (in SQLite una tabella ha sempre
+                # almeno una colonna): la creera' create_all, qui non c'e' nulla
+                # da migrare. Saltiamo per non dare errore.
+                continue
             for nome, tipo in colonne:
                 if nome not in presenti:
-                    conn.exec_driver_sql(f"ALTER TABLE {tabella} ADD COLUMN {nome} {tipo}")
+                    # Quotiamo il nome della colonna: alcuni (es. "references") sono
+                    # parole riservate in SQL e senza virgolette darebbero errore.
+                    conn.exec_driver_sql(f'ALTER TABLE {tabella} ADD COLUMN "{nome}" {tipo}')
         conn.commit()
 
 

@@ -1,22 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}{{ project.name }} - PromeTeus{% endblock %}
+{% block title %}{{ project.name }} - Prometeo{% endblock %}
 
 {% block content %}
   <p class="breadcrumb"><a href="/progetti">&larr; Progetti</a></p>
 
   <header class="topic-head">
     <h1>{{ project.name }}</h1>
-    {% if project.client %}<p class="desc">Cliente: {{ project.client }}</p>{% endif %}
-    {% if project.company or project.author %}
-      <p class="desc">
-        {% if project.company %}Azienda: {{ project.company }}{% endif %}
-        {% if project.company and project.author %} &middot; {% endif %}
-        {% if project.author %}Autore: {{ project.author }}{% endif %}
-      </p>
-    {% endif %}
-    {% if project.scope %}<p class="detection"><strong>Scope:</strong> {{ project.scope }}</p>{% endif %}
-    {% if project.info %}<p class="detection"><strong>Info operative:</strong> {{ project.info }}</p>{% endif %}
+    {% if project.info %}<p class="detection"><strong>Note:</strong> {{ project.info }}</p>{% endif %}
     <div class="actions">
       <a class="btn" href="/progetti/{{ project.id }}/findings/nuovo">+ Aggiungi finding</a>
       <a class="btn btn-secondary" href="/progetti/{{ project.id }}/report">Vedi report</a>
@@ -24,10 +15,47 @@
       <a class="btn btn-secondary" href="/progetti/{{ project.id }}/modifica">Modifica</a>
       <form class="inline-form" method="post" action="/progetti/{{ project.id }}/elimina"
             onsubmit="return confirm('Eliminare il progetto e TUTTI i suoi findings?');">
+        {% include "_csrf.html" %}
         <button class="btn btn-danger" type="submit">Elimina</button>
       </form>
     </div>
   </header>
+
+  <section class="dashboard" aria-label="Riepilogo del progetto">
+    <div class="kpi-row">
+      <div class="kpi">
+        <span class="kpi-num">{{ stats.n_targets }}</span>
+        <span class="kpi-label">Target</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-num">{{ stats.n_findings }}</span>
+        <span class="kpi-label">Findings</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-num">{{ stats.da_verificare }}</span>
+        <span class="kpi-label">Da verificare</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-num">{{ stats.risolti }}</span>
+        <span class="kpi-label">Risolti</span>
+      </div>
+    </div>
+
+    {% if stats.n_findings %}
+      {# Barra: distribuzione per gravita'. Il colore e' sempre accompagnato
+         da etichetta e numero nella legenda sotto (mai solo colore). #}
+      <div class="sev-bar" role="img" aria-label="Distribuzione dei findings per gravita'">
+        {% for s in severities %}{% if stats.sev_counts[s] %}<span class="sev-seg sev-bg-{{ s }}" style="width: {{ (stats.sev_counts[s] / stats.n_findings * 100) | round(2) }}%" title="{{ severity_labels[s] }}: {{ stats.sev_counts[s] }}"></span>{% endif %}{% endfor %}
+      </div>
+      <ul class="sev-legend">
+        {% for s in severities %}
+          <li><span class="sev-dot sev-bg-{{ s }}"></span>{{ severity_labels[s] }} <strong>{{ stats.sev_counts[s] }}</strong></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">Nessun finding ancora: la distribuzione per gravita' comparira' qui.</p>
+    {% endif %}
+  </section>
 
   <section class="targets-section">
     <div class="page-head">
@@ -52,6 +80,7 @@
                 <a class="btn-link" href="/target/{{ t.id }}/modifica">Modifica</a>
                 <form class="inline-form" method="post" action="/target/{{ t.id }}/elimina"
                       onsubmit="return confirm('Eliminare questo target? I findings che lo usano perderanno il collegamento.');">
+                  {% include "_csrf.html" %}
                   <button class="btn-link-danger" type="submit">Elimina</button>
                 </form>
               </div>
@@ -61,6 +90,41 @@
       </ul>
     {% else %}
       <p class="empty">Nessun target. Aggiungi gli host/URL del progetto: potrai selezionarli nei findings.</p>
+    {% endif %}
+  </section>
+
+  <section class="targets-section">
+    <div class="page-head">
+      <h2>Tecnologie ({{ technologies|length }})</h2>
+      <a class="btn btn-secondary" href="/progetti/{{ project.id }}/tecnologie/nuovo">+ Aggiungi tecnologia</a>
+    </div>
+    {% if technologies %}
+      <ul class="topic-list">
+        {% for t in technologies %}
+          <li class="topic-item">
+            <div class="target-row">
+              <div>
+                <strong>{{ t.name or 'Tecnologia' }}{% if t.version %} {{ t.version }}{% endif %}</strong>
+                <div class="muted target-detail">
+                  {% if t.cpe %}<code>{{ t.cpe }}</code>{% else %}<span class="hint">nessun CPE</span>{% endif %}
+                  {% if t.notes %}<br>{{ t.notes }}{% endif %}
+                </div>
+              </div>
+              <div class="finding-actions">
+                <a class="btn-link" href="/tecnologia/{{ t.id }}/cve">Cerca CVE</a>
+                <a class="btn-link" href="/tecnologia/{{ t.id }}/modifica">Modifica</a>
+                <form class="inline-form" method="post" action="/tecnologia/{{ t.id }}/elimina"
+                      onsubmit="return confirm('Eliminare questa tecnologia?');">
+                  {% include "_csrf.html" %}
+                  <button class="btn-link-danger" type="submit">Elimina</button>
+                </form>
+              </div>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty">Nessuna tecnologia. Aggiungi un prodotto + versione (con CPE) per cercarne le CVE sull'NVD.</p>
     {% endif %}
   </section>
 
@@ -102,16 +166,31 @@
             </p>
           {% endif %}
 
+          {% if f.port or f.cvss_score is not none or f.likelihood or f.assignee or f.closed_at %}
+            <p class="finding-meta">
+              {% if f.port %}<span>Porta: <strong>{{ f.port }}</strong></span>{% endif %}
+              {% if f.cvss_score is not none %}<span class="cvss-badge">CVSS {{ f.cvss_score }}</span>{% endif %}
+              {% if f.likelihood %}<span>Probabilità: <strong>{{ likelihood_labels.get(f.likelihood, f.likelihood) }}</strong></span>{% endif %}
+              {% if f.assignee %}<span>Assegnatario: <strong>{{ f.assignee }}</strong></span>{% endif %}
+              {% if f.closed_at %}<span>Chiuso il <strong>{{ f.closed_at.strftime('%Y-%m-%d') }}</strong></span>{% endif %}
+            </p>
+          {% endif %}
+
           {% if f.description %}<p>{{ f.description }}</p>{% endif %}
+          {% if f.impact %}<p class="interp"><strong>Impatto:</strong> {{ f.impact }}</p>{% endif %}
+          {% if f.reproduction %}<p class="interp"><strong>Passi per riprodurre:</strong> {{ f.reproduction }}</p>{% endif %}
           {% if f.evidence %}
             <div class="cmd-label">Prova</div>
             <pre class="cmd"><code>{{ f.evidence }}</code></pre>
           {% endif %}
           {% if f.remediation %}<p class="interp"><strong>Rimedio:</strong> {{ f.remediation }}</p>{% endif %}
+          {% if f.references %}<p class="interp"><strong>Riferimenti:</strong> {{ f.references }}</p>{% endif %}
+          {% if f.retest %}<p class="interp"><strong>Verifica (retest):</strong> {{ f.retest }}</p>{% endif %}
           <div class="finding-actions">
             <a class="btn-link" href="/findings/{{ f.id }}/modifica">Modifica</a>
             <form class="inline-form" method="post" action="/findings/{{ f.id }}/elimina"
                   onsubmit="return confirm('Eliminare questo finding?');">
+              {% include "_csrf.html" %}
               <button class="btn-link-danger" type="submit">Elimina</button>
             </form>
           </div>

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Importatore di PayloadsAllTheThings -> PromeTeus.
+Importatore di PayloadsAllTheThings -> Prometeo.
 
 Progetto fonte: https://github.com/swisskyrepo/PayloadsAllTheThings
 Licenza fonte:  MIT (c) 2019 Swissky  (manteniamo l'attribuzione in ogni voce).
@@ -127,7 +127,7 @@ def import_category(cat_dir: Path) -> dict | None:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Importa PayloadsAllTheThings in un JSON per PromeTeus.")
+    ap = argparse.ArgumentParser(description="Importa PayloadsAllTheThings in un JSON per Prometeo.")
     ap.add_argument("--source", required=True, type=Path, help="cartella del clone di PayloadsAllTheThings")
     ap.add_argument("--out", required=True, type=Path, help="file JSON di destinazione")
     args = ap.parse_args()

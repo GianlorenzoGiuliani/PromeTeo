@@ -10,16 +10,24 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   {# Il titolo della scheda del browser. Ogni pagina puo' sovrascriverlo. #}
-  <title>{% block title %}PromeTeus{% endblock %}</title>
+  <title>{% block title %}Prometeo{% endblock %}</title>
   <link rel="stylesheet" href="/static/style.css">
+  <script>
+    // Applica il tema salvato PRIMA del render, cosi' non si vede il "lampo"
+    // del tema sbagliato al caricamento.
+    try { var t = localStorage.getItem("tema"); if (t) document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+  </script>
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/">PromeTeus</a>
+    <a class="brand" href="/">Prometeo</a>
     <nav class="nav">
-      <a href="/">Home</a>
-      <a href="/catalogo">Catalogo</a>
+      <a href="/porte">Porte</a>
+      <a href="/webapp">WebApp</a>
+      <a href="/active-directory">Active Directory</a>
       <a href="/progetti">Progetti</a>
+      <button class="theme-toggle" id="theme-toggle" type="button"
+              title="Tema chiaro/scuro" aria-label="Cambia tema">&#9680;</button>
     </nav>
   </header>
 
