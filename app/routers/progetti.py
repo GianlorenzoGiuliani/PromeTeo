@@ -2,11 +2,18 @@
 target), modifica ed eliminazione."""
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import or_
 from sqlmodel import Session, func, select
 
 from app.database import get_session
-from app.models import SEVERITIES, STATUSES, Finding, Project, Target, Technology
+from app.models import (
+    SEVERITIES,
+    STATUSES,
+    Finding,
+    FindingEvent,
+    Project,
+    Target,
+    Technology,
+)
 from app.reporting import target_label
 from app.web import (
     LIKELIHOOD_LABELS,
@@ -22,11 +29,10 @@ router = APIRouter()
 
 @router.get("/progetti", response_class=HTMLResponse)
 def progetti(request: Request, session: Session = Depends(get_session), q: str | None = None):
-    """Elenco dei progetti (ricercabili per nome/cliente) + form per crearne uno."""
+    """Elenco dei progetti (ricercabili per nome) + form per crearne uno."""
     statement = select(Project).order_by(Project.created_at.desc())
     if q:
-        like = f"%{q}%"
-        statement = statement.where(or_(Project.name.ilike(like), Project.client.ilike(like)))
+        statement = statement.where(Project.name.ilike(f"%{q}%"))
     projects = session.exec(statement).all()
     counts = dict(
         session.exec(select(Finding.project_id, func.count()).group_by(Finding.project_id)).all()
@@ -41,26 +47,15 @@ def progetti(request: Request, session: Session = Depends(get_session), q: str |
 @router.post("/progetti")
 def crea_progetto(
     name: str = Form(...),
-    client: str = Form(""),
-    company: str = Form(""),
-    author: str = Form(""),
-    scope: str = Form(""),
     info: str = Form(""),
     session: Session = Depends(get_session),
 ):
-    """Crea un progetto e reindirizza alla sua pagina.
+    """Crea un progetto (nome + nota) e reindirizza alla sua pagina.
 
     Il reindirizzamento dopo un POST (codice 303) e' il pattern
     'Post/Redirect/Get': evita che ricaricando la pagina si reinvii il form.
     """
-    project = Project(
-        name=name.strip(),
-        client=client.strip() or None,
-        company=company.strip() or None,
-        author=author.strip() or None,
-        scope=scope.strip() or None,
-        info=info.strip() or None,
-    )
+    project = Project(name=name.strip(), info=info.strip() or None)
     session.add(project)
     session.commit()
     session.refresh(project)
@@ -170,20 +165,12 @@ def progetto_edit_form(project_id: int, request: Request, session: Session = Dep
 def progetto_update(
     project_id: int,
     name: str = Form(...),
-    client: str = Form(""),
-    company: str = Form(""),
-    author: str = Form(""),
-    scope: str = Form(""),
     info: str = Form(""),
     session: Session = Depends(get_session),
 ):
-    """Aggiorna i dati di un progetto."""
+    """Aggiorna nome e nota di un progetto."""
     project = get_or_404(session, Project, project_id, "Progetto non trovato")
     project.name = name.strip()
-    project.client = client.strip() or None
-    project.company = company.strip() or None
-    project.author = author.strip() or None
-    project.scope = scope.strip() or None
     project.info = info.strip() or None
     session.add(project)
     session.commit()
@@ -192,11 +179,17 @@ def progetto_update(
 
 @router.post("/progetti/{project_id}/elimina")
 def progetto_delete(project_id: int, session: Session = Depends(get_session)):
-    """Elimina un progetto e TUTTI i suoi findings (cascata manuale ed esplicita)."""
+    """Elimina un progetto e tutto cio' che contiene: findings (con il loro
+    storico), target e tecnologie. Cascata manuale ed esplicita."""
     project = get_or_404(session, Project, project_id, "Progetto non trovato")
-    findings = session.exec(select(Finding).where(Finding.project_id == project_id)).all()
-    for f in findings:
+    for f in session.exec(select(Finding).where(Finding.project_id == project_id)).all():
+        for ev in session.exec(select(FindingEvent).where(FindingEvent.finding_id == f.id)).all():
+            session.delete(ev)
         session.delete(f)
+    for t in session.exec(select(Target).where(Target.project_id == project_id)).all():
+        session.delete(t)
+    for tech in session.exec(select(Technology).where(Technology.project_id == project_id)).all():
+        session.delete(tech)
     session.delete(project)
     session.commit()
     return RedirectResponse(url="/progetti", status_code=303)

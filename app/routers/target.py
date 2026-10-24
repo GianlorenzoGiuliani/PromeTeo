@@ -1,12 +1,12 @@
-"""Target: i bersagli di un progetto (host/IP o URL). Creazione, modifica
-ed eliminazione."""
+"""Target: i bersagli di un progetto (nome + IP/URL). Creazione, modifica,
+eliminazione. La porta non sta piu' qui: si specifica nel finding."""
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session, select
 
 from app.database import get_session
 from app.models import Finding, Project, Target
-from app.web import get_or_404, int_or_none, templates
+from app.web import get_or_404, templates
 
 router = APIRouter()
 
@@ -15,7 +15,7 @@ router = APIRouter()
 def target_new_form(project_id: int, request: Request, session: Session = Depends(get_session)):
     """Form per aggiungere un target a un progetto."""
     project = get_or_404(session, Project, project_id, "Progetto non trovato")
-    values = {"name": "", "host": "", "port": "", "url": "", "notes": ""}
+    values = {"name": "", "host": ""}
     return templates.TemplateResponse(
         request=request,
         name="target_form.html",
@@ -35,20 +35,14 @@ def target_create(
     project_id: int,
     name: str = Form(""),
     host: str = Form(""),
-    port: str = Form(""),
-    url: str = Form(""),
-    notes: str = Form(""),
     session: Session = Depends(get_session),
 ):
-    """Crea un target dentro un progetto."""
-    project = get_or_404(session, Project, project_id, "Progetto non trovato")
+    """Crea un target (nome + IP/URL) dentro un progetto."""
+    get_or_404(session, Project, project_id, "Progetto non trovato")
     target = Target(
         project_id=project_id,
         name=name.strip() or None,
         host=host.strip() or None,
-        port=int_or_none(port),
-        url=url.strip() or None,
-        notes=notes.strip() or None,
     )
     session.add(target)
     session.commit()
@@ -60,13 +54,7 @@ def target_edit_form(target_id: int, request: Request, session: Session = Depend
     """Form per modificare un target."""
     target = get_or_404(session, Target, target_id, "Target non trovato")
     project = session.get(Project, target.project_id)
-    values = {
-        "name": target.name or "",
-        "host": target.host or "",
-        "port": target.port or "",
-        "url": target.url or "",
-        "notes": target.notes or "",
-    }
+    values = {"name": target.name or "", "host": target.host or ""}
     return templates.TemplateResponse(
         request=request,
         name="target_form.html",
@@ -86,18 +74,12 @@ def target_update(
     target_id: int,
     name: str = Form(""),
     host: str = Form(""),
-    port: str = Form(""),
-    url: str = Form(""),
-    notes: str = Form(""),
     session: Session = Depends(get_session),
 ):
-    """Aggiorna un target."""
+    """Aggiorna un target (nome + IP/URL)."""
     target = get_or_404(session, Target, target_id, "Target non trovato")
     target.name = name.strip() or None
     target.host = host.strip() or None
-    target.port = int_or_none(port)
-    target.url = url.strip() or None
-    target.notes = notes.strip() or None
     session.add(target)
     session.commit()
     return RedirectResponse(url=f"/progetti/{target.project_id}", status_code=303)

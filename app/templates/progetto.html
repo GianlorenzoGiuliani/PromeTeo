@@ -7,16 +7,7 @@
 
   <header class="topic-head">
     <h1>{{ project.name }}</h1>
-    {% if project.client %}<p class="desc">Cliente: {{ project.client }}</p>{% endif %}
-    {% if project.company or project.author %}
-      <p class="desc">
-        {% if project.company %}Azienda: {{ project.company }}{% endif %}
-        {% if project.company and project.author %} &middot; {% endif %}
-        {% if project.author %}Autore: {{ project.author }}{% endif %}
-      </p>
-    {% endif %}
-    {% if project.scope %}<p class="detection"><strong>Scope:</strong> {{ project.scope }}</p>{% endif %}
-    {% if project.info %}<p class="detection"><strong>Info operative:</strong> {{ project.info }}</p>{% endif %}
+    {% if project.info %}<p class="detection"><strong>Note:</strong> {{ project.info }}</p>{% endif %}
     <div class="actions">
       <a class="btn" href="/progetti/{{ project.id }}/findings/nuovo">+ Aggiungi finding</a>
       <a class="btn btn-secondary" href="/progetti/{{ project.id }}/report">Vedi report</a>
@@ -175,8 +166,9 @@
             </p>
           {% endif %}
 
-          {% if f.cvss_score is not none or f.likelihood or f.assignee or f.closed_at %}
+          {% if f.port or f.cvss_score is not none or f.likelihood or f.assignee or f.closed_at %}
             <p class="finding-meta">
+              {% if f.port %}<span>Porta: <strong>{{ f.port }}</strong></span>{% endif %}
               {% if f.cvss_score is not none %}<span class="cvss-badge">CVSS {{ f.cvss_score }}</span>{% endif %}
               {% if f.likelihood %}<span>Probabilità: <strong>{{ likelihood_labels.get(f.likelihood, f.likelihood) }}</strong></span>{% endif %}
               {% if f.assignee %}<span>Assegnatario: <strong>{{ f.assignee }}</strong></span>{% endif %}

@@ -96,6 +96,8 @@ def build_markdown_report(
             target = finding_target_str(f, targets_by_id)
             if target:
                 meta.append(f"**Bersaglio:** {target}")
+            if f.port:
+                meta.append(f"**Porta:** {f.port}")
             if f.likelihood:
                 meta.append(f"**Probabilità:** {likelihood_labels.get(f.likelihood, f.likelihood)}")
             if f.cvss_score is not None:

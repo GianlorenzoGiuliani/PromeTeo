@@ -78,6 +78,7 @@ def clean_finding_fields(form) -> dict:
         "status": status,
         "likelihood": likelihood,
         "cvss_score": float_or_none(form.get("cvss_score")),
+        "port": int_or_none(form.get("port")),
         "target_id": int_or_none(form.get("target_id")),
         "topic_id": int_or_none(form.get("topic_id")),
         "check_id": int_or_none(form.get("check_id")),
@@ -155,7 +156,7 @@ def empty_values() -> dict:
     """Valori di partenza di un form finding vuoto."""
     return {
         "title": "", "severity": "medium", "status": "open", "likelihood": "",
-        "target_id": "", "cve": "", "cwe": "", "cvss_vector": "", "cvss_score": "",
+        "target_id": "", "port": "", "cve": "", "cwe": "", "cvss_vector": "", "cvss_score": "",
         "assignee": "", "description": "", "impact": "", "reproduction": "",
         "evidence": "", "remediation": "", "references": "", "retest": "",
         "topic_id": "", "check_id": "",
@@ -166,7 +167,7 @@ def values_from_finding(f: Finding) -> dict:
     """Riempie i valori del form a partire da un finding esistente (per la modifica)."""
     return {
         "title": f.title, "severity": f.severity, "status": f.status,
-        "likelihood": f.likelihood or "", "target_id": f.target_id or "",
+        "likelihood": f.likelihood or "", "target_id": f.target_id or "", "port": f.port or "",
         "cve": f.cve or "", "cwe": f.cwe or "", "cvss_vector": f.cvss_vector or "",
         "cvss_score": f.cvss_score if f.cvss_score is not None else "",
         "assignee": f.assignee or "", "description": f.description or "",

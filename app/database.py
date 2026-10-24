@@ -47,6 +47,7 @@ def _run_light_migrations() -> None:
         "project": [("company", "VARCHAR"), ("author", "VARCHAR"), ("info", "TEXT")],
         "finding": [
             ("target_id", "INTEGER"),
+            ("port", "INTEGER"),
             ("impact", "TEXT"),
             ("likelihood", "VARCHAR"),
             ("reproduction", "TEXT"),

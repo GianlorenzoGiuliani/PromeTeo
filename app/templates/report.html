@@ -55,6 +55,7 @@
             <h4>{{ ns.n }}. {{ f.title }}</h4>
             <p class="finding-meta">
               <span class="status-badge">{{ status_labels.get(f.status, f.status) }}</span>
+              {% if f.port %}<span>Porta: <strong>{{ f.port }}</strong></span>{% endif %}
               {% if f.cvss_score is not none %}<span class="cvss-badge">CVSS {{ f.cvss_score }}</span>{% endif %}
               {% if f.likelihood %}<span>Probabilità: <strong>{{ likelihood_labels.get(f.likelihood, f.likelihood) }}</strong></span>{% endif %}
               {% if f.assignee %}<span>Assegnatario: <strong>{{ f.assignee }}</strong></span>{% endif %}

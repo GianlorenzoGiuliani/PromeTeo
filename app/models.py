@@ -135,6 +135,7 @@ class Finding(SQLModel, table=True):
     remediation: Optional[str] = None        # come correggerla (va nel report)
     cve: Optional[str] = None                # es. "CVE-2019-0708"
     cwe: Optional[str] = None                # es. "CWE-89"
+    port: Optional[int] = None               # la porta dove e' stato trovato (es. 3389)
 
     # --- Valutazione del rischio e ciclo di vita ---
     impact: Optional[str] = None             # impatto se la vulnerabilita' e' sfruttata
