@@ -1,27 +1,39 @@
 """
-Generazione del report di un progetto in formato Markdown.
+Generazione del report di un progetto in formato Markdown, piu' le funzioni
+per descrivere il "bersaglio" di un finding.
 
-Lo teniamo separato dalle rotte (main.py): cosi' la logica "come si scrive il
-report" sta in un posto solo ed e' facile da leggere e da modificare.
-Il Markdown e' comodo perche' e' testo semplice: lo apri ovunque, lo converti
-in PDF o Word, lo incolli in un ticket.
+Teniamo questa logica separata dalle rotte (main.py): cosi' sta in un posto solo.
+NB: le note operative del progetto (project.info: VPN, credenziali...) NON
+finiscono nel report: sono appunti interni, non roba da consegnare al cliente.
 """
 from datetime import datetime
 
-from app.models import SEVERITIES, Finding, Project
+from app.models import SEVERITIES, Finding, Project, Target
 
 
-def target_str(f: Finding) -> str:
-    """Bersaglio leggibile di un finding: host[:porta] e/o URL."""
-    parts = []
+def _target_from_obj(t: Target) -> str:
+    """Testo leggibile di un target: 'Nome (host:porta | url)'."""
+    bits = []
+    if t.host:
+        bits.append(t.host + (f":{t.port}" if t.port else ""))
+    if t.url:
+        bits.append(t.url)
+    joined = " | ".join(bits)
+    if t.name and joined:
+        return f"{t.name} ({joined})"
+    return t.name or joined
+
+
+def finding_target_str(f: Finding, targets_by_id: dict[int, Target]) -> str:
+    """Bersaglio di un finding: dal target collegato, o dai vecchi campi (storico)."""
+    if f.target_id and f.target_id in targets_by_id:
+        return _target_from_obj(targets_by_id[f.target_id])
+    bits = []
     if f.target_host:
-        host = f.target_host
-        if f.target_port:
-            host += f":{f.target_port}"
-        parts.append(host)
+        bits.append(f.target_host + (f":{f.target_port}" if f.target_port else ""))
     if f.target_url:
-        parts.append(f.target_url)
-    return " | ".join(parts)
+        bits.append(f.target_url)
+    return " | ".join(bits)
 
 
 def build_markdown_report(
@@ -29,11 +41,11 @@ def build_markdown_report(
     findings: list[Finding],
     severity_labels: dict[str, str],
     status_labels: dict[str, str],
+    targets_by_id: dict[int, Target],
 ) -> str:
     """Costruisce il testo Markdown del report a partire dai dati."""
     out: list[str] = []
 
-    # Intestazione (con azienda e autore, se presenti).
     if project.company:
         out.append(f"**{project.company}**")
         out.append("")
@@ -53,7 +65,6 @@ def build_markdown_report(
         out.append(project.scope)
         out.append("")
 
-    # Riepilogo: quanti findings per ogni livello di gravita'.
     out.append("## Riepilogo")
     out.append("")
     counts = {s: 0 for s in SEVERITIES}
@@ -64,7 +75,6 @@ def build_markdown_report(
         out.append(f"- {severity_labels.get(s, s)}: {counts[s]}")
     out.append("")
 
-    # Dettaglio dei findings, raggruppati per gravita' e numerati di seguito.
     out.append("## Findings")
     out.append("")
     if not findings:
@@ -82,7 +92,7 @@ def build_markdown_report(
             out.append(f"#### {n}. {f.title}")
             out.append("")
             meta = [f"**Stato:** {status_labels.get(f.status, f.status)}"]
-            target = target_str(f)
+            target = finding_target_str(f, targets_by_id)
             if target:
                 meta.append(f"**Bersaglio:** {target}")
             if f.cve:

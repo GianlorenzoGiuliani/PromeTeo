@@ -400,3 +400,8 @@ pre.cmd code {
 .summary-total td { font-weight: 700; border-bottom: none; }
 .sev-group { margin-top: 1.6rem; padding-bottom: 0.3rem; border-bottom: 2px solid var(--border); }
 .report-finding h4 { margin: 0 0 0.5rem; }
+
+/* Target di un progetto */
+.targets-section { margin-bottom: 2rem; }
+.target-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.target-detail { font-size: 0.9rem; margin-top: 0.2rem; word-break: break-word; }

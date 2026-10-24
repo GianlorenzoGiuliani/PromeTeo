@@ -72,9 +72,26 @@ class Project(SQLModel, table=True):
     company: Optional[str] = None            # la tua azienda (intestazione del report)
     author: Optional[str] = None             # chi ha eseguito il test
     scope: Optional[str] = None              # note sullo scope / autorizzazione
+    info: Optional[str] = None               # note operative: VPN, credenziali, accessi...
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+    # Un progetto ha molti bersagli (target) e molti findings.
+    targets: list["Target"] = Relationship(back_populates="project")
     findings: list["Finding"] = Relationship(back_populates="project")
+
+
+class Target(SQLModel, table=True):
+    """Un bersaglio dentro un progetto: un host/IP e/o un URL, riusabile dai findings."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    project_id: int = Field(foreign_key="project.id", index=True)
+    name: Optional[str] = None               # etichetta, es. "DC01" o "Web app login"
+    host: Optional[str] = None               # IP o hostname
+    port: Optional[int] = None               # porta
+    url: Optional[str] = None                # URL / endpoint
+    notes: Optional[str] = None              # note sul singolo bersaglio
+
+    project: Optional[Project] = Relationship(back_populates="targets")
 
 
 class Finding(SQLModel, table=True):
@@ -82,6 +99,8 @@ class Finding(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     project_id: int = Field(foreign_key="project.id", index=True)
+    # Il bersaglio ora si SELEZIONA tra i target del progetto (facoltativo).
+    target_id: Optional[int] = Field(default=None, foreign_key="target.id")
 
     title: str                               # es. "RDP: login anonimo possibile"
     description: Optional[str] = None
@@ -92,11 +111,11 @@ class Finding(SQLModel, table=True):
     cve: Optional[str] = None                # es. "CVE-2019-0708"
     cwe: Optional[str] = None                # es. "CWE-89"
 
-    # Il bersaglio: puo' essere host+porta (rete) e/o un URL (web app).
-    # Sono tutti facoltativi, cosi' copriamo entrambi i casi senza obbligare nulla.
-    target_host: Optional[str] = None        # IP o hostname
-    target_port: Optional[int] = None        # porta
-    target_url: Optional[str] = None         # URL / endpoint
+    # Campi "bersaglio" storici: restano per i findings creati prima dei target.
+    # I nuovi findings usano 'target_id' qui sopra (si seleziona un target).
+    target_host: Optional[str] = None        # (storico) IP o hostname
+    target_port: Optional[int] = None        # (storico) porta
+    target_url: Optional[str] = None         # (storico) URL / endpoint
 
     # Collegamento FACOLTATIVO al catalogo, se il finding nasce da un test.
     topic_id: Optional[int] = Field(default=None, foreign_key="topic.id")

@@ -16,8 +16,9 @@
       </p>
     {% endif %}
     {% if project.scope %}<p class="detection"><strong>Scope:</strong> {{ project.scope }}</p>{% endif %}
+    {% if project.info %}<p class="detection"><strong>Info operative:</strong> {{ project.info }}</p>{% endif %}
     <div class="actions">
-      <a class="btn" href="/findings/nuovo?project_id={{ project.id }}">+ Aggiungi finding</a>
+      <a class="btn" href="/progetti/{{ project.id }}/findings/nuovo">+ Aggiungi finding</a>
       <a class="btn btn-secondary" href="/progetti/{{ project.id }}/report">Vedi report</a>
       <a class="btn btn-secondary" href="/progetti/{{ project.id }}/report.md">Scarica .md</a>
       <a class="btn btn-secondary" href="/progetti/{{ project.id }}/modifica">Modifica</a>
@@ -27,6 +28,41 @@
       </form>
     </div>
   </header>
+
+  <section class="targets-section">
+    <div class="page-head">
+      <h2>Target ({{ targets|length }})</h2>
+      <a class="btn btn-secondary" href="/progetti/{{ project.id }}/target/nuovo">+ Aggiungi target</a>
+    </div>
+    {% if targets %}
+      <ul class="topic-list">
+        {% for t in targets %}
+          <li class="topic-item">
+            <div class="target-row">
+              <div>
+                <strong>{% if t.name %}{{ t.name }}{% else %}{{ t.host or t.url or ('Target ' ~ t.id) }}{% endif %}</strong>
+                <div class="muted target-detail">
+                  {% if t.host %}{{ t.host }}{% if t.port %}:{{ t.port }}{% endif %}{% endif %}
+                  {% if t.host and t.url %} &middot; {% endif %}
+                  {% if t.url %}{{ t.url }}{% endif %}
+                  {% if t.notes %}<br>{{ t.notes }}{% endif %}
+                </div>
+              </div>
+              <div class="finding-actions">
+                <a class="btn-link" href="/target/{{ t.id }}/modifica">Modifica</a>
+                <form class="inline-form" method="post" action="/target/{{ t.id }}/elimina"
+                      onsubmit="return confirm('Eliminare questo target? I findings che lo usano perderanno il collegamento.');">
+                  <button class="btn-link-danger" type="submit">Elimina</button>
+                </form>
+              </div>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty">Nessun target. Aggiungi gli host/URL del progetto: potrai selezionarli nei findings.</p>
+    {% endif %}
+  </section>
 
   <h2>Findings ({{ findings|length }})</h2>
 
@@ -56,13 +92,8 @@
         <span class="status-badge">{{ status_labels.get(f.status, f.status) }}</span>
       </div>
 
-      {% if f.target_host or f.target_url %}
-        <p class="finding-target"><strong>Bersaglio:</strong>
-          {% if f.target_host %}{{ f.target_host }}{% if f.target_port %}:{{ f.target_port }}{% endif %}{% endif %}
-          {% if f.target_host and f.target_url %} | {% endif %}
-          {% if f.target_url %}{{ f.target_url }}{% endif %}
-        </p>
-      {% endif %}
+      {% set tstr = target_strings.get(f.id) %}
+      {% if tstr %}<p class="finding-target"><strong>Bersaglio:</strong> {{ tstr }}</p>{% endif %}
 
       {% if f.cve or f.cwe %}
         <p class="finding-ids">

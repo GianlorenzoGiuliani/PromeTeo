@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}{{ form_title }} - PromeTeus{% endblock %}
+
+{% block content %}
+  <p class="breadcrumb"><a href="{{ back_url }}">&larr; Indietro</a></p>
+  <h1>{{ form_title }}</h1>
+  <p class="hint">Progetto: <strong>{{ project.name }}</strong></p>
+
+  <form class="form-card" method="post" action="{{ form_action }}">
+    <label>Nome / etichetta
+      <input type="text" name="name" value="{{ values.name }}" placeholder="Es. DC01, Web app login">
+    </label>
+    <div class="form-row">
+      <label>Host / IP
+        <input type="text" name="host" value="{{ values.host }}" placeholder="Es. 10.0.0.5">
+      </label>
+      <label>Porta
+        <input type="text" name="port" value="{{ values.port }}" placeholder="Es. 3389">
+      </label>
+    </div>
+    <label>URL / endpoint
+      <input type="text" name="url" value="{{ values.url }}" placeholder="Es. https://app.acme.it/login">
+    </label>
+    <label>Note sul target
+      <textarea name="notes" rows="2">{{ values.notes }}</textarea>
+    </label>
+    <button type="submit">{{ submit_label }}</button>
+  </form>
+{% endblock %}

@@ -58,13 +58,8 @@
               {% if f.cve %}<span class="idtag">{{ f.cve }}</span>{% endif %}
               {% if f.cwe %}<span class="idtag">{{ f.cwe }}</span>{% endif %}
             </p>
-            {% if f.target_host or f.target_url %}
-              <p><strong>Bersaglio:</strong>
-                {% if f.target_host %}{{ f.target_host }}{% if f.target_port %}:{{ f.target_port }}{% endif %}{% endif %}
-                {% if f.target_host and f.target_url %} | {% endif %}
-                {% if f.target_url %}{{ f.target_url }}{% endif %}
-              </p>
-            {% endif %}
+            {% set tstr = target_strings.get(f.id) %}
+            {% if tstr %}<p><strong>Bersaglio:</strong> {{ tstr }}</p>{% endif %}
             {% if f.description %}<p>{{ f.description }}</p>{% endif %}
             {% if f.evidence %}
               <div class="cmd-label">Prova</div>

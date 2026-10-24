@@ -28,9 +28,10 @@ from app.models import (
     Check,
     Finding,
     Project,
+    Target,
     Topic,
 )
-from app.reporting import build_markdown_report
+from app.reporting import build_markdown_report, finding_target_str
 from app.seed import seed_if_empty, seed_payloads_if_absent
 
 # BASE_DIR = la cartella "app" dove si trova questo file.
@@ -211,6 +212,7 @@ def crea_progetto(
     company: str = Form(""),
     author: str = Form(""),
     scope: str = Form(""),
+    info: str = Form(""),
     session: Session = Depends(get_session),
 ):
     """Crea un progetto e reindirizza alla sua pagina.
@@ -224,6 +226,7 @@ def crea_progetto(
         company=company.strip() or None,
         author=author.strip() or None,
         scope=scope.strip() or None,
+        info=info.strip() or None,
     )
     session.add(project)
     session.commit()
@@ -252,12 +255,20 @@ def progetto_detail(
         session.exec(statement).all(),
         key=lambda f: (SEVERITY_RANK.get(f.severity, 99), f.id),
     )
+    targets = session.exec(
+        select(Target).where(Target.project_id == project_id).order_by(Target.id)
+    ).all()
+    targets_by_id = {t.id: t for t in targets}
+    # Per ogni finding, il testo del bersaglio (dal target o dai vecchi campi).
+    target_strings = {f.id: finding_target_str(f, targets_by_id) for f in findings}
     return templates.TemplateResponse(
         request=request,
         name="progetto.html",
         context={
             "project": project,
             "findings": findings,
+            "targets": targets,
+            "target_strings": target_strings,
             "severities": SEVERITIES,
             "statuses": STATUSES,
             "sel_severity": severity or "",
@@ -268,22 +279,26 @@ def progetto_detail(
     )
 
 
-@app.get("/findings/nuovo", response_class=HTMLResponse)
+@app.get("/progetti/{project_id}/findings/nuovo", response_class=HTMLResponse)
 def finding_new_form(
+    project_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    project_id: int | None = None,
     check_id: int | None = None,
 ):
-    """Form per CREARE un finding. Puo' arrivare pre-compilato da un test del catalogo."""
-    projects = session.exec(select(Project).order_by(Project.name)).all()
+    """Form per CREARE un finding dentro un progetto: si seleziona un target."""
+    project = session.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Progetto non trovato")
+    targets = session.exec(
+        select(Target).where(Target.project_id == project_id).order_by(Target.id)
+    ).all()
     check = None
-    # 'values' sono i valori che riempiono il form: vuoti alla creazione.
     values = {
         "title": "", "severity": "medium", "status": "open",
-        "target_host": "", "target_port": "", "target_url": "",
-        "cve": "", "cwe": "", "description": "", "evidence": "", "remediation": "",
-        "project_id": project_id, "topic_id": "", "check_id": "",
+        "target_id": "", "cve": "", "cwe": "",
+        "description": "", "evidence": "", "remediation": "",
+        "topic_id": "", "check_id": "",
     }
     if check_id is not None:
         check = session.get(Check, check_id)
@@ -293,18 +308,18 @@ def finding_new_form(
             values["description"] = check.goal or ""
             values["topic_id"] = check.topic_id
             values["check_id"] = check.id
-    back_url = f"/progetti/{project_id}" if project_id else "/progetti"
     return templates.TemplateResponse(
         request=request,
         name="finding_form.html",
         context={
-            "projects": projects,
+            "project": project,
+            "targets": targets,
             "values": values,
             "check": check,
-            "form_action": "/findings",
+            "form_action": f"/progetti/{project_id}/findings",
             "form_title": "Nuovo finding",
             "submit_label": "Salva finding",
-            "back_url": back_url,
+            "back_url": f"/progetti/{project_id}",
             "severities": SEVERITIES,
             "statuses": STATUSES,
             "severity_labels": SEVERITY_LABELS,
@@ -313,15 +328,13 @@ def finding_new_form(
     )
 
 
-@app.post("/findings")
-def crea_finding(
-    project_id: int = Form(...),
+@app.post("/progetti/{project_id}/findings")
+def finding_create(
+    project_id: int,
     title: str = Form(...),
+    target_id: str = Form(""),
     severity: str = Form("medium"),
     status: str = Form("open"),
-    target_host: str = Form(""),
-    target_port: str = Form(""),
-    target_url: str = Form(""),
     cve: str = Form(""),
     cwe: str = Form(""),
     description: str = Form(""),
@@ -335,19 +348,22 @@ def crea_finding(
     project = session.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Progetto non trovato")
-    # Difesa di base: accettiamo solo valori previsti per gravita' e stato.
     if severity not in SEVERITIES:
         severity = "medium"
     if status not in STATUSES:
         status = "open"
+    # Il target scelto deve appartenere a questo progetto (altrimenti lo ignoriamo).
+    tid = _int_or_none(target_id)
+    if tid is not None:
+        t = session.get(Target, tid)
+        if t is None or t.project_id != project_id:
+            tid = None
     finding = Finding(
         project_id=project_id,
+        target_id=tid,
         title=title.strip(),
         severity=severity,
         status=status,
-        target_host=target_host.strip() or None,
-        target_port=_int_or_none(target_port),
-        target_url=target_url.strip() or None,
         cve=cve.strip() or None,
         cwe=cwe.strip() or None,
         description=description.strip() or None,
@@ -371,6 +387,9 @@ def report_html(project_id: int, request: Request, session: Session = Depends(ge
         raise HTTPException(status_code=404, detail="Progetto non trovato")
     findings = session.exec(select(Finding).where(Finding.project_id == project_id)).all()
     findings = sorted(findings, key=lambda f: (SEVERITY_RANK.get(f.severity, 99), f.id))
+    targets = session.exec(select(Target).where(Target.project_id == project_id)).all()
+    targets_by_id = {t.id: t for t in targets}
+    target_strings = {f.id: finding_target_str(f, targets_by_id) for f in findings}
     sev_counts = {s: 0 for s in SEVERITIES}
     for f in findings:
         if f.severity in sev_counts:
@@ -381,6 +400,7 @@ def report_html(project_id: int, request: Request, session: Session = Depends(ge
         context={
             "project": project,
             "findings": findings,
+            "target_strings": target_strings,
             "sev_counts": sev_counts,
             "severities": SEVERITIES,
             "severity_labels": SEVERITY_LABELS,
@@ -398,7 +418,9 @@ def report_md(project_id: int, session: Session = Depends(get_session)):
         raise HTTPException(status_code=404, detail="Progetto non trovato")
     findings = session.exec(select(Finding).where(Finding.project_id == project_id)).all()
     findings = sorted(findings, key=lambda f: (SEVERITY_RANK.get(f.severity, 99), f.id))
-    markdown = build_markdown_report(project, findings, SEVERITY_LABELS, STATUS_LABELS)
+    targets = session.exec(select(Target).where(Target.project_id == project_id)).all()
+    targets_by_id = {t.id: t for t in targets}
+    markdown = build_markdown_report(project, findings, SEVERITY_LABELS, STATUS_LABELS, targets_by_id)
     filename = f"report-progetto-{project.id}.md"
     return PlainTextResponse(
         markdown,
@@ -415,20 +437,20 @@ def finding_edit_form(finding_id: int, request: Request, session: Session = Depe
     finding = session.get(Finding, finding_id)
     if finding is None:
         raise HTTPException(status_code=404, detail="Finding non trovato")
-    projects = session.exec(select(Project).order_by(Project.name)).all()
+    project = session.get(Project, finding.project_id)
+    targets = session.exec(
+        select(Target).where(Target.project_id == finding.project_id).order_by(Target.id)
+    ).all()
     values = {
         "title": finding.title,
         "severity": finding.severity,
         "status": finding.status,
-        "target_host": finding.target_host or "",
-        "target_port": finding.target_port or "",
-        "target_url": finding.target_url or "",
+        "target_id": finding.target_id or "",
         "cve": finding.cve or "",
         "cwe": finding.cwe or "",
         "description": finding.description or "",
         "evidence": finding.evidence or "",
         "remediation": finding.remediation or "",
-        "project_id": finding.project_id,
         "topic_id": finding.topic_id or "",
         "check_id": finding.check_id or "",
     }
@@ -436,7 +458,8 @@ def finding_edit_form(finding_id: int, request: Request, session: Session = Depe
         request=request,
         name="finding_form.html",
         context={
-            "projects": projects,
+            "project": project,
+            "targets": targets,
             "values": values,
             "check": None,
             "form_action": f"/findings/{finding.id}",
@@ -454,13 +477,10 @@ def finding_edit_form(finding_id: int, request: Request, session: Session = Depe
 @app.post("/findings/{finding_id}")
 def finding_update(
     finding_id: int,
-    project_id: int = Form(...),
     title: str = Form(...),
+    target_id: str = Form(""),
     severity: str = Form("medium"),
     status: str = Form("open"),
-    target_host: str = Form(""),
-    target_port: str = Form(""),
-    target_url: str = Form(""),
     cve: str = Form(""),
     cwe: str = Form(""),
     description: str = Form(""),
@@ -470,7 +490,7 @@ def finding_update(
     check_id: str = Form(""),
     session: Session = Depends(get_session),
 ):
-    """Aggiorna un finding esistente (leggiamo, modifichiamo i campi, salviamo)."""
+    """Aggiorna un finding esistente (resta nel suo progetto)."""
     finding = session.get(Finding, finding_id)
     if finding is None:
         raise HTTPException(status_code=404, detail="Finding non trovato")
@@ -478,13 +498,15 @@ def finding_update(
         severity = "medium"
     if status not in STATUSES:
         status = "open"
-    finding.project_id = project_id
+    tid = _int_or_none(target_id)
+    if tid is not None:
+        t = session.get(Target, tid)
+        if t is None or t.project_id != finding.project_id:
+            tid = None
+    finding.target_id = tid
     finding.title = title.strip()
     finding.severity = severity
     finding.status = status
-    finding.target_host = target_host.strip() or None
-    finding.target_port = _int_or_none(target_port)
-    finding.target_url = target_url.strip() or None
     finding.cve = cve.strip() or None
     finding.cwe = cwe.strip() or None
     finding.description = description.strip() or None
@@ -494,7 +516,7 @@ def finding_update(
     finding.check_id = _int_or_none(check_id)
     session.add(finding)
     session.commit()
-    return RedirectResponse(url=f"/progetti/{project_id}", status_code=303)
+    return RedirectResponse(url=f"/progetti/{finding.project_id}", status_code=303)
 
 
 @app.post("/findings/{finding_id}/elimina")
@@ -530,6 +552,7 @@ def progetto_update(
     company: str = Form(""),
     author: str = Form(""),
     scope: str = Form(""),
+    info: str = Form(""),
     session: Session = Depends(get_session),
 ):
     """Aggiorna i dati di un progetto."""
@@ -541,6 +564,7 @@ def progetto_update(
     project.company = company.strip() or None
     project.author = author.strip() or None
     project.scope = scope.strip() or None
+    project.info = info.strip() or None
     session.add(project)
     session.commit()
     return RedirectResponse(url=f"/progetti/{project_id}", status_code=303)
@@ -802,3 +826,133 @@ def check_delete(check_id: int, session: Session = Depends(get_session)):
     session.delete(check)
     session.commit()
     return RedirectResponse(url=f"/topic/{topic_id}", status_code=303)
+
+
+# =====================  TARGET (bersagli di un progetto)  =====================
+
+@app.get("/progetti/{project_id}/target/nuovo", response_class=HTMLResponse)
+def target_new_form(project_id: int, request: Request, session: Session = Depends(get_session)):
+    """Form per aggiungere un target a un progetto."""
+    project = session.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Progetto non trovato")
+    values = {"name": "", "host": "", "port": "", "url": "", "notes": ""}
+    return templates.TemplateResponse(
+        request=request,
+        name="target_form.html",
+        context={
+            "project": project,
+            "values": values,
+            "form_action": f"/progetti/{project_id}/target",
+            "form_title": "Nuovo target",
+            "submit_label": "Aggiungi target",
+            "back_url": f"/progetti/{project_id}",
+        },
+    )
+
+
+@app.post("/progetti/{project_id}/target")
+def target_create(
+    project_id: int,
+    name: str = Form(""),
+    host: str = Form(""),
+    port: str = Form(""),
+    url: str = Form(""),
+    notes: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    """Crea un target dentro un progetto."""
+    project = session.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Progetto non trovato")
+    target = Target(
+        project_id=project_id,
+        name=name.strip() or None,
+        host=host.strip() or None,
+        port=_int_or_none(port),
+        url=url.strip() or None,
+        notes=notes.strip() or None,
+    )
+    session.add(target)
+    session.commit()
+    return RedirectResponse(url=f"/progetti/{project_id}", status_code=303)
+
+
+@app.get("/target/{target_id}/modifica", response_class=HTMLResponse)
+def target_edit_form(target_id: int, request: Request, session: Session = Depends(get_session)):
+    """Form per modificare un target."""
+    target = session.get(Target, target_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="Target non trovato")
+    project = session.get(Project, target.project_id)
+    values = {
+        "name": target.name or "",
+        "host": target.host or "",
+        "port": target.port or "",
+        "url": target.url or "",
+        "notes": target.notes or "",
+    }
+    return templates.TemplateResponse(
+        request=request,
+        name="target_form.html",
+        context={
+            "project": project,
+            "values": values,
+            "form_action": f"/target/{target.id}",
+            "form_title": "Modifica target",
+            "submit_label": "Salva modifiche",
+            "back_url": f"/progetti/{target.project_id}",
+        },
+    )
+
+
+@app.post("/target/{target_id}")
+def target_update(
+    target_id: int,
+    name: str = Form(""),
+    host: str = Form(""),
+    port: str = Form(""),
+    url: str = Form(""),
+    notes: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    """Aggiorna un target."""
+    target = session.get(Target, target_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="Target non trovato")
+    target.name = name.strip() or None
+    target.host = host.strip() or None
+    target.port = _int_or_none(port)
+    target.url = url.strip() or None
+    target.notes = notes.strip() or None
+    session.add(target)
+    session.commit()
+    return RedirectResponse(url=f"/progetti/{target.project_id}", status_code=303)
+
+
+@app.post("/target/{target_id}/elimina")
+def target_delete(target_id: int, session: Session = Depends(get_session)):
+    """Elimina un target. I findings che lo usavano perdono il collegamento."""
+    target = session.get(Target, target_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="Target non trovato")
+    project_id = target.project_id
+    orfani = session.exec(select(Finding).where(Finding.target_id == target_id)).all()
+    for f in orfani:
+        f.target_id = None
+        session.add(f)
+    session.delete(target)
+    session.commit()
+    return RedirectResponse(url=f"/progetti/{project_id}", status_code=303)
+
+
+@app.get("/scegli-progetto", response_class=HTMLResponse)
+def scegli_progetto(request: Request, session: Session = Depends(get_session), check_id: int | None = None):
+    """Scorciatoia dal catalogo: scegli il progetto a cui aggiungere il finding."""
+    projects = session.exec(select(Project).order_by(Project.name)).all()
+    check = session.get(Check, check_id) if check_id else None
+    return templates.TemplateResponse(
+        request=request,
+        name="scegli_progetto.html",
+        context={"projects": projects, "check": check, "check_id": check_id or ""},
+    )

@@ -24,6 +24,9 @@
     <label>Scope / note
       <textarea name="scope" rows="2">{{ project.scope or '' }}</textarea>
     </label>
+    <label>Info operative (VPN, credenziali... restano private, NON vanno nel report)
+      <textarea name="info" rows="2">{{ project.info or '' }}</textarea>
+    </label>
     <button type="submit">Salva modifiche</button>
   </form>
 {% endblock %}

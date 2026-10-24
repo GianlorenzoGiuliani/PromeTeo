@@ -42,8 +42,10 @@ def _run_light_migrations() -> None:
     (Per progetti grandi si usano strumenti dedicati, es. Alembic; qui basta questo.)
     """
     # Per ogni tabella: le colonne che il modello si aspetta, con il tipo SQL.
+    # (La tabella 'target', essendo nuova, la crea gia' create_all.)
     attese = {
-        "project": [("company", "VARCHAR"), ("author", "VARCHAR")],
+        "project": [("company", "VARCHAR"), ("author", "VARCHAR"), ("info", "TEXT")],
+        "finding": [("target_id", "INTEGER")],
     }
     with engine.connect() as conn:
         for tabella, colonne in attese.items():
