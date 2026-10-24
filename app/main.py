@@ -14,7 +14,6 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import or_
 from sqlmodel import Session, func, select
 
@@ -40,6 +39,14 @@ from app.seed import (
     seed_ports_if_absent,
     seed_tech_if_absent,
     seed_web_if_absent,
+)
+from app.web import (
+    KIND_LABELS,
+    SEVERITY_LABELS,
+    SEVERITY_RANK,
+    STATUS_LABELS,
+    int_or_none,
+    templates,
 )
 
 # BASE_DIR = la cartella "app" dove si trova questo file.
@@ -74,45 +81,6 @@ app = FastAPI(title="PromeTeus", lifespan=lifespan)
 # Li mettiamo in app/static e saranno raggiungibili sotto l'indirizzo /static/...
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 
-# Motore dei template: legge i file HTML dentro app/templates e li "riempie"
-# con i dati che gli passiamo dalla funzione della rotta.
-templates = Jinja2Templates(directory=BASE_DIR / "templates")
-
-
-# Etichette leggibili per i tipi di voce (le usano i template).
-KIND_LABELS = {
-    KIND_PORT: "Porte",
-    KIND_TECH: "Tecnologie",
-    KIND_TECHNIQUE: "Tecniche",
-    KIND_AD: "Active Directory",
-    KIND_WEB: "Web App",
-}
-
-# Etichette in italiano per gravita' e stato dei findings.
-SEVERITY_LABELS = {
-    "critical": "Critica",
-    "high": "Alta",
-    "medium": "Media",
-    "low": "Bassa",
-    "info": "Info",
-}
-STATUS_LABELS = {
-    "open": "Aperto",
-    "confirmed": "Confermato",
-    "false_positive": "Falso positivo",
-    "resolved": "Risolto",
-}
-# Ordine di gravita' (0 = piu' grave): serve per ordinare i findings nel report.
-SEVERITY_RANK = {s: i for i, s in enumerate(SEVERITIES)}
-
-
-def _int_or_none(value):
-    """Converte in intero, oppure None se vuoto/non valido (usato per i form)."""
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
-
 
 def _save_new_finding(session, project_id, title, target_id, severity, status,
                       cve, cwe, description, evidence, remediation, topic_id, check_id):
@@ -123,7 +91,7 @@ def _save_new_finding(session, project_id, title, target_id, severity, status,
     if status not in STATUSES:
         status = "open"
     # Il target scelto deve appartenere a questo progetto, altrimenti lo ignoriamo.
-    tid = _int_or_none(target_id)
+    tid = int_or_none(target_id)
     if tid is not None:
         t = session.get(Target, tid)
         if t is None or t.project_id != project_id:
@@ -139,8 +107,8 @@ def _save_new_finding(session, project_id, title, target_id, severity, status,
         description=description.strip() or None,
         evidence=evidence.strip() or None,
         remediation=remediation.strip() or None,
-        topic_id=_int_or_none(topic_id),
-        check_id=_int_or_none(check_id),
+        topic_id=int_or_none(topic_id),
+        check_id=int_or_none(check_id),
     )
     session.add(finding)
     session.commit()
@@ -610,7 +578,7 @@ def finding_update(
         severity = "medium"
     if status not in STATUSES:
         status = "open"
-    tid = _int_or_none(target_id)
+    tid = int_or_none(target_id)
     if tid is not None:
         t = session.get(Target, tid)
         if t is None or t.project_id != finding.project_id:
@@ -624,8 +592,8 @@ def finding_update(
     finding.description = description.strip() or None
     finding.evidence = evidence.strip() or None
     finding.remediation = remediation.strip() or None
-    finding.topic_id = _int_or_none(topic_id)
-    finding.check_id = _int_or_none(check_id)
+    finding.topic_id = int_or_none(topic_id)
+    finding.check_id = int_or_none(check_id)
     session.add(finding)
     session.commit()
     return RedirectResponse(url=f"/progetti/{finding.project_id}", status_code=303)
@@ -738,7 +706,7 @@ def topic_create(
     topic = Topic(
         kind=kind,
         name=name.strip(),
-        port=_int_or_none(port),
+        port=int_or_none(port),
         protocol=protocol.strip() or None,
         description=description.strip(),
         intro=intro.strip() or None,
@@ -803,7 +771,7 @@ def topic_update(
         kind = topic.kind
     topic.kind = kind
     topic.name = name.strip()
-    topic.port = _int_or_none(port)
+    topic.port = int_or_none(port)
     topic.protocol = protocol.strip() or None
     topic.description = description.strip()
     topic.intro = intro.strip() or None
@@ -986,7 +954,7 @@ def target_create(
         project_id=project_id,
         name=name.strip() or None,
         host=host.strip() or None,
-        port=_int_or_none(port),
+        port=int_or_none(port),
         url=url.strip() or None,
         notes=notes.strip() or None,
     )
@@ -1039,7 +1007,7 @@ def target_update(
         raise HTTPException(status_code=404, detail="Target non trovato")
     target.name = name.strip() or None
     target.host = host.strip() or None
-    target.port = _int_or_none(port)
+    target.port = int_or_none(port)
     target.url = url.strip() or None
     target.notes = notes.strip() or None
     session.add(target)
