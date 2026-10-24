@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}{{ form_title }} - PromeTeus{% endblock %}
+
+{% block content %}
+  <p class="breadcrumb"><a href="{{ back_url }}">&larr; Indietro</a></p>
+  <h1>{{ form_title }}</h1>
+  {% if project %}<p class="hint">Progetto: <strong>{{ project.name }}</strong></p>{% endif %}
+
+  <form class="form-card" method="post" action="{{ form_action }}">
+    {% include "_csrf.html" %}
+
+    <div class="form-row">
+      <label>Nome
+        <input type="text" name="name" value="{{ values.name }}"
+               placeholder="Es. nginx, Apache httpd, OpenSSH">
+      </label>
+      <label>Versione
+        <input type="text" name="version" value="{{ values.version }}" placeholder="Es. 1.18.0">
+      </label>
+    </div>
+
+    <label>CPE 2.3
+      <input type="text" name="cpe" value="{{ values.cpe }}"
+             placeholder="cpe:2.3:a:nginx:nginx:1.18.0:*:*:*:*:*:*:*">
+    </label>
+    <p class="hint">
+      Il CPE identifica prodotto e versione: da qui PromeTeus cerca le CVE sull'NVD.
+      Puoi trovarlo (anche parziale) su
+      <a href="https://nvd.nist.gov/products/cpe/search" target="_blank" rel="noopener">nvd.nist.gov</a>
+      &mdash; es. <code>cpe:2.3:a:nginx:nginx:1.18.0</code>.
+    </p>
+
+    <label>Note
+      <textarea name="notes" rows="2">{{ values.notes }}</textarea>
+    </label>
+
+    <button type="submit">{{ submit_label }}</button>
+  </form>
+{% endblock %}

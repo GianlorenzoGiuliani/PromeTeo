@@ -211,6 +211,11 @@ def finding_new_form(
     request: Request,
     session: Session = Depends(get_session),
     check_id: int | None = None,
+    cve: str | None = None,
+    title: str | None = None,
+    severity: str | None = None,
+    cvss_score: str | None = None,
+    description: str | None = None,
 ):
     """Form per CREARE un finding dentro un progetto: si seleziona un target."""
     project = get_or_404(session, Project, project_id, "Progetto non trovato")
@@ -219,6 +224,17 @@ def finding_new_form(
     ).all()
     values = empty_values()
     check = prefill_from_check(session, values, check_id) if check_id is not None else None
+    # Precompilazione da una CVE (arriva dalla pagina delle tecnologie di un progetto).
+    if cve:
+        values["cve"] = cve
+    if title:
+        values["title"] = title
+    if severity in SEVERITIES:
+        values["severity"] = severity
+    if cvss_score:
+        values["cvss_score"] = cvss_score
+    if description:
+        values["description"] = description
     return templates.TemplateResponse(
         request=request,
         name="finding_form.html",

@@ -6,7 +6,7 @@ from sqlalchemy import or_
 from sqlmodel import Session, func, select
 
 from app.database import get_session
-from app.models import SEVERITIES, STATUSES, Finding, Project, Target
+from app.models import SEVERITIES, STATUSES, Finding, Project, Target, Technology
 from app.reporting import target_label
 from app.web import (
     LIKELIHOOD_LABELS,
@@ -90,6 +90,9 @@ def progetto_detail(
         select(Target).where(Target.project_id == project_id).order_by(Target.id)
     ).all()
     targets_by_id = {t.id: t for t in targets}
+    technologies = session.exec(
+        select(Technology).where(Technology.project_id == project_id).order_by(Technology.id)
+    ).all()
     # Raggruppiamo i findings per target in UN solo passaggio (prima si
     # riscorreva l'intera lista dei findings una volta per ogni target).
     by_target = {}
@@ -138,6 +141,7 @@ def progetto_detail(
             "project": project,
             "findings": findings,
             "targets": targets,
+            "technologies": technologies,
             "grouped": grouped,
             "stats": stats,
             "severities": SEVERITIES,

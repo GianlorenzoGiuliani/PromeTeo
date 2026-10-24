@@ -71,6 +71,7 @@ PromeTeus/
 │  ├─ main.py            # regia: crea l'app, prepara il DB, monta i router
 │  ├─ web.py             # pezzi condivisi: template, etichette, utility, CSRF
 │  ├─ ai.py              # assistente AI (API di Claude): compila i findings
+│  ├─ nvd.py             # interroga l'NVD: CVE note dal CPE di una tecnologia
 │  ├─ database.py        # configurazione del database SQLite
 │  ├─ models.py          # le "tabelle": Topic, Check, Project, Target, Finding
 │  ├─ reporting.py       # costruisce il report in Markdown
@@ -81,6 +82,7 @@ PromeTeus/
 │  │  ├─ progetti.py     # progetti
 │  │  ├─ findings.py     # findings
 │  │  ├─ target.py       # target (bersagli di un progetto)
+│  │  ├─ tecnologie.py   # tecnologie + ricerca CVE sull'NVD
 │  │  ├─ report.py       # report (HTML e Markdown)
 │  │  └─ ai.py           # endpoint dell'assistente AI
 │  ├─ templates/         # le pagine HTML
@@ -171,6 +173,24 @@ export PROMETEUS_AI_MODEL="claude-haiku-5-5"   # piu' economico
 
 > ⚠️ La descrizione che scrivi viene inviata all'API di Claude. Usa solo dati
 > di test autorizzati ed evita di incollare segreti reali (credenziali, chiavi).
+
+## Tecnologie e CVE (NVD)
+
+In un progetto puoi salvare le **tecnologie** individuate (es. `nginx 1.18.0`)
+con il loro **CPE**. Dal pulsante **Cerca CVE** PromeTeus interroga l'NVD
+(National Vulnerability Database) e mostra le CVE note, ordinate per gravita';
+da ognuna puoi creare un **finding** gia' precompilato.
+
+Funziona senza configurazione (l'NVD e' pubblico). Se fai molte ricerche puoi
+impostare una chiave gratuita per alzare il limite di richieste:
+
+```bash
+export NVD_API_KEY="la-tua-chiave-nvd"
+```
+
+> Il CPE identifica prodotto e versione: lo trovi su
+> [nvd.nist.gov](https://nvd.nist.gov/products/cpe/search). Va bene anche
+> parziale (es. `cpe:2.3:a:nginx:nginx:1.18.0`): PromeTeus lo completa.
 
 ## Stato dei lavori
 

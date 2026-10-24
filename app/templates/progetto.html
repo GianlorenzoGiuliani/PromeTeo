@@ -102,6 +102,41 @@
     {% endif %}
   </section>
 
+  <section class="targets-section">
+    <div class="page-head">
+      <h2>Tecnologie ({{ technologies|length }})</h2>
+      <a class="btn btn-secondary" href="/progetti/{{ project.id }}/tecnologie/nuovo">+ Aggiungi tecnologia</a>
+    </div>
+    {% if technologies %}
+      <ul class="topic-list">
+        {% for t in technologies %}
+          <li class="topic-item">
+            <div class="target-row">
+              <div>
+                <strong>{{ t.name or 'Tecnologia' }}{% if t.version %} {{ t.version }}{% endif %}</strong>
+                <div class="muted target-detail">
+                  {% if t.cpe %}<code>{{ t.cpe }}</code>{% else %}<span class="hint">nessun CPE</span>{% endif %}
+                  {% if t.notes %}<br>{{ t.notes }}{% endif %}
+                </div>
+              </div>
+              <div class="finding-actions">
+                <a class="btn-link" href="/tecnologia/{{ t.id }}/cve">Cerca CVE</a>
+                <a class="btn-link" href="/tecnologia/{{ t.id }}/modifica">Modifica</a>
+                <form class="inline-form" method="post" action="/tecnologia/{{ t.id }}/elimina"
+                      onsubmit="return confirm('Eliminare questa tecnologia?');">
+                  {% include "_csrf.html" %}
+                  <button class="btn-link-danger" type="submit">Elimina</button>
+                </form>
+              </div>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty">Nessuna tecnologia. Aggiungi un prodotto + versione (con CPE) per cercarne le CVE sull'NVD.</p>
+    {% endif %}
+  </section>
+
   <h2>Findings ({{ findings|length }})</h2>
 
   {# Filtri: i 'select' si inviano da soli al cambio (onchange), con un
