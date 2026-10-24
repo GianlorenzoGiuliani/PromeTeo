@@ -541,3 +541,34 @@ pre.cmd code {
   margin-top: 0.6rem; flex-wrap: wrap;
 }
 .ai-assist-row .hint { margin: 0; }
+
+/* ===========================================================================
+   Tema CHIARO (grigio, non bianco). Si attiva con data-theme="light" su <html>.
+   L'assenza dell'attributo = tema scuro (quello di default).
+   Ridefiniamo solo le variabili: tutto il resto si adatta da solo.
+   =========================================================================== */
+:root[data-theme="light"] {
+  --bg:        #cfd4da;   /* grigio di sfondo (non bianco) */
+  --surface:   #e6e9ed;   /* card e barre, piu' chiare dello sfondo */
+  --surface-2: #dadee3;   /* hover */
+  --border:    #b3bac3;
+  --text:      #1b2027;   /* testo scuro */
+  --muted:     #566069;   /* testo secondario */
+  --accent:    #b24a00;   /* arancione piu' scuro: leggibile su chiaro */
+}
+
+/* Interruttore del tema nella barra in alto */
+.theme-toggle {
+  margin-left: 1rem;
+  width: 2rem;
+  height: 2rem;
+  line-height: 1;
+  font-size: 1rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  cursor: pointer;
+  vertical-align: middle;
+}
+.theme-toggle:hover { background: var(--surface-2); color: var(--text); }

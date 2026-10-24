@@ -108,4 +108,16 @@ document.addEventListener("DOMContentLoaded", function () {
         .finally(function () { aiBtn.disabled = false; });
     });
   }
+
+  // --- 4) Interruttore tema chiaro/scuro ---
+  var themeBtn = document.getElementById("theme-toggle");
+  if (themeBtn) {
+    themeBtn.addEventListener("click", function () {
+      var root = document.documentElement;
+      var current = root.getAttribute("data-theme") === "light" ? "light" : "dark";
+      var next = current === "light" ? "dark" : "light";
+      root.setAttribute("data-theme", next);
+      try { localStorage.setItem("tema", next); } catch (e) {}
+    });
+  }
 });
