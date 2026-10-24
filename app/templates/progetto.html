@@ -24,6 +24,7 @@
       <a class="btn btn-secondary" href="/progetti/{{ project.id }}/modifica">Modifica</a>
       <form class="inline-form" method="post" action="/progetti/{{ project.id }}/elimina"
             onsubmit="return confirm('Eliminare il progetto e TUTTI i suoi findings?');">
+        {% include "_csrf.html" %}
         <button class="btn btn-danger" type="submit">Elimina</button>
       </form>
     </div>
@@ -52,6 +53,7 @@
                 <a class="btn-link" href="/target/{{ t.id }}/modifica">Modifica</a>
                 <form class="inline-form" method="post" action="/target/{{ t.id }}/elimina"
                       onsubmit="return confirm('Eliminare questo target? I findings che lo usano perderanno il collegamento.');">
+                  {% include "_csrf.html" %}
                   <button class="btn-link-danger" type="submit">Elimina</button>
                 </form>
               </div>
@@ -112,6 +114,7 @@
             <a class="btn-link" href="/findings/{{ f.id }}/modifica">Modifica</a>
             <form class="inline-form" method="post" action="/findings/{{ f.id }}/elimina"
                   onsubmit="return confirm('Eliminare questo finding?');">
+              {% include "_csrf.html" %}
               <button class="btn-link-danger" type="submit">Elimina</button>
             </form>
           </div>

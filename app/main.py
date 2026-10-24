@@ -14,7 +14,7 @@ corto e si trova subito dove mettere mano.
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
 from app.database import create_db_and_tables
@@ -26,6 +26,7 @@ from app.seed import (
     seed_tech_if_absent,
     seed_web_if_absent,
 )
+from app.web import CSRF_COOKIE, csrf_protect, new_csrf_token
 
 # BASE_DIR = la cartella "app" dove si trova questo file. La calcoliamo in
 # automatico cosi' l'app funziona ovunque venga copiata.
@@ -55,15 +56,38 @@ async def lifespan(app: FastAPI):
 # (la trovi su http://127.0.0.1:8000/docs quando il server e' avviato).
 app = FastAPI(title="PromeTeus", lifespan=lifespan)
 
+
+# A ogni richiesta assicuriamo un token CSRF: lo mettiamo in request.state (lo
+# leggono i template per il campo nascosto dei form) e, se il cookie non c'e'
+# ancora, lo impostiamo nella risposta. Questo middleware NON legge il corpo
+# della richiesta, quindi non interferisce con l'invio dei form.
+@app.middleware("http")
+async def csrf_cookie(request: Request, call_next):
+    token = request.cookies.get(CSRF_COOKIE)
+    da_impostare = token is None
+    if da_impostare:
+        token = new_csrf_token()
+    request.state.csrf_token = token
+    response = await call_next(request)
+    if da_impostare:
+        response.set_cookie(
+            CSRF_COOKIE, token, httponly=True, samesite="strict", path="/"
+        )
+    return response
+
+
 # File statici = file che il browser scarica cosi' come sono (CSS, JS, immagini).
 # Stanno in app/static e sono raggiungibili sotto l'indirizzo /static/...
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 
 # "Montiamo" i gruppi di pagine. Ogni router porta con se' le proprie rotte;
-# l'ordine non conta perche' gli indirizzi non si sovrappongono.
-app.include_router(home.router)
-app.include_router(catalogo.router)
-app.include_router(progetti.router)
-app.include_router(findings.router)
-app.include_router(target.router)
-app.include_router(report.router)
+# l'ordine non conta perche' gli indirizzi non si sovrappongono. La dipendenza
+# csrf_protect vale per tutte le rotte: lascia passare le GET e blocca le POST
+# prive di un token CSRF valido.
+protette = [Depends(csrf_protect)]
+app.include_router(home.router, dependencies=protette)
+app.include_router(catalogo.router, dependencies=protette)
+app.include_router(progetti.router, dependencies=protette)
+app.include_router(findings.router, dependencies=protette)
+app.include_router(target.router, dependencies=protette)
+app.include_router(report.router, dependencies=protette)

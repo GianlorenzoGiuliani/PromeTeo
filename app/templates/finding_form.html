@@ -16,6 +16,7 @@
       poi potrai aggiungerci i findings.</p>
   {% else %}
     <form class="form-card" method="post" action="{{ form_action }}">
+      {% include "_csrf.html" %}
 
       {% if project_picker %}
         {# Modalita' con scelta del progetto: il menu dei target si aggiorna via JS. #}

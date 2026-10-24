@@ -7,6 +7,7 @@
 
   {# Form per creare un nuovo progetto. method="post" invia i dati a /progetti. #}
   <form class="form-card" method="post" action="/progetti">
+    {% include "_csrf.html" %}
     <h2>Nuovo progetto</h2>
     <label>Nome *
       <input type="text" name="name" required placeholder="Es. Pentest Acme Srl - Web">

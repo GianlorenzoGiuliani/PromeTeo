@@ -7,6 +7,7 @@
   <h1>{{ form_title }}</h1>
 
   <form class="form-card" method="post" action="{{ form_action }}">
+    {% include "_csrf.html" %}
     <label>Tipo
       <select name="kind">
         {% for k in kinds %}

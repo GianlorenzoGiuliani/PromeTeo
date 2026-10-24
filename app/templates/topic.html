@@ -24,6 +24,7 @@
       <a class="btn btn-secondary" href="/topic/{{ topic.id }}/modifica">Modifica voce</a>
       <form class="inline-form" method="post" action="/topic/{{ topic.id }}/elimina"
             onsubmit="return confirm('Eliminare questa voce e tutti i suoi test?');">
+        {% include "_csrf.html" %}
         <button class="btn btn-danger" type="submit">Elimina voce</button>
       </form>
     </div>
@@ -67,6 +68,7 @@
         <a class="btn-link" href="/test/{{ c.id }}/modifica">Modifica</a>
         <form class="inline-form" method="post" action="/test/{{ c.id }}/elimina"
               onsubmit="return confirm('Eliminare questo test?');">
+          {% include "_csrf.html" %}
           <button class="btn-link-danger" type="submit">Elimina</button>
         </form>
       </div>

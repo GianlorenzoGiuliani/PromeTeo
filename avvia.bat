@@ -39,6 +39,7 @@ REM Apriamo il browser (se dice "impossibile connettersi", aspetta un attimo e r
 start "" http://127.0.0.1:8000
 
 REM Avviamo il server (resta in esecuzione finche' non premi Ctrl+C).
-uvicorn app.main:app
+REM --host 127.0.0.1 = ascolta SOLO sul tuo computer (non esposto in rete).
+uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 pause

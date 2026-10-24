@@ -50,9 +50,13 @@ source .venv/bin/activate
 # 3) Installa le librerie elencate in requirements.txt
 pip install -r requirements.txt
 
-# 4) Avvia l'app
-uvicorn app.main:app --reload
+# 4) Avvia l'app (--host 127.0.0.1 = ascolta solo sul tuo computer)
+uvicorn app.main:app --host 127.0.0.1 --reload
 ```
+
+> 🔒 **Nota di sicurezza:** PromeTeus ascolta di proposito solo su
+> `127.0.0.1` (il tuo computer), quindi non e' raggiungibile da altri in rete.
+> I form che modificano dati sono protetti da un token anti-CSRF.
 
 Apri il browser su **http://127.0.0.1:8000**
 (la documentazione automatica delle API e' su **/docs**).
@@ -64,10 +68,19 @@ Per fermare il server: `Ctrl + C`.
 PromeTeus/
 ├─ app/
 │  ├─ __init__.py        # rende "app" un pacchetto Python
-│  ├─ main.py            # il cuore: crea l'app e definisce le pagine (route)
+│  ├─ main.py            # regia: crea l'app, prepara il DB, monta i router
+│  ├─ web.py             # pezzi condivisi: template, etichette, utility, CSRF
 │  ├─ database.py        # configurazione del database SQLite
-│  ├─ models.py          # le "tabelle": Topic, Check, Project, Finding
+│  ├─ models.py          # le "tabelle": Topic, Check, Project, Target, Finding
+│  ├─ reporting.py       # costruisce il report in Markdown
 │  ├─ seed.py            # carica i contenuti iniziali nel database
+│  ├─ routers/           # le pagine, divise per area
+│  │  ├─ home.py         # la home
+│  │  ├─ catalogo.py     # catalogo + gestione voci/test
+│  │  ├─ progetti.py     # progetti
+│  │  ├─ findings.py     # findings
+│  │  ├─ target.py       # target (bersagli di un progetto)
+│  │  └─ report.py       # report (HTML e Markdown)
 │  ├─ templates/         # le pagine HTML
 │  │  ├─ base.html       # struttura comune a tutte le pagine
 │  │  └─ home.html       # la home

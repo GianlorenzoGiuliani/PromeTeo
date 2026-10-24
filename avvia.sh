@@ -48,4 +48,5 @@ echo ""
 ) >/dev/null 2>&1 &
 
 # Avviamo il server (resta in esecuzione finche' non premi Ctrl+C).
-exec ./.venv/bin/uvicorn app.main:app
+# --host 127.0.0.1 = ascolta SOLO sul tuo computer (non esposto in rete).
+exec ./.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
