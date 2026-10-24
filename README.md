@@ -70,6 +70,7 @@ PromeTeus/
 │  ├─ __init__.py        # rende "app" un pacchetto Python
 │  ├─ main.py            # regia: crea l'app, prepara il DB, monta i router
 │  ├─ web.py             # pezzi condivisi: template, etichette, utility, CSRF
+│  ├─ ai.py              # assistente AI (API di Claude): compila i findings
 │  ├─ database.py        # configurazione del database SQLite
 │  ├─ models.py          # le "tabelle": Topic, Check, Project, Target, Finding
 │  ├─ reporting.py       # costruisce il report in Markdown
@@ -80,7 +81,8 @@ PromeTeus/
 │  │  ├─ progetti.py     # progetti
 │  │  ├─ findings.py     # findings
 │  │  ├─ target.py       # target (bersagli di un progetto)
-│  │  └─ report.py       # report (HTML e Markdown)
+│  │  ├─ report.py       # report (HTML e Markdown)
+│  │  └─ ai.py           # endpoint dell'assistente AI
 │  ├─ templates/         # le pagine HTML
 │  │  ├─ base.html       # struttura comune a tutte le pagine
 │  │  └─ home.html       # la home
@@ -142,6 +144,33 @@ Le tecniche sono già pronte nel file `data/payloads_seed.json`. Per
 git clone --depth 1 https://github.com/swisskyrepo/PayloadsAllTheThings.git /tmp/patt
 python tools/import_payloads.py --source /tmp/patt --out data/payloads_seed.json
 ```
+
+## Assistente AI (facoltativo)
+
+Nel form di un finding c'e' un riquadro **Assistente AI**: scrivi la
+vulnerabilita' a grandi linee e lui compila tutti i campi (titolo, gravita',
+CVSS, impatto, passi per riprodurre, rimedio, riferimenti...). Poi **controlli
+e correggi** prima di salvare: l'AI assiste, non decide al posto tuo.
+
+Per attivarlo serve una chiave API di Claude:
+
+```bash
+export ANTHROPIC_API_KEY="la-tua-chiave"      # macOS / Linux
+#  setx ANTHROPIC_API_KEY "la-tua-chiave"      # Windows (poi riapri il terminale)
+```
+
+Poi avvia PromeTeus normalmente. **Senza chiave il riquadro mostra un avviso e
+tutto il resto dell'app funziona lo stesso.**
+
+Il modello di default e' `claude-opus-5-5`. Per spendere molto meno puoi
+cambiarlo con una variabile d'ambiente:
+
+```bash
+export PROMETEUS_AI_MODEL="claude-haiku-5-5"   # piu' economico
+```
+
+> ⚠️ La descrizione che scrivi viene inviata all'API di Claude. Usa solo dati
+> di test autorizzati ed evita di incollare segreti reali (credenziali, chiavi).
 
 ## Stato dei lavori
 

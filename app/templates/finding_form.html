@@ -18,6 +18,18 @@
     <form class="form-card" method="post" action="{{ form_action }}">
       {% include "_csrf.html" %}
 
+      {# Assistente AI: da una descrizione a grandi linee precompila i campi.
+         Richiede ANTHROPIC_API_KEY sul server; se manca, mostra un avviso. #}
+      <div class="ai-assist">
+        <label for="ai-desc">✨ Assistente AI &mdash; descrivi a grandi linee, compila tutto</label>
+        <textarea id="ai-desc" rows="2"
+                  placeholder="Es: sul Domain Controller gira SMBv1, sembra vulnerabile a EternalBlue"></textarea>
+        <div class="ai-assist-row">
+          <button type="button" id="ai-btn" class="btn-secondary" data-url="/ai/suggerisci-finding">Compila con l'AI</button>
+          <span id="ai-status" class="hint"></span>
+        </div>
+      </div>
+
       {% if project_picker %}
         {# Modalita' con scelta del progetto: il menu dei target si aggiorna via JS. #}
         <label>Progetto *
