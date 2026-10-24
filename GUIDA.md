@@ -22,9 +22,9 @@ La prima volta lo script prepara tutto da solo, poi apre il browser su
 
 ## 2. La home
 
-Appena apri PromeTeus trovi le quattro aree principali: le tre sezioni del
-**catalogo** (Porte, Tecnologie, Tecniche) e l'area **Progetti & findings**.
-Ogni card mostra quante voci contiene.
+Appena apri PromeTeus trovi il **catalogo**, diviso in cinque sezioni (Porte,
+Tecnologie, Tecniche, Active Directory, Web App), e l'area **Progetti &
+findings**. Ogni card mostra quante voci contiene.
 
 ![La home di PromeTeus](docs/img/01-home.png)
 
@@ -33,19 +33,30 @@ Ogni card mostra quante voci contiene.
 ## 3. Il catalogo — *cosa testare*
 
 Il catalogo risponde alla domanda "ho trovato questa cosa, cosa ci faccio?".
-È diviso in **Porte**, **Tecnologie** e **Tecniche**; in alto hai una
-**ricerca** per nome e i **filtri** per sezione.
+È diviso in cinque sezioni, con **ricerca** per nome e **filtri**:
+
+- **Porte** — i servizi di rete (RDP, SMB, SSH…), con tool e comandi;
+- **Tecnologie** — es. WordPress → wpscan;
+- **Tecniche** — classi di vulnerabilità e payload (SQLi, XSS…), da PayloadsAllTheThings;
+- **Active Directory** — metodologia per i domini Windows (enumerazione, Kerberoasting, movimento laterale…);
+- **Web App** — come approcciare un test su applicazioni web (ricognizione, autenticazione, injection…).
 
 ![Il catalogo con ricerca e filtri](docs/img/02-catalogo.png)
+
+Le sezioni **Active Directory** e **Web App** ti guidano passo per passo, con i
+tool e i comandi più usati:
+
+![Una voce della sezione Active Directory](docs/img/07-active-directory.png)
 
 ---
 
 ## 4. Una voce e i suoi test
 
-Cliccando una voce (qui **RDP**) vedi, per ogni test: l'**obiettivo**, il
-**comando / payload** (con il tasto **Copia**), **come leggere il risultato** e
-il link **Fonte**. Da qui puoi anche **gestire il catalogo** e trasformare un
-test in un finding con **`+ Aggiungi come finding`**.
+Cliccando una voce (qui **RDP**) trovi in alto un'introduzione **"Cos'è e come
+funziona"**, poi per ogni test: l'**obiettivo**, il **comando / payload** (con
+il tasto **Copia**), **come leggere il risultato** e il link **Fonte**. Da qui
+puoi anche **gestire il catalogo** e trasformare un test in un finding con
+**`+ Aggiungi come finding`**.
 
 ![Dettaglio della voce RDP con i suoi test](docs/img/03-voce-rdp.png)
 
