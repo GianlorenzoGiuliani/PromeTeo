@@ -11,7 +11,7 @@ from datetime import datetime
 from app.models import SEVERITIES, Finding, Project, Target
 
 
-def _target_from_obj(t: Target) -> str:
+def target_label(t: Target) -> str:
     """Testo leggibile di un target: 'Nome (host:porta | url)'."""
     bits = []
     if t.host:
@@ -21,13 +21,13 @@ def _target_from_obj(t: Target) -> str:
     joined = " | ".join(bits)
     if t.name and joined:
         return f"{t.name} ({joined})"
-    return t.name or joined
+    return t.name or joined or f"Target {t.id}"
 
 
 def finding_target_str(f: Finding, targets_by_id: dict[int, Target]) -> str:
     """Bersaglio di un finding: dal target collegato, o dai vecchi campi (storico)."""
     if f.target_id and f.target_id in targets_by_id:
-        return _target_from_obj(targets_by_id[f.target_id])
+        return target_label(targets_by_id[f.target_id])
     bits = []
     if f.target_host:
         bits.append(f.target_host + (f":{f.target_port}" if f.target_port else ""))

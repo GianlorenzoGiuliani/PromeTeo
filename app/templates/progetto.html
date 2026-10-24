@@ -84,38 +84,40 @@
     <noscript><button type="submit">Filtra</button></noscript>
   </form>
 
-  {% for f in findings %}
-    <article class="finding sev-{{ f.severity }}">
-      <div class="finding-head">
-        <span class="sev-badge sev-{{ f.severity }}">{{ severity_labels.get(f.severity, f.severity) }}</span>
-        <strong>{{ f.title }}</strong>
-        <span class="status-badge">{{ status_labels.get(f.status, f.status) }}</span>
-      </div>
+  {% if grouped %}
+    {% for g in grouped %}
+      <h3 class="target-group">{{ g.label }} ({{ g.findings|length }})</h3>
+      {% for f in g.findings %}
+        <article class="finding sev-{{ f.severity }}">
+          <div class="finding-head">
+            <span class="sev-badge sev-{{ f.severity }}">{{ severity_labels.get(f.severity, f.severity) }}</span>
+            <strong>{{ f.title }}</strong>
+            <span class="status-badge">{{ status_labels.get(f.status, f.status) }}</span>
+          </div>
 
-      {% set tstr = target_strings.get(f.id) %}
-      {% if tstr %}<p class="finding-target"><strong>Bersaglio:</strong> {{ tstr }}</p>{% endif %}
+          {% if f.cve or f.cwe %}
+            <p class="finding-ids">
+              {% if f.cve %}<span class="idtag">{{ f.cve }}</span>{% endif %}
+              {% if f.cwe %}<span class="idtag">{{ f.cwe }}</span>{% endif %}
+            </p>
+          {% endif %}
 
-      {% if f.cve or f.cwe %}
-        <p class="finding-ids">
-          {% if f.cve %}<span class="idtag">{{ f.cve }}</span>{% endif %}
-          {% if f.cwe %}<span class="idtag">{{ f.cwe }}</span>{% endif %}
-        </p>
-      {% endif %}
-
-      {% if f.description %}<p>{{ f.description }}</p>{% endif %}
-      {% if f.evidence %}
-        <div class="cmd-label">Prova</div>
-        <pre class="cmd"><code>{{ f.evidence }}</code></pre>
-      {% endif %}
-      {% if f.remediation %}<p class="interp"><strong>Rimedio:</strong> {{ f.remediation }}</p>{% endif %}
-      <div class="finding-actions">
-        <a class="btn-link" href="/findings/{{ f.id }}/modifica">Modifica</a>
-        <form class="inline-form" method="post" action="/findings/{{ f.id }}/elimina"
-              onsubmit="return confirm('Eliminare questo finding?');">
-          <button class="btn-link-danger" type="submit">Elimina</button>
-        </form>
-      </div>
-    </article>
+          {% if f.description %}<p>{{ f.description }}</p>{% endif %}
+          {% if f.evidence %}
+            <div class="cmd-label">Prova</div>
+            <pre class="cmd"><code>{{ f.evidence }}</code></pre>
+          {% endif %}
+          {% if f.remediation %}<p class="interp"><strong>Rimedio:</strong> {{ f.remediation }}</p>{% endif %}
+          <div class="finding-actions">
+            <a class="btn-link" href="/findings/{{ f.id }}/modifica">Modifica</a>
+            <form class="inline-form" method="post" action="/findings/{{ f.id }}/elimina"
+                  onsubmit="return confirm('Eliminare questo finding?');">
+              <button class="btn-link-danger" type="submit">Elimina</button>
+            </form>
+          </div>
+        </article>
+      {% endfor %}
+    {% endfor %}
   {% else %}
     {% if sel_severity or sel_status %}
       <p class="empty">Nessun finding con questi filtri.</p>
@@ -123,5 +125,5 @@
       <p class="empty">Nessun finding ancora. Usa &laquo;+ Aggiungi finding&raquo;,
         oppure parti da un test nel <a href="/catalogo">catalogo</a>.</p>
     {% endif %}
-  {% endfor %}
+  {% endif %}
 {% endblock %}

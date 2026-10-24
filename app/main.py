@@ -31,7 +31,7 @@ from app.models import (
     Target,
     Topic,
 )
-from app.reporting import build_markdown_report, finding_target_str
+from app.reporting import build_markdown_report, finding_target_str, target_label
 from app.seed import seed_if_empty, seed_payloads_if_absent
 
 # BASE_DIR = la cartella "app" dove si trova questo file.
@@ -259,8 +259,16 @@ def progetto_detail(
         select(Target).where(Target.project_id == project_id).order_by(Target.id)
     ).all()
     targets_by_id = {t.id: t for t in targets}
-    # Per ogni finding, il testo del bersaglio (dal target o dai vecchi campi).
-    target_strings = {f.id: finding_target_str(f, targets_by_id) for f in findings}
+    # Raggruppiamo i findings per target (nell'ordine dei target), con un
+    # gruppo finale "Senza target" per quelli non associati a un bersaglio.
+    grouped = []
+    for t in targets:
+        fs = [f for f in findings if f.target_id == t.id]
+        if fs:
+            grouped.append({"label": target_label(t), "findings": fs})
+    senza = [f for f in findings if not f.target_id or f.target_id not in targets_by_id]
+    if senza:
+        grouped.append({"label": "Senza target", "findings": senza})
     return templates.TemplateResponse(
         request=request,
         name="progetto.html",
@@ -268,7 +276,7 @@ def progetto_detail(
             "project": project,
             "findings": findings,
             "targets": targets,
-            "target_strings": target_strings,
+            "grouped": grouped,
             "severities": SEVERITIES,
             "statuses": STATUSES,
             "sel_severity": severity or "",
