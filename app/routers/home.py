@@ -33,8 +33,10 @@ def home(request: Request, session: Session = Depends(get_session)):
     raw = dict(session.exec(select(Topic.kind, func.count()).group_by(Topic.kind)).all())
     counts = {kind: raw.get(kind, 0) for kind in (KIND_PORT, KIND_TECH, KIND_TECHNIQUE, KIND_AD, KIND_WEB)}
     n_progetti = session.exec(select(func.count()).select_from(Project)).one()
+    # Ultimi progetti, per riaprirli al volo dalla home.
+    recent = session.exec(select(Project).order_by(Project.created_at.desc()).limit(8)).all()
     return templates.TemplateResponse(
         request=request,
         name="home.html",
-        context={"counts": counts, "n_progetti": n_progetti},
+        context={"counts": counts, "n_progetti": n_progetti, "recent": recent},
     )

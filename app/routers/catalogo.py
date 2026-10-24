@@ -8,10 +8,56 @@ from sqlalchemy import or_
 from sqlmodel import Session, func, select
 
 from app.database import get_session
-from app.models import KIND_TECH, Check, Topic
+from app.models import KIND_AD, KIND_PORT, KIND_TECH, KIND_WEB, Check, Topic
 from app.web import KIND_LABELS, get_or_404, int_or_none, templates
 
 router = APIRouter()
+
+# Ogni tipo di voce ha la sua pagina diretta nel menu (niente piu' un catalogo
+# unico con tutti i tipi mescolati).
+SECTION_URL = {KIND_PORT: "/porte", KIND_WEB: "/webapp", KIND_AD: "/active-directory"}
+SECTION_TITLE = {KIND_PORT: "Porte", KIND_WEB: "Web App", KIND_AD: "Active Directory"}
+EDITABLE_KINDS = [KIND_PORT, KIND_WEB, KIND_AD]
+
+
+def _render_section(request, session, kind, q=None, order_by_port=False):
+    """Pagina di una sezione (porte / webapp / active directory)."""
+    stmt = select(Topic).where(Topic.kind == kind)
+    if q:
+        like = f"%{q}%"
+        stmt = stmt.where(or_(Topic.name.ilike(like), Topic.description.ilike(like)))
+    # Le porte si ordinano per NUMERO di porta; le altre per nome.
+    stmt = stmt.order_by(Topic.port) if order_by_port else stmt.order_by(Topic.name)
+    topics = session.exec(stmt).all()
+    counts = dict(
+        session.exec(select(Check.topic_id, func.count()).group_by(Check.topic_id)).all()
+    )
+    return templates.TemplateResponse(
+        request=request,
+        name="sezione.html",
+        context={
+            "topics": topics, "counts": counts, "kind": kind,
+            "title": SECTION_TITLE[kind], "section_url": SECTION_URL[kind], "q": q or "",
+        },
+    )
+
+
+@router.get("/porte", response_class=HTMLResponse)
+def sezione_porte(request: Request, session: Session = Depends(get_session), q: str | None = None):
+    """Sezione Porte: ordinate per numero di porta."""
+    return _render_section(request, session, KIND_PORT, q=q, order_by_port=True)
+
+
+@router.get("/webapp", response_class=HTMLResponse)
+def sezione_webapp(request: Request, session: Session = Depends(get_session), q: str | None = None):
+    """Sezione Web App."""
+    return _render_section(request, session, KIND_WEB, q=q)
+
+
+@router.get("/active-directory", response_class=HTMLResponse)
+def sezione_ad(request: Request, session: Session = Depends(get_session), q: str | None = None):
+    """Sezione Active Directory."""
+    return _render_section(request, session, KIND_AD, q=q)
 
 
 @router.get("/catalogo", response_class=HTMLResponse)
@@ -76,10 +122,11 @@ def topic_detail(
 
 
 @router.get("/catalogo/nuovo", response_class=HTMLResponse)
-def topic_new_form(request: Request):
-    """Form per creare una nuova voce del catalogo."""
+def topic_new_form(request: Request, kind: str | None = None):
+    """Form per creare una nuova voce (porta / webapp / active directory)."""
+    k = kind if kind in EDITABLE_KINDS else KIND_PORT
     values = {
-        "kind": "port", "name": "", "port": "", "protocol": "",
+        "kind": k, "name": "", "port": "", "protocol": "",
         "description": "", "intro": "", "detection": "", "references": "",
     }
     return templates.TemplateResponse(
@@ -88,10 +135,10 @@ def topic_new_form(request: Request):
         context={
             "values": values,
             "form_action": "/catalogo",
-            "form_title": "Nuova voce del catalogo",
+            "form_title": "Nuova voce",
             "submit_label": "Crea voce",
-            "back_url": "/catalogo",
-            "kinds": list(KIND_LABELS),
+            "back_url": SECTION_URL.get(k, "/porte"),
+            "kinds": EDITABLE_KINDS,
             "kind_labels": KIND_LABELS,
         },
     )
@@ -151,7 +198,7 @@ def topic_edit_form(topic_id: int, request: Request, session: Session = Depends(
             "form_title": "Modifica voce",
             "submit_label": "Salva modifiche",
             "back_url": f"/topic/{topic.id}",
-            "kinds": list(KIND_LABELS),
+            "kinds": EDITABLE_KINDS,
             "kind_labels": KIND_LABELS,
         },
     )
@@ -191,12 +238,13 @@ def topic_update(
 def topic_delete(topic_id: int, session: Session = Depends(get_session)):
     """Elimina una voce del catalogo e tutti i suoi test."""
     topic = get_or_404(session, Topic, topic_id, "Voce non trovata")
+    kind = topic.kind
     checks = session.exec(select(Check).where(Check.topic_id == topic_id)).all()
     for c in checks:
         session.delete(c)
     session.delete(topic)
     session.commit()
-    return RedirectResponse(url="/catalogo", status_code=303)
+    return RedirectResponse(url=SECTION_URL.get(kind, "/porte"), status_code=303)
 
 
 @router.get("/topic/{topic_id}/test/nuovo", response_class=HTMLResponse)
