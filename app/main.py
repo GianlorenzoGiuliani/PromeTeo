@@ -693,7 +693,7 @@ def topic_new_form(request: Request):
     """Form per creare una nuova voce del catalogo."""
     values = {
         "kind": "port", "name": "", "port": "", "protocol": "",
-        "description": "", "detection": "", "references": "",
+        "description": "", "intro": "", "detection": "", "references": "",
     }
     return templates.TemplateResponse(
         request=request,
@@ -717,6 +717,7 @@ def topic_create(
     port: str = Form(""),
     protocol: str = Form(""),
     description: str = Form(""),
+    intro: str = Form(""),
     detection: str = Form(""),
     references: str = Form(""),
     session: Session = Depends(get_session),
@@ -730,6 +731,7 @@ def topic_create(
         port=_int_or_none(port),
         protocol=protocol.strip() or None,
         description=description.strip(),
+        intro=intro.strip() or None,
         detection=detection.strip() or None,
         references=references.strip() or None,
     )
@@ -751,6 +753,7 @@ def topic_edit_form(topic_id: int, request: Request, session: Session = Depends(
         "port": topic.port or "",
         "protocol": topic.protocol or "",
         "description": topic.description or "",
+        "intro": topic.intro or "",
         "detection": topic.detection or "",
         "references": topic.references or "",
     }
@@ -777,6 +780,7 @@ def topic_update(
     port: str = Form(""),
     protocol: str = Form(""),
     description: str = Form(""),
+    intro: str = Form(""),
     detection: str = Form(""),
     references: str = Form(""),
     session: Session = Depends(get_session),
@@ -792,6 +796,7 @@ def topic_update(
     topic.port = _int_or_none(port)
     topic.protocol = protocol.strip() or None
     topic.description = description.strip()
+    topic.intro = intro.strip() or None
     topic.detection = detection.strip() or None
     topic.references = references.strip() or None
     session.add(topic)

@@ -413,3 +413,14 @@ pre.cmd code {
   border-bottom: 2px solid var(--accent);
   font-size: 1.1rem;
 }
+
+/* Introduzione approfondita di una voce del catalogo */
+.intro-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1.5rem;
+}
+.intro-box h2 { margin-top: 0; font-size: 1.1rem; }
+.intro-text { white-space: pre-line; color: var(--text); }

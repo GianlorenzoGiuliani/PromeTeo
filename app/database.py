@@ -46,6 +46,7 @@ def _run_light_migrations() -> None:
     attese = {
         "project": [("company", "VARCHAR"), ("author", "VARCHAR"), ("info", "TEXT")],
         "finding": [("target_id", "INTEGER")],
+        "topic": [("intro", "TEXT")],
     }
     with engine.connect() as conn:
         for tabella, colonne in attese.items():

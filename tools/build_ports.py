@@ -27,6 +27,141 @@ def c(title, goal, tool, command, interpretation):
             "command": command, "interpretation": interpretation, "references": None}
 
 
+# Introduzione approfondita per ogni servizio (cos'e', come funziona, perche'
+# conta in un pentest). Agganciata a ogni porta in main() tramite il nome.
+INTROS = {
+    "FTP": (
+        "Il File Transfer Protocol trasferisce file tra client e server. Nasce senza "
+        "cifratura: credenziali e dati viaggiano in chiaro e sono intercettabili sulla "
+        "rete (a meno di FTPS). Usa due canali separati: uno di controllo (porta 21) e "
+        "uno per i dati.\n"
+        "Per il pentester e' interessante soprattutto per il login anonimo (spesso "
+        "abilitato per sbaglio), le credenziali deboli e i file sensibili lasciati sulle "
+        "cartelle condivise."
+    ),
+    "SSH": (
+        "Secure Shell fornisce accesso remoto a riga di comando in modo cifrato, ed e' il "
+        "sostituto sicuro di Telnet. L'autenticazione puo' avvenire a password o, meglio, "
+        "con chiave pubblica.\n"
+        "E' generalmente robusto: i punti deboli reali sono credenziali deboli o "
+        "riutilizzate, chiavi private rubate, versioni vecchie con CVE note e algoritmi di "
+        "cifratura obsoleti. Un accesso SSH valido e' spesso gia' un piede dentro il sistema."
+    ),
+    "Telnet": (
+        "Telnet e' un vecchio protocollo di accesso remoto testuale, completamente NON "
+        "cifrato: nome utente, password e comandi viaggiano in chiaro. E' considerato "
+        "insicuro e andrebbe sostituito da SSH.\n"
+        "Si trova ancora su apparati di rete, stampanti e sistemi legacy, spesso con "
+        "credenziali di default. Chi si trova sulla stessa rete puo' intercettare l'intera "
+        "sessione."
+    ),
+    "SMTP": (
+        "Il Simple Mail Transfer Protocol gestisce l'invio della posta tra i server.\n"
+        "Per il pentester conta per tre motivi: l'enumerazione utenti (i comandi VRFY, EXPN "
+        "e RCPT confermano se un account esiste), l'open relay (un server mal configurato "
+        "che inoltra posta per chiunque, sfruttabile per spam e phishing) e le informazioni "
+        "rivelate dai banner."
+    ),
+    "DNS": (
+        "Il Domain Name System traduce i nomi (es. acme.it) negli indirizzi IP.\n"
+        "In un pentest e' una miniera di informazioni: il trasferimento di zona (AXFR), se "
+        "mal configurato, rivela l'intera mappa dei nomi interni; la ricorsione aperta puo' "
+        "essere abusata; l'enumerazione di sottodomini amplia la superficie d'attacco. "
+        "Spesso e' il primo passo della ricognizione."
+    ),
+    "HTTP/HTTPS": (
+        "Sono i protocolli del web: HTTP in chiaro (porta 80) e HTTPS cifrato con TLS (443).\n"
+        "Dietro una porta web puo' esserci qualunque cosa: un sito, un pannello di "
+        "amministrazione, un'API, un'applicazione complessa. E' la superficie d'attacco piu' "
+        "ricca e variegata: prima si identificano le tecnologie, poi si cercano contenuti "
+        "nascosti e vulnerabilita'. Vedi anche le sezioni Web App e Tecniche."
+    ),
+    "POP3 / IMAP": (
+        "Sono i protocolli per leggere la posta: POP3 (scarica e in genere rimuove i "
+        "messaggi) e IMAP (li sincronizza mantenendoli sul server). Esistono in versione in "
+        "chiaro (110/143) e cifrata (995/993).\n"
+        "Per il pentester contano per le credenziali deboli: una casella compromessa spesso "
+        "contiene dati sensibili e permette di resettare le password di altri servizi."
+    ),
+    "SMB": (
+        "Server Message Block e' il protocollo Windows per condividere file e stampanti e "
+        "per far comunicare le macchine; e' anche un pilastro di Active Directory.\n"
+        "E' uno dei servizi piu' preziosi in un pentest: consente l'enumerazione di utenti, "
+        "share e policy, a volte l'accesso anonimo (null session), ed e' stato bersaglio di "
+        "falle gravi come EternalBlue (MS17-010). La versione SMBv1 e' obsoleta e pericolosa."
+    ),
+    "SNMP": (
+        "Il Simple Network Management Protocol serve a monitorare e gestire dispositivi di "
+        "rete (router, switch, stampanti, server). L'accesso e' protetto da una 'community "
+        "string', spesso lasciata al valore di default (public/private). Viaggia su UDP.\n"
+        "Con una community valida si leggono moltissime informazioni: processi, software "
+        "installato, interfacce di rete e a volte credenziali in chiaro nelle configurazioni."
+    ),
+    "LDAP": (
+        "Il Lightweight Directory Access Protocol interroga una directory di utenti, gruppi "
+        "e risorse; su Windows e' il protocollo con cui si parla ad Active Directory.\n"
+        "Se il bind anonimo e' permesso si enumerano utenti e gruppi senza credenziali; anche "
+        "con un account qualsiasi, LDAP e' lo strumento principale per mappare il dominio. "
+        "Porta 389 (in chiaro) e 636 (LDAPS)."
+    ),
+    "MSSQL": (
+        "Microsoft SQL Server e' il database di Microsoft, molto diffuso in ambienti Windows.\n"
+        "Oltre ai dati, e' interessante perche' un account con privilegi puo' eseguire comandi "
+        "sul sistema operativo (xp_cmdshell) e perche' si integra con l'autenticazione di "
+        "Windows e Active Directory. Password vuote o deboli per l'utente 'sa' sono un classico "
+        "punto d'ingresso."
+    ),
+    "MySQL": (
+        "MySQL (e il fork MariaDB) e' un database relazionale diffusissimo, spesso dietro le "
+        "applicazioni web.\n"
+        "Per il pentester conta per le credenziali deboli o di default (root senza password e' "
+        "comune nelle installazioni di sviluppo), per i dati che contiene, e perche' con il "
+        "privilegio FILE si possono leggere o scrivere file sul server."
+    ),
+    "RDP": (
+        "Remote Desktop Protocol fornisce il desktop grafico remoto di Windows. E' un bersaglio "
+        "ad alto valore: un accesso RDP valido equivale a sedersi davanti alla macchina.\n"
+        "I punti d'attenzione sono le credenziali deboli (occhio ai blocchi account), l'assenza "
+        "di NLA, le vulnerabilita' pre-autenticazione come BlueKeep (CVE-2019-0708) e il riuso "
+        "di hash (Pass-the-Hash)."
+    ),
+    "PostgreSQL": (
+        "PostgreSQL e' un potente database relazionale open source.\n"
+        "Come gli altri database interessa per le credenziali deboli o di default "
+        "(postgres/postgres), per i dati, e perche' con i giusti privilegi permette "
+        "l'esecuzione di comandi sul server (COPY ... FROM PROGRAM). Spesso e' esposto dietro "
+        "un'applicazione."
+    ),
+    "WinRM": (
+        "Windows Remote Management e' il servizio con cui si amministrano da remoto le macchine "
+        "Windows (e' il trasporto di PowerShell Remoting).\n"
+        "Non e' una vulnerabilita' di per se', ma con credenziali valide (o un hash) e i giusti "
+        "privilegi offre una shell PowerShell remota: e' una via di movimento laterale molto "
+        "usata in Active Directory."
+    ),
+    "Redis": (
+        "Redis e' un database in memoria di tipo chiave-valore, usato per cache, code e "
+        "sessioni.\n"
+        "Il problema classico e' l'esposizione senza autenticazione: in molte installazioni di "
+        "default chi raggiunge la porta puo' leggere e scrivere dati. In certe configurazioni "
+        "si arriva all'esecuzione di codice o alla scrittura di file (chiavi SSH, webshell)."
+    ),
+    "MongoDB": (
+        "MongoDB e' un database NoSQL orientato ai documenti, comune dietro le applicazioni "
+        "moderne.\n"
+        "Il rischio tipico e' l'esposizione in rete con l'autenticazione disabilitata: chi "
+        "raggiunge la porta puo' elencare e leggere interi database senza credenziali. Molte "
+        "fughe di dati sono nate da istanze MongoDB aperte su Internet."
+    ),
+    "NFS": (
+        "Il Network File System condivide cartelle tra sistemi Unix/Linux sulla rete.\n"
+        "Le condivisioni (export) possono essere mal configurate e accessibili a chiunque; "
+        "l'opzione 'no_root_squash' e' particolarmente pericolosa perche' permette a chi ha "
+        "accesso di agire come root sui file, aprendo la strada a un'escalation di privilegi."
+    ),
+}
+
+
 PORTS = [
     t("FTP", 21, "tcp", "File Transfer Protocol: trasferimento file, spesso in chiaro.",
       "Porta 21/tcp aperta; il banner mostra il software del server FTP.", "pentesting-ftp", [
@@ -211,6 +346,8 @@ PORTS = [
 def main():
     out = Path(__file__).resolve().parent.parent / "data" / "ports_seed.json"
     out.parent.mkdir(parents=True, exist_ok=True)
+    for port in PORTS:
+        port["intro"] = INTROS.get(port["name"])
     data = {"source": "curato a mano (metodologia standard)", "topics": PORTS}
     out.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     n_checks = sum(len(t["checks"]) for t in PORTS)

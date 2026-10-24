@@ -29,6 +29,13 @@
     </div>
   </header>
 
+  {% if topic.intro %}
+    <section class="intro-box">
+      <h2>Cos'è e come funziona</h2>
+      <div class="intro-text">{{ topic.intro }}</div>
+    </section>
+  {% endif %}
+
   <h2>Test ({{ checks|length }})</h2>
 
   {% for c in checks %}

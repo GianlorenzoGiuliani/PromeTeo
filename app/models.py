@@ -34,7 +34,8 @@ class Topic(SQLModel, table=True):
     name: str = Field(index=True)            # es. "RDP", "WordPress"
     port: Optional[int] = None               # es. 3389 (solo per le porte)
     protocol: Optional[str] = None           # es. "tcp" (solo per le porte)
-    description: str = ""                     # cos'e' / a cosa serve
+    description: str = ""                     # cos'e' / a cosa serve (riga breve)
+    intro: Optional[str] = None              # spiegazione piu' approfondita del servizio
     detection: Optional[str] = None          # come riconoscerlo durante il test
     references: Optional[str] = None         # link di approfondimento (es. HackTricks)
 

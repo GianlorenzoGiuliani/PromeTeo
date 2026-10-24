@@ -42,6 +42,7 @@ def load_topics_json(path, default_kind: str) -> list[Topic]:
             port=t.get("port"),
             protocol=t.get("protocol"),
             description=t.get("description", ""),
+            intro=t.get("intro"),
             detection=t.get("detection"),
             references=t.get("references") or t.get("source_url"),
         )
