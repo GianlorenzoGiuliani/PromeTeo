@@ -33,13 +33,8 @@ Ogni card mostra quante voci contiene.
 ## 3. Il catalogo — *cosa testare*
 
 Il catalogo risponde alla domanda "ho trovato questa cosa, cosa ci faccio?".
-È diviso in tre sezioni:
-
-- **Porte** (es. RDP, SMB, FTP) — quando trovi una porta aperta
-- **Tecnologie** (es. WordPress) — quando riconosci una tecnologia
-- **Tecniche** (SQLi, XSS, SSRF…) — classi di vulnerabilità e payload
-
-In alto hai una **ricerca** per nome e i **filtri** per sezione.
+È diviso in **Porte**, **Tecnologie** e **Tecniche**; in alto hai una
+**ricerca** per nome e i **filtri** per sezione.
 
 ![Il catalogo con ricerca e filtri](docs/img/02-catalogo.png)
 
@@ -47,16 +42,10 @@ In alto hai una **ricerca** per nome e i **filtri** per sezione.
 
 ## 4. Una voce e i suoi test
 
-Cliccando una voce (qui **RDP**) vedi, per ogni test:
-
-- l'**obiettivo** (cosa stai verificando);
-- il **comando / payload** da lanciare — con il tasto **Copia**;
-- **come leggere il risultato** ("se vedi X, c'è la vulnerabilità");
-- il link **Fonte** per approfondire.
-
-Da qui puoi anche **gestire il catalogo** (`+ Aggiungi test`, `Modifica voce`,
-`Elimina voce`) e, soprattutto, trasformare un test in un finding con
-**`+ Aggiungi come finding`**: apre il modulo già pre-compilato.
+Cliccando una voce (qui **RDP**) vedi, per ogni test: l'**obiettivo**, il
+**comando / payload** (con il tasto **Copia**), **come leggere il risultato** e
+il link **Fonte**. Da qui puoi anche **gestire il catalogo** e trasformare un
+test in un finding con **`+ Aggiungi come finding`**.
 
 ![Dettaglio della voce RDP con i suoi test](docs/img/03-voce-rdp.png)
 
@@ -64,65 +53,77 @@ Da qui puoi anche **gestire il catalogo** (`+ Aggiungi test`, `Modifica voce`,
 
 ## 5. Creare un progetto
 
-Un **progetto** è un'attività di pentest: raccoglie i tuoi findings per poi
-generare il report. Vai su **Progetti → Nuovo progetto** e compila:
+Un **progetto** è un'attività di pentest: raccoglie i target e i findings per
+poi generare il report. Da **Progetti → Nuovo progetto** compila:
 
-- **Nome** dell'attività e **Cliente**;
-- **La tua azienda** e **Autore** (compaiono nell'intestazione del report);
-- **Scope / note** (utile annotare qui l'autorizzazione).
-
----
-
-## 6. Segnare un finding
-
-Quando un test conferma una vulnerabilità, la registri come **finding**.
-Il modulo ti fa indicare: progetto, titolo, **gravità** e **stato**, il
-**bersaglio** (host+porta *e/o* URL), **CVE/CWE**, descrizione, la **prova**
-(l'output che la dimostra) e il **rimedio**.
-
-![Il modulo per aggiungere un finding](docs/img/04-nuovo-finding.png)
+- **Nome** e **Cliente**;
+- **La tua azienda** e **Autore** (vanno nell'intestazione del report);
+- **Scope / note**;
+- **Info operative** — appunti tuoi (VPN, credenziali, jump host…). Restano
+  **privati**: li vedi solo nel progetto, **non** finiscono mai nel report.
 
 ---
 
-## 7. Il progetto e i suoi findings
+## 6. Aggiungere i target
 
-Nella pagina del progetto vedi tutti i findings, ordinati per gravità e con un
-bordo colorato (rosso = critica, arancione = alta…). Puoi **filtrarli** per
-gravità/stato, **modificarli** o **eliminarli**, e in alto trovi i pulsanti per
-il **report**.
+Dentro il progetto inserisci una volta sola i **target** (i bersagli): un
+host/IP o un URL, con un nome e qualche nota. Usa **`+ Aggiungi target`** nella
+sezione *Target*. Così non dovrai più riscriverli: li selezionerai nei findings.
 
-![La pagina di un progetto con i findings](docs/img/05-progetto.png)
+Esempi: `DC01 → 10.0.0.5:3389` (Domain Controller), `Web app → https://app.acme.it`.
 
 ---
 
-## 8. Generare il report
+## 7. Segnare un finding
 
-Il pulsante **Vedi report** produce il documento finale: intestazione con la
-tua azienda e l'autore, un **riepilogo** per gravità, e i findings
-**raggruppati e numerati**. Da lì puoi:
+Quando un test conferma una vulnerabilità, la registri come **finding**. Il
+progetto è già fissato: ti basta **selezionare il target** dal menù (niente più
+riscrittura), poi indichi titolo, **gravità**, **stato**, **CVE/CWE**,
+descrizione, la **prova** (l'output che la dimostra) e il **rimedio**.
 
-- **Stampa / PDF** (il tasto apre la stampa del browser → "Salva come PDF");
-- **Scarica .md** per avere il report come file di testo (Markdown), comodo da
-  convertire o incollare altrove.
+![Il modulo per aggiungere un finding, col menù dei target](docs/img/04-nuovo-finding.png)
+
+---
+
+## 8. Il progetto: target e findings
+
+La pagina del progetto mostra le **info operative**, la lista dei **target** e
+tutti i **findings** (ordinati per gravità, col bordo colorato). Su ogni finding
+vedi il **bersaglio** preso dal target. Puoi filtrare, modificare o eliminare, e
+in alto trovi i pulsanti per il **report**.
+
+![La pagina di un progetto con target e findings](docs/img/05-progetto.png)
+
+---
+
+## 9. Generare il report
+
+Il pulsante **Vedi report** produce il documento finale: intestazione con la tua
+azienda e l'autore, un **riepilogo** per gravità, e i findings **raggruppati e
+numerati** (ognuno col suo bersaglio). Da lì puoi:
+
+- **Stampa / PDF** (apre la stampa del browser → "Salva come PDF");
+- **Scarica .md** per avere il report come file di testo (Markdown).
+
+(Le info operative del progetto **non** compaiono nel report.)
 
 ![Il report del progetto](docs/img/06-report.png)
 
 ---
 
-## 9. Personalizzare il catalogo
+## 10. Personalizzare il catalogo
 
-PromeTeus parte con un catalogo già pieno (porte e tecnologie comuni + tecniche
-da PayloadsAllTheThings), ma è **tutto tuo**: dal **Catalogo → `+ Nuova voce`**
-aggiungi le tue porte/tecnologie/tecniche, e dentro ogni voce aggiungi i tuoi
-test con i comandi che usi davvero. Col tempo diventa il *tuo* metodo di lavoro.
+PromeTeus parte con un catalogo già pieno, ma è **tutto tuo**: da
+**Catalogo → `+ Nuova voce`** aggiungi le tue porte/tecnologie/tecniche, e dentro
+ogni voce i tuoi test con i comandi che usi davvero.
 
 ---
 
 ## Il flusso tipico, in breve
 
-1. Trovi una porta aperta o una tecnologia → la cerchi nel **Catalogo**
-2. Apri la voce → leggi **test, comando e come interpretare il risultato**
-3. Il test conferma la vulnerabilità → **`+ Aggiungi come finding`**
+1. Crei un **progetto** e ci inserisci i **target** (host/URL) una volta sola
+2. Trovi qualcosa → cerchi nel **Catalogo** cosa testare e come leggerlo
+3. Confermi una vulnerabilità → **finding**, selezionando il **target** giusto
 4. A fine attività → **Report** (schermo, PDF o Markdown) da consegnare
 
 Buon lavoro — e ricorda: solo su bersagli **autorizzati**.
