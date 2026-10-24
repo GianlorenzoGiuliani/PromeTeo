@@ -428,3 +428,55 @@ pre.cmd code {
 /* Badge dei nuovi tipi di voce */
 .kind-ad  { color: #c9a0ff; border-color: #5a3f7a; }
 .kind-web { color: #7fe0d0; border-color: #2f6e63; }
+
+/* ===========================================================================
+   Mini-dashboard del progetto: numeri-chiave + distribuzione per gravita'.
+   =========================================================================== */
+.dashboard { margin: 1.5rem 0; }
+
+/* Riga di "stat tile" (numeri-chiave) */
+.kpi-row { display: flex; flex-wrap: wrap; gap: 0.8rem; }
+.kpi {
+  flex: 1 1 120px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.kpi-num { font-size: 1.8rem; font-weight: 700; line-height: 1; }
+.kpi-label {
+  color: var(--muted); font-size: 0.75rem;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+
+/* Barra di distribuzione per gravita' (segmenti con 2px di stacco) */
+.sev-bar {
+  display: flex;
+  height: 14px;
+  margin: 1.1rem 0 0.6rem;
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.sev-seg { box-sizing: border-box; border-right: 2px solid var(--bg); }
+.sev-seg:last-child { border-right: none; }
+
+/* Legenda: colore SEMPRE accompagnato da etichetta e numero */
+.sev-legend {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-wrap: wrap; gap: 0.3rem 1rem;
+  font-size: 0.85rem; color: var(--muted);
+}
+.sev-legend li { display: flex; align-items: center; gap: 0.4rem; }
+.sev-legend strong { color: var(--text); }
+.sev-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+/* Colori di sfondo per gravita' (coerenti coi badge e i bordi dei finding) */
+.sev-bg-critical { background: #ff6b6b; }
+.sev-bg-high     { background: #ff9f6b; }
+.sev-bg-medium   { background: #ffd36b; }
+.sev-bg-low      { background: #9fd3ff; }
+.sev-bg-info     { background: #b7c0cc; }

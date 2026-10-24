@@ -30,6 +30,42 @@
     </div>
   </header>
 
+  <section class="dashboard" aria-label="Riepilogo del progetto">
+    <div class="kpi-row">
+      <div class="kpi">
+        <span class="kpi-num">{{ stats.n_targets }}</span>
+        <span class="kpi-label">Target</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-num">{{ stats.n_findings }}</span>
+        <span class="kpi-label">Findings</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-num">{{ stats.da_verificare }}</span>
+        <span class="kpi-label">Da verificare</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-num">{{ stats.risolti }}</span>
+        <span class="kpi-label">Risolti</span>
+      </div>
+    </div>
+
+    {% if stats.n_findings %}
+      {# Barra: distribuzione per gravita'. Il colore e' sempre accompagnato
+         da etichetta e numero nella legenda sotto (mai solo colore). #}
+      <div class="sev-bar" role="img" aria-label="Distribuzione dei findings per gravita'">
+        {% for s in severities %}{% if stats.sev_counts[s] %}<span class="sev-seg sev-bg-{{ s }}" style="width: {{ (stats.sev_counts[s] / stats.n_findings * 100) | round(2) }}%" title="{{ severity_labels[s] }}: {{ stats.sev_counts[s] }}"></span>{% endif %}{% endfor %}
+      </div>
+      <ul class="sev-legend">
+        {% for s in severities %}
+          <li><span class="sev-dot sev-bg-{{ s }}"></span>{{ severity_labels[s] }} <strong>{{ stats.sev_counts[s] }}</strong></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">Nessun finding ancora: la distribuzione per gravita' comparira' qui.</p>
+    {% endif %}
+  </section>
+
   <section class="targets-section">
     <div class="page-head">
       <h2>Target ({{ targets|length }})</h2>

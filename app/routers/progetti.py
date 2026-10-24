@@ -95,6 +95,35 @@ def progetto_detail(
     senza = [f for f in findings if not f.target_id or f.target_id not in targets_by_id]
     if senza:
         grouped.append({"label": "Senza target", "findings": senza})
+
+    # Statistiche per la mini-dashboard in cima alla pagina. Le calcoliamo
+    # sull'INTERO progetto (non sul filtro attivo) con due GROUP BY: una query
+    # per la gravita' e una per lo stato, invece di contare in Python.
+    sev_counts = {s: 0 for s in SEVERITIES}
+    for sev, n in session.exec(
+        select(Finding.severity, func.count())
+        .where(Finding.project_id == project_id)
+        .group_by(Finding.severity)
+    ).all():
+        if sev in sev_counts:
+            sev_counts[sev] = n
+    status_counts = {s: 0 for s in STATUSES}
+    for st, n in session.exec(
+        select(Finding.status, func.count())
+        .where(Finding.project_id == project_id)
+        .group_by(Finding.status)
+    ).all():
+        if st in status_counts:
+            status_counts[st] = n
+    stats = {
+        "n_targets": len(targets),
+        "n_findings": sum(sev_counts.values()),
+        "da_verificare": status_counts["open"] + status_counts["confirmed"],
+        "risolti": status_counts["resolved"],
+        "sev_counts": sev_counts,
+        "status_counts": status_counts,
+    }
+
     return templates.TemplateResponse(
         request=request,
         name="progetto.html",
@@ -103,6 +132,7 @@ def progetto_detail(
             "findings": findings,
             "targets": targets,
             "grouped": grouped,
+            "stats": stats,
             "severities": SEVERITIES,
             "statuses": STATUSES,
             "sel_severity": severity or "",
