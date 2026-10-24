@@ -71,6 +71,17 @@ def int_or_none(value):
         return None
 
 
+def get_or_404(session, model, pk, detail="Non trovato"):
+    """Carica un record per id, oppure risponde 404 se non esiste.
+
+    Raccoglie in un punto solo il controllo 'esiste?' che prima era ripetuto
+    in ogni rotta (session.get(...) + if None -> HTTPException 404)."""
+    obj = session.get(model, pk)
+    if obj is None:
+        raise HTTPException(status_code=404, detail=detail)
+    return obj
+
+
 # ===========================================================================
 # Protezione CSRF (Cross-Site Request Forgery).
 #

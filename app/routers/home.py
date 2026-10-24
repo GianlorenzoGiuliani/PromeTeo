@@ -27,12 +27,11 @@ def home(request: Request, session: Session = Depends(get_session)):
     'session: Session = Depends(get_session)' chiede a FastAPI di aprire una
     sessione sul database e passarcela; a fine richiesta la chiude da sola.
     """
-    counts = {
-        kind: session.exec(
-            select(func.count()).select_from(Topic).where(Topic.kind == kind)
-        ).one()
-        for kind in (KIND_PORT, KIND_TECH, KIND_TECHNIQUE, KIND_AD, KIND_WEB)
-    }
+    # Conteggio delle voci per sezione: UNA sola query con GROUP BY, invece di
+    # cinque COUNT separate. Il dizionario con 0 di default copre le sezioni
+    # ancora vuote.
+    raw = dict(session.exec(select(Topic.kind, func.count()).group_by(Topic.kind)).all())
+    counts = {kind: raw.get(kind, 0) for kind in (KIND_PORT, KIND_TECH, KIND_TECHNIQUE, KIND_AD, KIND_WEB)}
     n_progetti = session.exec(select(func.count()).select_from(Project)).one()
     return templates.TemplateResponse(
         request=request,

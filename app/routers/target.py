@@ -1,12 +1,12 @@
 """Target: i bersagli di un progetto (host/IP o URL). Creazione, modifica
 ed eliminazione."""
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session, select
 
 from app.database import get_session
 from app.models import Finding, Project, Target
-from app.web import int_or_none, templates
+from app.web import get_or_404, int_or_none, templates
 
 router = APIRouter()
 
@@ -14,9 +14,7 @@ router = APIRouter()
 @router.get("/progetti/{project_id}/target/nuovo", response_class=HTMLResponse)
 def target_new_form(project_id: int, request: Request, session: Session = Depends(get_session)):
     """Form per aggiungere un target a un progetto."""
-    project = session.get(Project, project_id)
-    if project is None:
-        raise HTTPException(status_code=404, detail="Progetto non trovato")
+    project = get_or_404(session, Project, project_id, "Progetto non trovato")
     values = {"name": "", "host": "", "port": "", "url": "", "notes": ""}
     return templates.TemplateResponse(
         request=request,
@@ -43,9 +41,7 @@ def target_create(
     session: Session = Depends(get_session),
 ):
     """Crea un target dentro un progetto."""
-    project = session.get(Project, project_id)
-    if project is None:
-        raise HTTPException(status_code=404, detail="Progetto non trovato")
+    project = get_or_404(session, Project, project_id, "Progetto non trovato")
     target = Target(
         project_id=project_id,
         name=name.strip() or None,
@@ -62,9 +58,7 @@ def target_create(
 @router.get("/target/{target_id}/modifica", response_class=HTMLResponse)
 def target_edit_form(target_id: int, request: Request, session: Session = Depends(get_session)):
     """Form per modificare un target."""
-    target = session.get(Target, target_id)
-    if target is None:
-        raise HTTPException(status_code=404, detail="Target non trovato")
+    target = get_or_404(session, Target, target_id, "Target non trovato")
     project = session.get(Project, target.project_id)
     values = {
         "name": target.name or "",
@@ -98,9 +92,7 @@ def target_update(
     session: Session = Depends(get_session),
 ):
     """Aggiorna un target."""
-    target = session.get(Target, target_id)
-    if target is None:
-        raise HTTPException(status_code=404, detail="Target non trovato")
+    target = get_or_404(session, Target, target_id, "Target non trovato")
     target.name = name.strip() or None
     target.host = host.strip() or None
     target.port = int_or_none(port)
@@ -114,9 +106,7 @@ def target_update(
 @router.post("/target/{target_id}/elimina")
 def target_delete(target_id: int, session: Session = Depends(get_session)):
     """Elimina un target. I findings che lo usavano perdono il collegamento."""
-    target = session.get(Target, target_id)
-    if target is None:
-        raise HTTPException(status_code=404, detail="Target non trovato")
+    target = get_or_404(session, Target, target_id, "Target non trovato")
     project_id = target.project_id
     orfani = session.exec(select(Finding).where(Finding.target_id == target_id)).all()
     for f in orfani:

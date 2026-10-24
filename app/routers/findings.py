@@ -27,6 +27,7 @@ from app.web import (
     LIKELIHOOD_LABELS,
     SEVERITY_LABELS,
     STATUS_LABELS,
+    get_or_404,
     int_or_none,
     templates,
 )
@@ -212,9 +213,7 @@ def finding_new_form(
     check_id: int | None = None,
 ):
     """Form per CREARE un finding dentro un progetto: si seleziona un target."""
-    project = session.get(Project, project_id)
-    if project is None:
-        raise HTTPException(status_code=404, detail="Progetto non trovato")
+    project = get_or_404(session, Project, project_id, "Progetto non trovato")
     targets = session.exec(
         select(Target).where(Target.project_id == project_id).order_by(Target.id)
     ).all()
@@ -242,9 +241,7 @@ def finding_new_form(
 @router.post("/progetti/{project_id}/findings")
 async def finding_create(project_id: int, request: Request, session: Session = Depends(get_session)):
     """Crea un finding dentro un progetto (il target si seleziona)."""
-    project = session.get(Project, project_id)
-    if project is None:
-        raise HTTPException(status_code=404, detail="Progetto non trovato")
+    project = get_or_404(session, Project, project_id, "Progetto non trovato")
     fields = clean_finding_fields(await request.form())
     if not fields["title"]:
         raise HTTPException(status_code=400, detail="Il titolo e' obbligatorio")
@@ -264,13 +261,13 @@ def finding_new_global(
     Il menu dei target si aggiorna in base al progetto scelto, via JavaScript.
     """
     projects = session.exec(select(Project).order_by(Project.name)).all()
-    project_targets = []
-    targets_by_project = {}
-    for p in projects:
-        ts = session.exec(select(Target).where(Target.project_id == p.id).order_by(Target.id)).all()
-        labeled = [{"id": t.id, "label": target_label(t)} for t in ts]
-        project_targets.append({"id": p.id, "name": p.name, "targets": labeled})
-        targets_by_project[p.id] = labeled
+    # Tutti i target in UNA query, poi raggruppati per progetto. Prima si faceva
+    # una query dei target PER OGNI progetto (problema "N+1").
+    by_project = {}
+    for t in session.exec(select(Target).order_by(Target.project_id, Target.id)).all():
+        by_project.setdefault(t.project_id, []).append({"id": t.id, "label": target_label(t)})
+    project_targets = [{"id": p.id, "name": p.name, "targets": by_project.get(p.id, [])} for p in projects]
+    targets_by_project = {p.id: by_project.get(p.id, []) for p in projects}
     values = empty_values()
     values["project_id"] = project_id or ""
     check = prefill_from_check(session, values, check_id) if check_id is not None else None
@@ -299,9 +296,7 @@ async def finding_create_global(request: Request, session: Session = Depends(get
     """Crea un finding scegliendo il progetto nel form."""
     form = await request.form()
     project_id = int_or_none(form.get("project_id"))
-    project = session.get(Project, project_id) if project_id else None
-    if project is None:
-        raise HTTPException(status_code=404, detail="Progetto non trovato")
+    project = get_or_404(session, Project, project_id, "Progetto non trovato")
     fields = clean_finding_fields(form)
     if not fields["title"]:
         raise HTTPException(status_code=400, detail="Il titolo e' obbligatorio")
@@ -313,9 +308,7 @@ async def finding_create_global(request: Request, session: Session = Depends(get
 def finding_edit_form(finding_id: int, request: Request, session: Session = Depends(get_session)):
     """Form per MODIFICARE un finding: riusa lo stesso template della creazione
     e mostra in fondo lo storico delle modifiche."""
-    finding = session.get(Finding, finding_id)
-    if finding is None:
-        raise HTTPException(status_code=404, detail="Finding non trovato")
+    finding = get_or_404(session, Finding, finding_id, "Finding non trovato")
     project = session.get(Project, finding.project_id)
     targets = session.exec(
         select(Target).where(Target.project_id == finding.project_id).order_by(Target.id)
@@ -346,9 +339,7 @@ def finding_edit_form(finding_id: int, request: Request, session: Session = Depe
 @router.post("/findings/{finding_id}")
 async def finding_update(finding_id: int, request: Request, session: Session = Depends(get_session)):
     """Aggiorna un finding esistente (resta nel suo progetto)."""
-    finding = session.get(Finding, finding_id)
-    if finding is None:
-        raise HTTPException(status_code=404, detail="Finding non trovato")
+    finding = get_or_404(session, Finding, finding_id, "Finding non trovato")
     fields = clean_finding_fields(await request.form())
     if not fields["title"]:
         raise HTTPException(status_code=400, detail="Il titolo e' obbligatorio")
@@ -359,9 +350,7 @@ async def finding_update(finding_id: int, request: Request, session: Session = D
 @router.post("/findings/{finding_id}/elimina")
 def finding_delete(finding_id: int, session: Session = Depends(get_session)):
     """Elimina un finding, il suo storico, e torna al suo progetto."""
-    finding = session.get(Finding, finding_id)
-    if finding is None:
-        raise HTTPException(status_code=404, detail="Finding non trovato")
+    finding = get_or_404(session, Finding, finding_id, "Finding non trovato")
     project_id = finding.project_id
     for ev in session.exec(select(FindingEvent).where(FindingEvent.finding_id == finding_id)).all():
         session.delete(ev)

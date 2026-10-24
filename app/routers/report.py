@@ -1,7 +1,7 @@
 """Report del progetto: pagina HTML (stampabile/PDF) ed export Markdown."""
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from sqlmodel import Session, select
 
@@ -13,6 +13,7 @@ from app.web import (
     SEVERITY_LABELS,
     SEVERITY_RANK,
     STATUS_LABELS,
+    get_or_404,
     templates,
 )
 
@@ -22,9 +23,7 @@ router = APIRouter()
 @router.get("/progetti/{project_id}/report", response_class=HTMLResponse)
 def report_html(project_id: int, request: Request, session: Session = Depends(get_session)):
     """Report del progetto, in una pagina pensata anche per la stampa / PDF."""
-    project = session.get(Project, project_id)
-    if project is None:
-        raise HTTPException(status_code=404, detail="Progetto non trovato")
+    project = get_or_404(session, Project, project_id, "Progetto non trovato")
     findings = session.exec(select(Finding).where(Finding.project_id == project_id)).all()
     findings = sorted(findings, key=lambda f: (SEVERITY_RANK.get(f.severity, 99), f.id))
     targets = session.exec(select(Target).where(Target.project_id == project_id)).all()
@@ -54,9 +53,7 @@ def report_html(project_id: int, request: Request, session: Session = Depends(ge
 @router.get("/progetti/{project_id}/report.md")
 def report_md(project_id: int, session: Session = Depends(get_session)):
     """Scarica il report in formato Markdown (un file di testo)."""
-    project = session.get(Project, project_id)
-    if project is None:
-        raise HTTPException(status_code=404, detail="Progetto non trovato")
+    project = get_or_404(session, Project, project_id, "Progetto non trovato")
     findings = session.exec(select(Finding).where(Finding.project_id == project_id)).all()
     findings = sorted(findings, key=lambda f: (SEVERITY_RANK.get(f.severity, 99), f.id))
     targets = session.exec(select(Target).where(Target.project_id == project_id)).all()

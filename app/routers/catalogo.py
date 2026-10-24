@@ -2,14 +2,14 @@
 Catalogo: navigazione (elenco e dettaglio voce) e gestione dei contenuti
 (creare/modificare/eliminare voci e i loro test).
 """
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import or_
 from sqlmodel import Session, func, select
 
 from app.database import get_session
 from app.models import KIND_TECH, Check, Topic
-from app.web import KIND_LABELS, int_or_none, templates
+from app.web import KIND_LABELS, get_or_404, int_or_none, templates
 
 router = APIRouter()
 
@@ -65,10 +65,8 @@ def topic_detail(
 
     '{topic_id}' nell'indirizzo e' una parte variabile: /topic/1, /topic/2...
     """
-    topic = session.get(Topic, topic_id)
-    if topic is None:
-        # Se l'id non esiste, rispondiamo con un errore 404 (pagina non trovata).
-        raise HTTPException(status_code=404, detail="Voce non trovata")
+    # get_or_404 carica la voce o risponde 404 se l'id non esiste.
+    topic = get_or_404(session, Topic, topic_id, "Voce non trovata")
     checks = session.exec(select(Check).where(Check.topic_id == topic_id)).all()
     return templates.TemplateResponse(
         request=request,
@@ -133,9 +131,7 @@ def topic_create(
 @router.get("/topic/{topic_id}/modifica", response_class=HTMLResponse)
 def topic_edit_form(topic_id: int, request: Request, session: Session = Depends(get_session)):
     """Form per modificare una voce del catalogo."""
-    topic = session.get(Topic, topic_id)
-    if topic is None:
-        raise HTTPException(status_code=404, detail="Voce non trovata")
+    topic = get_or_404(session, Topic, topic_id, "Voce non trovata")
     values = {
         "kind": topic.kind,
         "name": topic.name,
@@ -175,9 +171,7 @@ def topic_update(
     session: Session = Depends(get_session),
 ):
     """Aggiorna una voce del catalogo."""
-    topic = session.get(Topic, topic_id)
-    if topic is None:
-        raise HTTPException(status_code=404, detail="Voce non trovata")
+    topic = get_or_404(session, Topic, topic_id, "Voce non trovata")
     if kind not in KIND_LABELS:
         kind = topic.kind
     topic.kind = kind
@@ -196,9 +190,7 @@ def topic_update(
 @router.post("/topic/{topic_id}/elimina")
 def topic_delete(topic_id: int, session: Session = Depends(get_session)):
     """Elimina una voce del catalogo e tutti i suoi test."""
-    topic = session.get(Topic, topic_id)
-    if topic is None:
-        raise HTTPException(status_code=404, detail="Voce non trovata")
+    topic = get_or_404(session, Topic, topic_id, "Voce non trovata")
     checks = session.exec(select(Check).where(Check.topic_id == topic_id)).all()
     for c in checks:
         session.delete(c)
@@ -210,9 +202,7 @@ def topic_delete(topic_id: int, session: Session = Depends(get_session)):
 @router.get("/topic/{topic_id}/test/nuovo", response_class=HTMLResponse)
 def check_new_form(topic_id: int, request: Request, session: Session = Depends(get_session)):
     """Form per aggiungere un test a una voce."""
-    topic = session.get(Topic, topic_id)
-    if topic is None:
-        raise HTTPException(status_code=404, detail="Voce non trovata")
+    topic = get_or_404(session, Topic, topic_id, "Voce non trovata")
     values = {"title": "", "goal": "", "tool": "", "command": "", "interpretation": "", "references": ""}
     return templates.TemplateResponse(
         request=request,
@@ -240,9 +230,7 @@ def check_create(
     session: Session = Depends(get_session),
 ):
     """Crea un test dentro una voce del catalogo."""
-    topic = session.get(Topic, topic_id)
-    if topic is None:
-        raise HTTPException(status_code=404, detail="Voce non trovata")
+    topic = get_or_404(session, Topic, topic_id, "Voce non trovata")
     check = Check(
         topic_id=topic_id,
         title=title.strip(),
@@ -260,9 +248,7 @@ def check_create(
 @router.get("/test/{check_id}/modifica", response_class=HTMLResponse)
 def check_edit_form(check_id: int, request: Request, session: Session = Depends(get_session)):
     """Form per modificare un test."""
-    check = session.get(Check, check_id)
-    if check is None:
-        raise HTTPException(status_code=404, detail="Test non trovato")
+    check = get_or_404(session, Check, check_id, "Test non trovato")
     topic = session.get(Topic, check.topic_id)
     values = {
         "title": check.title,
@@ -298,9 +284,7 @@ def check_update(
     session: Session = Depends(get_session),
 ):
     """Aggiorna un test."""
-    check = session.get(Check, check_id)
-    if check is None:
-        raise HTTPException(status_code=404, detail="Test non trovato")
+    check = get_or_404(session, Check, check_id, "Test non trovato")
     check.title = title.strip()
     check.goal = goal.strip() or None
     check.tool = tool.strip() or None
@@ -315,9 +299,7 @@ def check_update(
 @router.post("/test/{check_id}/elimina")
 def check_delete(check_id: int, session: Session = Depends(get_session)):
     """Elimina un test."""
-    check = session.get(Check, check_id)
-    if check is None:
-        raise HTTPException(status_code=404, detail="Test non trovato")
+    check = get_or_404(session, Check, check_id, "Test non trovato")
     topic_id = check.topic_id
     session.delete(check)
     session.commit()

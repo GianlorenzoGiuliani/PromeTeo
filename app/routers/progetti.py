@@ -1,6 +1,6 @@
 """Progetti: elenco, creazione, dettaglio (con findings raggruppati per
 target), modifica ed eliminazione."""
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import or_
 from sqlmodel import Session, func, select
@@ -13,6 +13,7 @@ from app.web import (
     SEVERITY_LABELS,
     SEVERITY_RANK,
     STATUS_LABELS,
+    get_or_404,
     templates,
 )
 
@@ -75,9 +76,7 @@ def progetto_detail(
     status: str | None = None,
 ):
     """Dettaglio di un progetto: dati + findings, filtrabili per gravita' e stato."""
-    project = session.get(Project, project_id)
-    if project is None:
-        raise HTTPException(status_code=404, detail="Progetto non trovato")
+    project = get_or_404(session, Project, project_id, "Progetto non trovato")
     statement = select(Finding).where(Finding.project_id == project_id)
     if severity in SEVERITIES:
         statement = statement.where(Finding.severity == severity)
@@ -91,16 +90,18 @@ def progetto_detail(
         select(Target).where(Target.project_id == project_id).order_by(Target.id)
     ).all()
     targets_by_id = {t.id: t for t in targets}
-    # Raggruppiamo i findings per target (nell'ordine dei target), con un
-    # gruppo finale "Senza target" per quelli non associati a un bersaglio.
+    # Raggruppiamo i findings per target in UN solo passaggio (prima si
+    # riscorreva l'intera lista dei findings una volta per ogni target).
+    by_target = {}
+    for f in findings:
+        key = f.target_id if (f.target_id and f.target_id in targets_by_id) else None
+        by_target.setdefault(key, []).append(f)
     grouped = []
     for t in targets:
-        fs = [f for f in findings if f.target_id == t.id]
-        if fs:
-            grouped.append({"label": target_label(t), "findings": fs})
-    senza = [f for f in findings if not f.target_id or f.target_id not in targets_by_id]
-    if senza:
-        grouped.append({"label": "Senza target", "findings": senza})
+        if t.id in by_target:
+            grouped.append({"label": target_label(t), "findings": by_target[t.id]})
+    if None in by_target:
+        grouped.append({"label": "Senza target", "findings": by_target[None]})
 
     # Statistiche per la mini-dashboard in cima alla pagina. Le calcoliamo
     # sull'INTERO progetto (non sul filtro attivo) con due GROUP BY: una query
@@ -153,9 +154,7 @@ def progetto_detail(
 @router.get("/progetti/{project_id}/modifica", response_class=HTMLResponse)
 def progetto_edit_form(project_id: int, request: Request, session: Session = Depends(get_session)):
     """Form per modificare i dati di un progetto."""
-    project = session.get(Project, project_id)
-    if project is None:
-        raise HTTPException(status_code=404, detail="Progetto non trovato")
+    project = get_or_404(session, Project, project_id, "Progetto non trovato")
     return templates.TemplateResponse(
         request=request,
         name="progetto_modifica.html",
@@ -175,9 +174,7 @@ def progetto_update(
     session: Session = Depends(get_session),
 ):
     """Aggiorna i dati di un progetto."""
-    project = session.get(Project, project_id)
-    if project is None:
-        raise HTTPException(status_code=404, detail="Progetto non trovato")
+    project = get_or_404(session, Project, project_id, "Progetto non trovato")
     project.name = name.strip()
     project.client = client.strip() or None
     project.company = company.strip() or None
@@ -192,9 +189,7 @@ def progetto_update(
 @router.post("/progetti/{project_id}/elimina")
 def progetto_delete(project_id: int, session: Session = Depends(get_session)):
     """Elimina un progetto e TUTTI i suoi findings (cascata manuale ed esplicita)."""
-    project = session.get(Project, project_id)
-    if project is None:
-        raise HTTPException(status_code=404, detail="Progetto non trovato")
+    project = get_or_404(session, Project, project_id, "Progetto non trovato")
     findings = session.exec(select(Finding).where(Finding.project_id == project_id)).all()
     for f in findings:
         session.delete(f)
