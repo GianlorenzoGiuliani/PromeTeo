@@ -101,6 +101,38 @@ def _int_or_none(value):
         return None
 
 
+def _save_new_finding(session, project_id, title, target_id, severity, status,
+                      cve, cwe, description, evidence, remediation, topic_id, check_id):
+    """Crea e salva un finding. Usato sia dalla via 'dentro il progetto' sia da
+    quella globale (dal catalogo): la logica sta in un posto solo."""
+    if severity not in SEVERITIES:
+        severity = "medium"
+    if status not in STATUSES:
+        status = "open"
+    # Il target scelto deve appartenere a questo progetto, altrimenti lo ignoriamo.
+    tid = _int_or_none(target_id)
+    if tid is not None:
+        t = session.get(Target, tid)
+        if t is None or t.project_id != project_id:
+            tid = None
+    finding = Finding(
+        project_id=project_id,
+        target_id=tid,
+        title=title.strip(),
+        severity=severity,
+        status=status,
+        cve=cve.strip() or None,
+        cwe=cwe.strip() or None,
+        description=description.strip() or None,
+        evidence=evidence.strip() or None,
+        remediation=remediation.strip() or None,
+        topic_id=_int_or_none(topic_id),
+        check_id=_int_or_none(check_id),
+    )
+    session.add(finding)
+    session.commit()
+
+
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request, session: Session = Depends(get_session)):
     """Pagina iniziale: presenta PromeTeus e mostra quante voci ha ogni sezione.
@@ -324,6 +356,7 @@ def finding_new_form(
             "targets": targets,
             "values": values,
             "check": check,
+            "project_picker": False,
             "form_action": f"/progetti/{project_id}/findings",
             "form_title": "Nuovo finding",
             "submit_label": "Salva finding",
@@ -352,36 +385,93 @@ def finding_create(
     check_id: str = Form(""),
     session: Session = Depends(get_session),
 ):
-    """Crea un finding dentro un progetto."""
+    """Crea un finding dentro un progetto (il target si seleziona)."""
     project = session.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Progetto non trovato")
-    if severity not in SEVERITIES:
-        severity = "medium"
-    if status not in STATUSES:
-        status = "open"
-    # Il target scelto deve appartenere a questo progetto (altrimenti lo ignoriamo).
-    tid = _int_or_none(target_id)
-    if tid is not None:
-        t = session.get(Target, tid)
-        if t is None or t.project_id != project_id:
-            tid = None
-    finding = Finding(
-        project_id=project_id,
-        target_id=tid,
-        title=title.strip(),
-        severity=severity,
-        status=status,
-        cve=cve.strip() or None,
-        cwe=cwe.strip() or None,
-        description=description.strip() or None,
-        evidence=evidence.strip() or None,
-        remediation=remediation.strip() or None,
-        topic_id=_int_or_none(topic_id),
-        check_id=_int_or_none(check_id),
+    _save_new_finding(session, project_id, title, target_id, severity, status,
+                      cve, cwe, description, evidence, remediation, topic_id, check_id)
+    return RedirectResponse(url=f"/progetti/{project_id}", status_code=303)
+
+
+@app.get("/findings/nuovo", response_class=HTMLResponse)
+def finding_new_global(
+    request: Request,
+    session: Session = Depends(get_session),
+    project_id: int | None = None,
+    check_id: int | None = None,
+):
+    """Form per creare un finding scegliendo il progetto (es. dal catalogo).
+
+    Il menu dei target si aggiorna in base al progetto scelto, via JavaScript.
+    """
+    projects = session.exec(select(Project).order_by(Project.name)).all()
+    project_targets = []
+    targets_by_project = {}
+    for p in projects:
+        ts = session.exec(select(Target).where(Target.project_id == p.id).order_by(Target.id)).all()
+        labeled = [{"id": t.id, "label": target_label(t)} for t in ts]
+        project_targets.append({"id": p.id, "name": p.name, "targets": labeled})
+        targets_by_project[p.id] = labeled
+    check = None
+    values = {
+        "title": "", "severity": "medium", "status": "open",
+        "target_id": "", "cve": "", "cwe": "",
+        "description": "", "evidence": "", "remediation": "",
+        "project_id": project_id or "", "topic_id": "", "check_id": "",
+    }
+    if check_id is not None:
+        check = session.get(Check, check_id)
+        if check is not None:
+            topic = session.get(Topic, check.topic_id)
+            values["title"] = f"{topic.name}: {check.title}" if topic else check.title
+            values["description"] = check.goal or ""
+            values["topic_id"] = check.topic_id
+            values["check_id"] = check.id
+    return templates.TemplateResponse(
+        request=request,
+        name="finding_form.html",
+        context={
+            "project_picker": True,
+            "projects": projects,
+            "project_targets": project_targets,
+            "targets_by_project": targets_by_project,
+            "values": values,
+            "check": check,
+            "form_action": "/findings",
+            "form_title": "Nuovo finding",
+            "submit_label": "Salva finding",
+            "back_url": "/catalogo" if check else "/progetti",
+            "severities": SEVERITIES,
+            "statuses": STATUSES,
+            "severity_labels": SEVERITY_LABELS,
+            "status_labels": STATUS_LABELS,
+        },
     )
-    session.add(finding)
-    session.commit()
+
+
+@app.post("/findings")
+def finding_create_global(
+    project_id: int = Form(...),
+    title: str = Form(...),
+    target_id: str = Form(""),
+    severity: str = Form("medium"),
+    status: str = Form("open"),
+    cve: str = Form(""),
+    cwe: str = Form(""),
+    description: str = Form(""),
+    evidence: str = Form(""),
+    remediation: str = Form(""),
+    topic_id: str = Form(""),
+    check_id: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    """Crea un finding scegliendo il progetto nel form."""
+    project = session.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Progetto non trovato")
+    _save_new_finding(session, project_id, title, target_id, severity, status,
+                      cve, cwe, description, evidence, remediation, topic_id, check_id)
     return RedirectResponse(url=f"/progetti/{project_id}", status_code=303)
 
 
@@ -470,6 +560,7 @@ def finding_edit_form(finding_id: int, request: Request, session: Session = Depe
             "targets": targets,
             "values": values,
             "check": None,
+            "project_picker": False,
             "form_action": f"/findings/{finding.id}",
             "form_title": "Modifica finding",
             "submit_label": "Salva modifiche",
@@ -952,15 +1043,3 @@ def target_delete(target_id: int, session: Session = Depends(get_session)):
     session.delete(target)
     session.commit()
     return RedirectResponse(url=f"/progetti/{project_id}", status_code=303)
-
-
-@app.get("/scegli-progetto", response_class=HTMLResponse)
-def scegli_progetto(request: Request, session: Session = Depends(get_session), check_id: int | None = None):
-    """Scorciatoia dal catalogo: scegli il progetto a cui aggiungere il finding."""
-    projects = session.exec(select(Project).order_by(Project.name)).all()
-    check = session.get(Check, check_id) if check_id else None
-    return templates.TemplateResponse(
-        request=request,
-        name="scegli_progetto.html",
-        context={"projects": projects, "check": check, "check_id": check_id or ""},
-    )

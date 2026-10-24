@@ -56,7 +56,7 @@
         </p>
       {% endif %}
       <div class="finding-actions">
-        <a class="btn-link" href="/scegli-progetto?check_id={{ c.id }}">+ Aggiungi come finding</a>
+        <a class="btn-link" href="/findings/nuovo?check_id={{ c.id }}">+ Aggiungi come finding</a>
         <a class="btn-link" href="/test/{{ c.id }}/modifica">Modifica</a>
         <form class="inline-form" method="post" action="/test/{{ c.id }}/elimina"
               onsubmit="return confirm('Eliminare questo test?');">

@@ -5,70 +5,106 @@
 {% block content %}
   <p class="breadcrumb"><a href="{{ back_url }}">&larr; Indietro</a></p>
   <h1>{{ form_title }}</h1>
-  <p class="hint">Progetto: <strong>{{ project.name }}</strong>{% if check %} &middot; dal test <strong>{{ check.title }}</strong>{% endif %}</p>
+  {% if not project_picker %}
+    <p class="hint">Progetto: <strong>{{ project.name }}</strong>{% if check %} &middot; dal test <strong>{{ check.title }}</strong>{% endif %}</p>
+  {% elif check %}
+    <p class="hint">Dal test del catalogo: <strong>{{ check.title }}</strong></p>
+  {% endif %}
 
-  <form class="form-card" method="post" action="{{ form_action }}">
-    <label>Titolo *
-      <input type="text" name="title" required value="{{ values.title }}"
-             placeholder="Es. RDP: login senza NLA">
-    </label>
+  {% if project_picker and not projects %}
+    <p class="empty">Devi prima <a href="/progetti">creare un progetto</a>,
+      poi potrai aggiungerci i findings.</p>
+  {% else %}
+    <form class="form-card" method="post" action="{{ form_action }}">
 
-    <label>Bersaglio (target)
-      <select name="target_id">
-        <option value="">&mdash; nessuno &mdash;</option>
-        {% for t in targets %}
-          {% set detail %}{% if t.host %}{{ t.host }}{% if t.port %}:{{ t.port }}{% endif %}{% endif %}{% if t.host and t.url %} | {% endif %}{% if t.url %}{{ t.url }}{% endif %}{% endset %}
-          <option value="{{ t.id }}"{% if t.id == values.target_id %} selected{% endif %}>{% if t.name %}{{ t.name }}{% if detail|trim %} &mdash; {{ detail|trim }}{% endif %}{% else %}{{ detail|trim or 'target ' ~ t.id }}{% endif %}</option>
-        {% endfor %}
-      </select>
-    </label>
-    {% if not targets %}
-      <p class="hint">Nessun target in questo progetto.
-        <a href="/progetti/{{ project.id }}/target/nuovo">Aggiungine uno</a> per poterlo selezionare.</p>
-    {% endif %}
+      {% if project_picker %}
+        {# Modalita' con scelta del progetto: il menu dei target si aggiorna via JS. #}
+        <label>Progetto *
+          <select name="project_id" class="js-project" required>
+            {% for p in projects %}
+              <option value="{{ p.id }}"{% if p.id == values.project_id %} selected{% endif %}>{{ p.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Bersaglio (target)
+          <select name="target_id" class="js-target" data-selected="{{ values.target_id }}">
+            <option value="">&mdash; nessuno &mdash;</option>
+            {% for pt in project_targets %}
+              {% if pt.targets %}
+                <optgroup label="{{ pt.name }}">
+                  {% for t in pt.targets %}
+                    <option value="{{ t.id }}"{% if t.id == values.target_id %} selected{% endif %}>{{ t.label }}</option>
+                  {% endfor %}
+                </optgroup>
+              {% endif %}
+            {% endfor %}
+          </select>
+        </label>
+        {# I target per progetto, per il JavaScript. 'tojson' li inserisce in modo sicuro. #}
+        <script type="application/json" id="targets-by-project">{{ targets_by_project|tojson }}</script>
+      {% else %}
+        {# Modalita' dentro un progetto: target solo di questo progetto. #}
+        <label>Bersaglio (target)
+          <select name="target_id">
+            <option value="">&mdash; nessuno &mdash;</option>
+            {% for t in targets %}
+              {% set detail %}{% if t.host %}{{ t.host }}{% if t.port %}:{{ t.port }}{% endif %}{% endif %}{% if t.host and t.url %} | {% endif %}{% if t.url %}{{ t.url }}{% endif %}{% endset %}
+              <option value="{{ t.id }}"{% if t.id == values.target_id %} selected{% endif %}>{% if t.name %}{{ t.name }}{% if detail|trim %} &mdash; {{ detail|trim }}{% endif %}{% else %}{{ detail|trim or 'target ' ~ t.id }}{% endif %}</option>
+            {% endfor %}
+          </select>
+        </label>
+        {% if not targets %}
+          <p class="hint">Nessun target in questo progetto.
+            <a href="/progetti/{{ project.id }}/target/nuovo">Aggiungine uno</a> per poterlo selezionare.</p>
+        {% endif %}
+      {% endif %}
 
-    <div class="form-row">
-      <label>Gravità
-        <select name="severity">
-          {% for s in severities %}
-            <option value="{{ s }}"{% if s == values.severity %} selected{% endif %}>{{ severity_labels.get(s, s) }}</option>
-          {% endfor %}
-        </select>
+      <label>Titolo *
+        <input type="text" name="title" required value="{{ values.title }}"
+               placeholder="Es. RDP: login senza NLA">
       </label>
-      <label>Stato
-        <select name="status">
-          {% for s in statuses %}
-            <option value="{{ s }}"{% if s == values.status %} selected{% endif %}>{{ status_labels.get(s, s) }}</option>
-          {% endfor %}
-        </select>
+
+      <div class="form-row">
+        <label>Gravità
+          <select name="severity">
+            {% for s in severities %}
+              <option value="{{ s }}"{% if s == values.severity %} selected{% endif %}>{{ severity_labels.get(s, s) }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Stato
+          <select name="status">
+            {% for s in statuses %}
+              <option value="{{ s }}"{% if s == values.status %} selected{% endif %}>{{ status_labels.get(s, s) }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+
+      <div class="form-row">
+        <label>CVE
+          <input type="text" name="cve" value="{{ values.cve }}" placeholder="Es. CVE-2019-0708">
+        </label>
+        <label>CWE
+          <input type="text" name="cwe" value="{{ values.cwe }}" placeholder="Es. CWE-89">
+        </label>
+      </div>
+
+      <label>Descrizione
+        <textarea name="description" rows="3">{{ values.description }}</textarea>
       </label>
-    </div>
-
-    <div class="form-row">
-      <label>CVE
-        <input type="text" name="cve" value="{{ values.cve }}" placeholder="Es. CVE-2019-0708">
+      <label>Prova (evidence) &mdash; output del comando, screenshot...
+        <textarea name="evidence" rows="4"
+                  placeholder="Incolla qui l'output che dimostra la vulnerabilità">{{ values.evidence }}</textarea>
       </label>
-      <label>CWE
-        <input type="text" name="cwe" value="{{ values.cwe }}" placeholder="Es. CWE-89">
+      <label>Rimedio
+        <textarea name="remediation" rows="3"
+                  placeholder="Come correggerla (finirà nel report)">{{ values.remediation }}</textarea>
       </label>
-    </div>
 
-    <label>Descrizione
-      <textarea name="description" rows="3">{{ values.description }}</textarea>
-    </label>
-    <label>Prova (evidence) &mdash; output del comando, screenshot...
-      <textarea name="evidence" rows="4"
-                placeholder="Incolla qui l'output che dimostra la vulnerabilità">{{ values.evidence }}</textarea>
-    </label>
-    <label>Rimedio
-      <textarea name="remediation" rows="3"
-                placeholder="Come correggerla (finirà nel report)">{{ values.remediation }}</textarea>
-    </label>
-
-    {# Collegamento facoltativo al test del catalogo da cui nasce il finding. #}
-    <input type="hidden" name="topic_id" value="{{ values.topic_id }}">
-    <input type="hidden" name="check_id" value="{{ values.check_id }}">
-
-    <button type="submit">{{ submit_label }}</button>
-  </form>
+      <input type="hidden" name="topic_id" value="{{ values.topic_id }}">
+      <input type="hidden" name="check_id" value="{{ values.check_id }}">
+      <button type="submit">{{ submit_label }}</button>
+    </form>
+  {% endif %}
 {% endblock %}
