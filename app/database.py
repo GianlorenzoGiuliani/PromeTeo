@@ -45,15 +45,33 @@ def _run_light_migrations() -> None:
     # (La tabella 'target', essendo nuova, la crea gia' create_all.)
     attese = {
         "project": [("company", "VARCHAR"), ("author", "VARCHAR"), ("info", "TEXT")],
-        "finding": [("target_id", "INTEGER")],
+        "finding": [
+            ("target_id", "INTEGER"),
+            ("impact", "TEXT"),
+            ("likelihood", "VARCHAR"),
+            ("reproduction", "TEXT"),
+            ("references", "TEXT"),
+            ("cvss_vector", "VARCHAR"),
+            ("cvss_score", "FLOAT"),
+            ("assignee", "VARCHAR"),
+            ("retest", "TEXT"),
+            ("closed_at", "DATETIME"),
+        ],
         "topic": [("intro", "TEXT")],
     }
     with engine.connect() as conn:
         for tabella, colonne in attese.items():
             presenti = {row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({tabella})")}
+            if not presenti:
+                # La tabella non esiste ancora (in SQLite una tabella ha sempre
+                # almeno una colonna): la creera' create_all, qui non c'e' nulla
+                # da migrare. Saltiamo per non dare errore.
+                continue
             for nome, tipo in colonne:
                 if nome not in presenti:
-                    conn.exec_driver_sql(f"ALTER TABLE {tabella} ADD COLUMN {nome} {tipo}")
+                    # Quotiamo il nome della colonna: alcuni (es. "references") sono
+                    # parole riservate in SQL e senza virgolette darebbero errore.
+                    conn.exec_driver_sql(f'ALTER TABLE {tabella} ADD COLUMN "{nome}" {tipo}')
         conn.commit()
 
 
