@@ -84,8 +84,9 @@ class Project(SQLModel, table=True):
     info: Optional[str] = None               # note operative: VPN, credenziali, accessi...
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    # Un progetto ha molti bersagli (target) e molti findings.
+    # Un progetto ha molti bersagli (target), tecnologie e findings.
     targets: list["Target"] = Relationship(back_populates="project")
+    technologies: list["Technology"] = Relationship(back_populates="project")
     findings: list["Finding"] = Relationship(back_populates="project")
 
 
@@ -101,6 +102,21 @@ class Target(SQLModel, table=True):
     notes: Optional[str] = None              # note sul singolo bersaglio
 
     project: Optional[Project] = Relationship(back_populates="targets")
+
+
+class Technology(SQLModel, table=True):
+    """Una tecnologia individuata in un progetto (es. 'nginx 1.18.0'), con il
+    suo CPE. Dal CPE si interroga l'NVD per sapere quali CVE la riguardano."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    project_id: int = Field(foreign_key="project.id", index=True)
+    name: Optional[str] = None            # es. "nginx", "Apache httpd"
+    version: Optional[str] = None         # es. "1.18.0"
+    cpe: Optional[str] = None             # es. "cpe:2.3:a:nginx:nginx:1.18.0:*:*:*:*:*:*:*"
+    notes: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    project: Optional[Project] = Relationship(back_populates="technologies")
 
 
 class Finding(SQLModel, table=True):
