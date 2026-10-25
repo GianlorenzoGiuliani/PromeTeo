@@ -59,6 +59,7 @@ def _run_light_migrations() -> None:
             ("closed_at", "DATETIME"),
         ],
         "topic": [("intro", "TEXT")],
+        "technology": [("target_id", "INTEGER")],
     }
     with engine.connect() as conn:
         for tabella, colonne in attese.items():

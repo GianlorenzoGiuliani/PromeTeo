@@ -110,6 +110,9 @@ class Technology(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     project_id: int = Field(foreign_key="project.id", index=True)
+    # La tecnologia appartiene a un TARGET del progetto (si aggiunge entrando
+    # nel target). project_id resta per comodita' di aggregazione per progetto.
+    target_id: Optional[int] = Field(default=None, foreign_key="target.id", index=True)
     name: Optional[str] = None            # es. "nginx", "Apache httpd"
     version: Optional[str] = None         # es. "1.18.0"
     cpe: Optional[str] = None             # es. "cpe:2.3:a:nginx:nginx:1.18.0:*:*:*:*:*:*:*"

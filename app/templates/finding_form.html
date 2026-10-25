@@ -5,7 +5,9 @@
 {% block content %}
   <p class="breadcrumb"><a href="{{ back_url }}">&larr; Indietro</a></p>
   <h1>{{ form_title }}</h1>
-  {% if not project_picker %}
+  {% if fixed_target %}
+    <p class="hint">Progetto: <strong>{{ project.name }}</strong> &middot; Target: <strong>{{ fixed_target.name or fixed_target.host or fixed_target.url or ('target ' ~ fixed_target.id) }}</strong>{% if check %} &middot; dal test <strong>{{ check.title }}</strong>{% endif %}</p>
+  {% elif not project_picker %}
     <p class="hint">Progetto: <strong>{{ project.name }}</strong>{% if check %} &middot; dal test <strong>{{ check.title }}</strong>{% endif %}</p>
   {% elif check %}
     <p class="hint">Dal test del catalogo: <strong>{{ check.title }}</strong></p>
@@ -55,6 +57,9 @@
         </label>
         {# I target per progetto, per il JavaScript. 'tojson' li inserisce in modo sicuro. #}
         <script type="application/json" id="targets-by-project">{{ targets_by_project|tojson }}</script>
+      {% elif fixed_target %}
+        {# Target gia' fissato (siamo entrati dal target): niente menu da scegliere. #}
+        <input type="hidden" name="target_id" value="{{ fixed_target.id }}">
       {% else %}
         {# Modalita' dentro un progetto: target solo di questo progetto. #}
         <label>Bersaglio (target)

@@ -3,7 +3,11 @@
 {% block title %}CVE &mdash; {{ tech.name or 'tecnologia' }} - Prometeo{% endblock %}
 
 {% block content %}
-  <p class="breadcrumb"><a href="/progetti/{{ project.id }}">&larr; {{ project.name }}</a></p>
+  {% if target %}
+    <p class="breadcrumb"><a href="/target/{{ target.id }}">&larr; {{ target.name or target.host or target.url or ('target ' ~ target.id) }}</a></p>
+  {% else %}
+    <p class="breadcrumb"><a href="/progetti/{{ project.id }}">&larr; {{ project.name }}</a></p>
+  {% endif %}
 
   <header class="topic-head">
     <h1>CVE note{% if tech.name %} &mdash; {{ tech.name }}{% if tech.version %} {{ tech.version }}{% endif %}{% endif %}</h1>

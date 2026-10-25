@@ -206,9 +206,9 @@ def _form_extras() -> dict:
 # Rotte
 # ===========================================================================
 
-@router.get("/progetti/{project_id}/findings/nuovo", response_class=HTMLResponse)
+@router.get("/target/{target_id}/findings/nuovo", response_class=HTMLResponse)
 def finding_new_form(
-    project_id: int,
+    target_id: int,
     request: Request,
     session: Session = Depends(get_session),
     check_id: int | None = None,
@@ -218,14 +218,14 @@ def finding_new_form(
     cvss_score: str | None = None,
     description: str | None = None,
 ):
-    """Form per CREARE un finding dentro un progetto: si seleziona un target."""
-    project = get_or_404(session, Project, project_id, "Progetto non trovato")
-    targets = session.exec(
-        select(Target).where(Target.project_id == project_id).order_by(Target.id)
-    ).all()
+    """Form per CREARE un finding DENTRO un target: il target e' gia' fissato
+    (niente menu da selezionare)."""
+    target = get_or_404(session, Target, target_id, "Target non trovato")
+    project = session.get(Project, target.project_id)
     values = empty_values()
+    values["target_id"] = target.id
     check = prefill_from_check(session, values, check_id) if check_id is not None else None
-    # Precompilazione da una CVE (arriva dalla pagina delle tecnologie di un progetto).
+    # Precompilazione da una CVE (arriva dalla pagina CVE di una tecnologia).
     if cve:
         values["cve"] = cve
     if title:
@@ -241,29 +241,30 @@ def finding_new_form(
         name="finding_form.html",
         context={
             "project": project,
-            "targets": targets,
+            "fixed_target": target,
             "values": values,
             "check": check,
             "project_picker": False,
             "events": [],
-            "form_action": f"/progetti/{project_id}/findings",
+            "form_action": f"/target/{target_id}/findings",
             "form_title": "Nuovo finding",
             "submit_label": "Salva finding",
-            "back_url": f"/progetti/{project_id}",
+            "back_url": f"/target/{target_id}",
             **_form_extras(),
         },
     )
 
 
-@router.post("/progetti/{project_id}/findings")
-async def finding_create(project_id: int, request: Request, session: Session = Depends(get_session)):
-    """Crea un finding dentro un progetto (il target si seleziona)."""
-    project = get_or_404(session, Project, project_id, "Progetto non trovato")
+@router.post("/target/{target_id}/findings")
+async def finding_create(target_id: int, request: Request, session: Session = Depends(get_session)):
+    """Crea un finding dentro un target (il target arriva dal percorso, non da un menu)."""
+    target = get_or_404(session, Target, target_id, "Target non trovato")
     fields = clean_finding_fields(await request.form())
     if not fields["title"]:
         raise HTTPException(status_code=400, detail="Il titolo e' obbligatorio")
-    create_finding(session, project_id, fields)
-    return RedirectResponse(url=f"/progetti/{project_id}", status_code=303)
+    fields["target_id"] = target.id
+    create_finding(session, target.project_id, fields)
+    return RedirectResponse(url=f"/target/{target_id}", status_code=303)
 
 
 @router.get("/findings/nuovo", response_class=HTMLResponse)
@@ -317,8 +318,9 @@ async def finding_create_global(request: Request, session: Session = Depends(get
     fields = clean_finding_fields(form)
     if not fields["title"]:
         raise HTTPException(status_code=400, detail="Il titolo e' obbligatorio")
-    create_finding(session, project.id, fields)
-    return RedirectResponse(url=f"/progetti/{project.id}", status_code=303)
+    finding = create_finding(session, project.id, fields)
+    dest = f"/target/{finding.target_id}" if finding.target_id else f"/progetti/{project.id}"
+    return RedirectResponse(url=dest, status_code=303)
 
 
 @router.get("/findings/{finding_id}/modifica", response_class=HTMLResponse)
@@ -347,7 +349,8 @@ def finding_edit_form(finding_id: int, request: Request, session: Session = Depe
             "form_action": f"/findings/{finding.id}",
             "form_title": "Modifica finding",
             "submit_label": "Salva modifiche",
-            "back_url": f"/progetti/{finding.project_id}",
+            "back_url": (f"/target/{finding.target_id}" if finding.target_id
+                         else f"/progetti/{finding.project_id}"),
             **_form_extras(),
         },
     )
@@ -361,7 +364,8 @@ async def finding_update(finding_id: int, request: Request, session: Session = D
     if not fields["title"]:
         raise HTTPException(status_code=400, detail="Il titolo e' obbligatorio")
     apply_finding_update(session, finding, fields)
-    return RedirectResponse(url=f"/progetti/{finding.project_id}", status_code=303)
+    dest = f"/target/{finding.target_id}" if finding.target_id else f"/progetti/{finding.project_id}"
+    return RedirectResponse(url=dest, status_code=303)
 
 
 @router.post("/findings/{finding_id}/elimina")
@@ -369,8 +373,10 @@ def finding_delete(finding_id: int, session: Session = Depends(get_session)):
     """Elimina un finding, il suo storico, e torna al suo progetto."""
     finding = get_or_404(session, Finding, finding_id, "Finding non trovato")
     project_id = finding.project_id
+    target_id = finding.target_id
     for ev in session.exec(select(FindingEvent).where(FindingEvent.finding_id == finding_id)).all():
         session.delete(ev)
     session.delete(finding)
     session.commit()
-    return RedirectResponse(url=f"/progetti/{project_id}", status_code=303)
+    dest = f"/target/{target_id}" if target_id else f"/progetti/{project_id}"
+    return RedirectResponse(url=dest, status_code=303)
