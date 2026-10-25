@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}{{ target.name or target.host or target.url or 'Target' }} - Prometeo{% endblock %}
+
+{% block content %}
+  <p class="breadcrumb"><a href="/progetti/{{ project.id }}">&larr; {{ project.name }}</a></p>
+
+  <header class="topic-head">
+    <h1>{% if target.name %}{{ target.name }}{% else %}{{ target.host or target.url or ('Target ' ~ target.id) }}{% endif %}</h1>
+    {% if target.host or target.url %}
+      <p class="detection">
+        {% if target.host %}<strong>Host:</strong> {{ target.host }}{% endif %}
+        {% if target.host and target.url %} &middot; {% endif %}
+        {% if target.url %}<strong>URL:</strong> {{ target.url }}{% endif %}
+      </p>
+    {% endif %}
+    {% if target.notes %}<p class="detection"><strong>Note:</strong> {{ target.notes }}</p>{% endif %}
+    <div class="actions">
+      <a class="btn" href="/target/{{ target.id }}/findings/nuovo">+ Aggiungi finding</a>
+      <a class="btn btn-secondary" href="/target/{{ target.id }}/tecnologie/nuovo">+ Aggiungi tecnologia</a>
+      <a class="btn btn-secondary" href="/target/{{ target.id }}/modifica">Modifica target</a>
+    </div>
+  </header>
+
+  <section class="targets-section">
+    <h2>Findings ({{ findings|length }})</h2>
+    {% if findings %}
+      {% for f in findings %}
+        <article class="finding sev-{{ f.severity }}">
+          <div class="finding-head">
+            <span class="sev-badge sev-{{ f.severity }}">{{ severity_labels.get(f.severity, f.severity) }}</span>
+            <strong>{{ f.title }}</strong>
+            <span class="status-badge">{{ status_labels.get(f.status, f.status) }}</span>
+          </div>
+
+          {% if f.cve or f.cwe %}
+            <p class="finding-ids">
+              {% if f.cve %}<span class="idtag">{{ f.cve }}</span>{% endif %}
+              {% if f.cwe %}<span class="idtag">{{ f.cwe }}</span>{% endif %}
+            </p>
+          {% endif %}
+
+          {% if f.port or f.cvss_score is not none or f.likelihood or f.assignee or f.closed_at %}
+            <p class="finding-meta">
+              {% if f.port %}<span>Porta: <strong>{{ f.port }}</strong></span>{% endif %}
+              {% if f.cvss_score is not none %}<span class="cvss-badge">CVSS {{ f.cvss_score }}</span>{% endif %}
+              {% if f.likelihood %}<span>Probabilità: <strong>{{ likelihood_labels.get(f.likelihood, f.likelihood) }}</strong></span>{% endif %}
+              {% if f.assignee %}<span>Assegnatario: <strong>{{ f.assignee }}</strong></span>{% endif %}
+              {% if f.closed_at %}<span>Chiuso il <strong>{{ f.closed_at.strftime('%Y-%m-%d') }}</strong></span>{% endif %}
+            </p>
+          {% endif %}
+
+          {% if f.description %}<p>{{ f.description }}</p>{% endif %}
+          {% if f.impact %}<p class="interp"><strong>Impatto:</strong> {{ f.impact }}</p>{% endif %}
+          {% if f.reproduction %}<p class="interp"><strong>Passi per riprodurre:</strong> {{ f.reproduction }}</p>{% endif %}
+          {% if f.evidence %}
+            <div class="cmd-label">Prova</div>
+            <pre class="cmd"><code>{{ f.evidence }}</code></pre>
+          {% endif %}
+          {% if f.remediation %}<p class="interp"><strong>Rimedio:</strong> {{ f.remediation }}</p>{% endif %}
+          {% if f.references %}<p class="interp"><strong>Riferimenti:</strong> {{ f.references }}</p>{% endif %}
+          {% if f.retest %}<p class="interp"><strong>Verifica (retest):</strong> {{ f.retest }}</p>{% endif %}
+          <div class="finding-actions">
+            <a class="btn-link" href="/findings/{{ f.id }}/modifica">Modifica</a>
+            <form class="inline-form" method="post" action="/findings/{{ f.id }}/elimina"
+                  onsubmit="return confirm('Eliminare questo finding?');">
+              {% include "_csrf.html" %}
+              <button class="btn-link-danger" type="submit">Elimina</button>
+            </form>
+          </div>
+        </article>
+      {% endfor %}
+    {% else %}
+      <p class="empty">Nessun finding su questo target. Usa &laquo;+ Aggiungi finding&raquo;,
+        oppure parti da un test nel <a href="/porte">catalogo</a>.</p>
+    {% endif %}
+  </section>
+
+  <section class="targets-section">
+    <div class="page-head">
+      <h2>Tecnologie ({{ technologies|length }})</h2>
+      <a class="btn btn-secondary" href="/target/{{ target.id }}/tecnologie/nuovo">+ Aggiungi tecnologia</a>
+    </div>
+    {% if technologies %}
+      <ul class="topic-list">
+        {% for t in technologies %}
+          <li class="topic-item">
+            <div class="target-row">
+              <div>
+                <strong>{{ t.name or 'Tecnologia' }}{% if t.version %} {{ t.version }}{% endif %}</strong>
+                <div class="muted target-detail">
+                  {% if t.cpe %}<code>{{ t.cpe }}</code>{% else %}<span class="hint">nessun CPE</span>{% endif %}
+                  {% if t.notes %}<br>{{ t.notes }}{% endif %}
+                </div>
+              </div>
+              <div class="finding-actions">
+                <a class="btn-link" href="/tecnologia/{{ t.id }}/cve">Cerca CVE</a>
+                <a class="btn-link" href="/tecnologia/{{ t.id }}/modifica">Modifica</a>
+                <form class="inline-form" method="post" action="/tecnologia/{{ t.id }}/elimina"
+                      onsubmit="return confirm('Eliminare questa tecnologia?');">
+                  {% include "_csrf.html" %}
+                  <button class="btn-link-danger" type="submit">Elimina</button>
+                </form>
+              </div>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty">Nessuna tecnologia. Aggiungi un prodotto + versione (con CPE) per cercarne le CVE sull'NVD.</p>
+    {% endif %}
+  </section>
+{% endblock %}
