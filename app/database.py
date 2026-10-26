@@ -58,12 +58,22 @@ def _run_light_migrations() -> None:
             ("retest", "TEXT"),
             ("closed_at", "DATETIME"),
         ],
-        "topic": [("intro", "TEXT")],
+        "topic": [("intro", "TEXT"), ("parent_id", "INTEGER"), ("position", "INTEGER")],
         "technology": [("target_id", "INTEGER")],
+        # NB: la tabella dei test si chiama "check", che e' una parola riservata
+        # in SQL: va sempre quotata (lo facciamo sotto anche per il nome tabella).
+        "check": [
+            ("payload", "TEXT"),
+            ("process", "TEXT"),
+            ("is_lab", "BOOLEAN"),
+            ("position", "INTEGER"),
+        ],
     }
     with engine.connect() as conn:
         for tabella, colonne in attese.items():
-            presenti = {row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({tabella})")}
+            # Quotiamo anche il NOME della tabella: "check" senza virgolette darebbe
+            # errore di sintassi (e' una parola riservata).
+            presenti = {row[1] for row in conn.exec_driver_sql(f'PRAGMA table_info("{tabella}")')}
             if not presenti:
                 # La tabella non esiste ancora (in SQLite una tabella ha sempre
                 # almeno una colonna): la creera' create_all, qui non c'e' nulla
@@ -71,9 +81,9 @@ def _run_light_migrations() -> None:
                 continue
             for nome, tipo in colonne:
                 if nome not in presenti:
-                    # Quotiamo il nome della colonna: alcuni (es. "references") sono
-                    # parole riservate in SQL e senza virgolette darebbero errore.
-                    conn.exec_driver_sql(f'ALTER TABLE {tabella} ADD COLUMN "{nome}" {tipo}')
+                    # Quotiamo anche il nome della colonna: alcuni (es. "references")
+                    # sono parole riservate in SQL e senza virgolette darebbero errore.
+                    conn.exec_driver_sql(f'ALTER TABLE "{tabella}" ADD COLUMN "{nome}" {tipo}')
         conn.commit()
 
 

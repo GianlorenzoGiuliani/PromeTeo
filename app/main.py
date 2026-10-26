@@ -24,7 +24,7 @@ from app.seed import (
     seed_payloads_if_absent,
     seed_ports_if_absent,
     seed_tech_if_absent,
-    seed_web_if_absent,
+    seed_web_additive,
 )
 from app.web import CSRF_COOKIE, csrf_protect, new_csrf_token
 
@@ -43,7 +43,7 @@ async def lifespan(app: FastAPI):
     tecno = seed_tech_if_absent()
     tecniche = seed_payloads_if_absent()
     ad = seed_ad_if_absent()
-    web = seed_web_if_absent()
+    web = seed_web_additive()
     for etichetta, n in [("Porte", porte), ("Tecnologie", tecno),
                          ("Tecniche", tecniche), ("Active Directory", ad), ("Web App", web)]:
         if n:

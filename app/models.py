@@ -47,6 +47,11 @@ class Topic(SQLModel, table=True):
     detection: Optional[str] = None          # come riconoscerlo durante il test
     references: Optional[str] = None         # link di approfondimento (es. HackTricks)
 
+    # Gerarchia del catalogo (usata soprattutto per il web): una MACROcategoria
+    # ha parent_id=None; una MICROcategoria ha parent_id = id della sua macro.
+    parent_id: Optional[int] = Field(default=None, foreign_key="topic.id", index=True)
+    position: Optional[int] = None           # ordine di visualizzazione (come negli appunti)
+
     # Una voce ha molti test. `back_populates` collega i due lati della relazione:
     # da un Topic arrivo ai suoi Check, e da un Check torno al suo Topic.
     checks: list["Check"] = Relationship(back_populates="topic")
@@ -66,6 +71,12 @@ class Check(SQLModel, table=True):
     command: Optional[str] = None            # il comando da lanciare
     interpretation: Optional[str] = None     # "se nell'output vedi X -> vulnerabile"
     references: Optional[str] = None         # link o note
+
+    # Campi per i test web (metodologia tipo PortSwigger):
+    payload: Optional[str] = None            # payload da provare
+    process: Optional[str] = None            # processo/passi da provare (o "cosa e' stato fatto" nei lab)
+    is_lab: bool = Field(default=False)      # True = mini-sezione di un lab risolto
+    position: Optional[int] = None           # ordine di visualizzazione (come negli appunti)
 
     topic: Optional[Topic] = Relationship(back_populates="checks")
 
