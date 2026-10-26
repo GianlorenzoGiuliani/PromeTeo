@@ -109,6 +109,13 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  // --- 5) Barra-menu in basso: evidenzia la sezione in cui ti trovi ---
+  var here = location.pathname;
+  document.querySelectorAll(".bottomnav a[data-match]").forEach(function (a) {
+    var m = a.getAttribute("data-match");
+    if (here === m || here.indexOf(m + "/") === 0) a.classList.add("active");
+  });
+
   // --- 4) Interruttore tema chiaro/scuro ---
   var themeBtn = document.getElementById("theme-toggle");
   if (themeBtn) {
