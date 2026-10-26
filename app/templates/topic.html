@@ -84,25 +84,28 @@
     </section>
   {% endif %}
 
-  {# Test diretti della voce (per le porte/AD, o per una microcategoria aperta da sola) #}
+  {# Microcategorie: un elenco CLICCABILE. Aprendone una si vedono i suoi test,
+     cosi' la pagina della macro resta corta e si naviga per sezioni. #}
+  {% if sections %}
+    <h2>Sezioni ({{ sections|length }})</h2>
+    <ul class="topic-list">
+      {% for s in sections %}
+        <li class="topic-item">
+          <a class="topic-link" href="/topic/{{ s.topic.id }}">
+            <strong>{{ s.topic.name }}</strong>
+            <span class="count">{{ s.checks|length }} test</span>
+          </a>
+          {% if s.topic.description %}<p class="desc">{{ s.topic.description }}</p>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {# Test diretti della voce: per le porte/AD, o quando si apre una microcategoria. #}
   {% if checks %}
     <h2>Test ({{ checks|length }})</h2>
     {% for c in checks %}{{ render_check(c) }}{% endfor %}
   {% endif %}
-
-  {# Microcategorie: ciascuna come vera e propria mini-sezione #}
-  {% for s in sections %}
-    <section class="micro-section" id="micro-{{ s.topic.id }}">
-      <div class="page-head">
-        <h2>{{ s.topic.name }}</h2>
-        <a class="count" href="/topic/{{ s.topic.id }}">{{ s.checks|length }} elementi &rarr;</a>
-      </div>
-      {% if s.topic.description %}<p class="desc">{{ s.topic.description }}</p>{% endif %}
-      {% if s.topic.intro %}<div class="intro-text micro-intro">{{ s.topic.intro }}</div>{% endif %}
-      {% for c in s.checks %}{{ render_check(c) }}{% endfor %}
-      {% if not s.checks %}<p class="empty">Ancora nessun test in questa microcategoria.</p>{% endif %}
-    </section>
-  {% endfor %}
 
   {% if not checks and not sections %}
     <p class="empty">Nessun test per questa voce.</p>
