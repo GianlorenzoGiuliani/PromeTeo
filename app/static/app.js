@@ -109,6 +109,17 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  // --- 5) Barra-menu in basso: evidenzia la sezione in cui ti trovi ---
+  // Match per percorso (es. /porte) e, nelle pagine di dettaglio (/topic/..),
+  // tramite un marcatore nascosto che indica la sezione di appartenenza.
+  var here = location.pathname;
+  var marker = document.querySelector(".js-section");
+  var section = marker ? marker.getAttribute("data-match") : null;
+  document.querySelectorAll(".bottomnav a[data-match]").forEach(function (a) {
+    var m = a.getAttribute("data-match");
+    if (here === m || here.indexOf(m + "/") === 0 || m === section) a.classList.add("active");
+  });
+
   // --- 4) Interruttore tema chiaro/scuro ---
   var themeBtn = document.getElementById("theme-toggle");
   if (themeBtn) {

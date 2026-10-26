@@ -46,6 +46,9 @@
 {% endmacro %}
 
 {% block content %}
+  {# Marcatore nascosto: dice alla barra-menu in basso a quale sezione appartiene
+     questa pagina di dettaglio, per evidenziarla. #}
+  <span class="js-section" data-match="{{ section_url }}" hidden></span>
   <p class="breadcrumb">
     {% if parent %}
       <a href="/topic/{{ parent.id }}">&larr; {{ parent.name }}</a>

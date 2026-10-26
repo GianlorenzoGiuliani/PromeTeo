@@ -5,14 +5,17 @@
    domani vorrai cambiare colore, cambi un valore solo e cambia ovunque.
    =========================================================================== */
 :root {
-  --bg:        #0f1216;   /* sfondo pagina */
-  --surface:   #171c23;   /* sfondo di card e barre */
-  --surface-2: #1f262f;   /* sfondo al passaggio del mouse */
-  --border:    #2a323c;
-  --text:      #e6e9ee;   /* testo principale */
-  --muted:     #9aa6b2;   /* testo secondario */
-  --accent:    #ff7a1a;   /* arancione "fuoco" (Prometeo) */
-  --radius:    12px;
+  --bg:         #f3efe3;   /* crema calda (tema di default) */
+  --surface:    #fbf8ef;   /* card e barre: bianco caldo */
+  --surface-2:  #ece6d4;   /* al passaggio del mouse */
+  --border:     #ddd5bf;   /* bordo caldo */
+  --text:       #16352a;   /* verde foresta scuro (quasi nero) */
+  --muted:      #5e6f63;   /* testo secondario verde-grigio */
+  --accent:     #1f4a37;   /* verde foresta: bottoni e link */
+  --accent-ink: #f6f2e7;   /* testo sopra l'accento (crema) */
+  --lime:       #cde84f;   /* giallo-lime: evidenziatore e stato attivo */
+  --periwinkle: #c5cff6;   /* lavanda: accento secondario */
+  --radius:     16px;      /* angoli tondi */
 }
 
 * { box-sizing: border-box; }
@@ -21,8 +24,9 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   line-height: 1.6;
+  padding-bottom: 6rem;   /* spazio per la barra-menu fissa in basso */
 }
 
 a { color: var(--accent); text-decoration: none; }
@@ -33,15 +37,28 @@ a:hover { text-decoration: underline; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.9rem 1.5rem;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  padding: 1.1rem 1.8rem;
+  background: var(--bg);
 }
 .brand {
-  font-weight: 700;
-  font-size: 1.2rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 800;
+  font-size: 1.4rem;
   color: var(--text);
-  letter-spacing: 0.5px;
+  letter-spacing: -0.01em;
+}
+.brand:hover { text-decoration: none; }
+.brand-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  background: var(--lime);
+  color: var(--text);
+  border-radius: 999px;
+  font-size: 0.95rem;
 }
 .nav a { color: var(--muted); margin-left: 1rem; }
 
@@ -53,12 +70,15 @@ a:hover { text-decoration: underline; }
 }
 
 .hero h1 {
-  font-size: 2.4rem;
-  margin: 0 0 0.3rem;
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0 0 0.5rem;
 }
 .subtitle {
   color: var(--muted);
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   max-width: 640px;
 }
 
@@ -71,11 +91,17 @@ a:hover { text-decoration: underline; }
 }
 .card {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 2px solid var(--text);
   border-radius: var(--radius);
-  padding: 1.25rem;
+  padding: 1.4rem;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
-.card h2 { margin-top: 0; font-size: 1.2rem; }
+.card:hover {
+  text-decoration: none;
+  transform: translateY(-4px);
+  box-shadow: 0 10px 26px rgba(13, 40, 28, 0.14);
+}
+.card h2 { margin-top: 0; font-size: 1.25rem; font-weight: 700; }
 .card p { color: var(--muted); margin-bottom: 1rem; }
 
 /* le card "in arrivo" sono leggermente spente */
@@ -83,11 +109,13 @@ a:hover { text-decoration: underline; }
 
 .badge {
   display: inline-block;
-  font-size: 0.75rem;
-  color: var(--accent);
-  border: 1px solid var(--accent);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--periwinkle);
+  border: none;
   border-radius: 999px;
-  padding: 0.1rem 0.6rem;
+  padding: 0.2rem 0.75rem;
 }
 
 /* --- Pie' di pagina --- */
@@ -118,7 +146,7 @@ a:hover { text-decoration: underline; }
 .search button {
   padding: 0.6rem 1.1rem;
   background: var(--accent);
-  color: #1a1206;
+  color: var(--accent-ink);
   border: none;
   border-radius: 8px;
   font-weight: 600;
@@ -136,7 +164,7 @@ a:hover { text-decoration: underline; }
   font-size: 0.9rem;
 }
 .filter:hover { background: var(--surface-2); text-decoration: none; }
-.filter.active { background: var(--accent); color: #1a1206; border-color: var(--accent); }
+.filter.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 
 .result-count { color: var(--muted); font-size: 0.85rem; margin: 0 0 0.6rem; }
 
@@ -245,18 +273,18 @@ pre.cmd code {
 /* --- Pulsanti --- */
 .btn {
   display: inline-block;
-  padding: 0.5rem 1rem;
+  padding: 0.6rem 1.3rem;
   background: var(--accent);
-  color: #1a1206;
-  border: none;
-  border-radius: 8px;
-  font-weight: 600;
+  color: var(--accent-ink);
+  border: 2px solid var(--accent);
+  border-radius: 999px;
+  font-weight: 700;
   font-size: 0.95rem;
   cursor: pointer;
 }
-.btn:hover { filter: brightness(1.08); text-decoration: none; }
-.btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
-.btn-secondary:hover { background: var(--surface-2); }
+.btn:hover { filter: brightness(1.12); text-decoration: none; }
+.btn-secondary { background: transparent; color: var(--text); border: 2px solid var(--text); }
+.btn-secondary:hover { background: var(--text); color: var(--accent-ink); filter: none; }
 .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
 
 /* --- Form --- */
@@ -582,32 +610,86 @@ pre.cmd code {
 .ai-assist-row .hint { margin: 0; }
 
 /* ===========================================================================
-   Tema CHIARO (grigio, non bianco). Si attiva con data-theme="light" su <html>.
-   L'assenza dell'attributo = tema scuro (quello di default).
+   Temi. Il DEFAULT (:root sopra) e' il tema CREMA. Il toggle imposta
+   data-theme="light" (crema) o data-theme="dark" (verde scuro).
    Ridefiniamo solo le variabili: tutto il resto si adatta da solo.
    =========================================================================== */
 :root[data-theme="light"] {
-  --bg:        #cfd4da;   /* grigio di sfondo (non bianco) */
-  --surface:   #e6e9ed;   /* card e barre, piu' chiare dello sfondo */
-  --surface-2: #dadee3;   /* hover */
-  --border:    #b3bac3;
-  --text:      #1b2027;   /* testo scuro */
-  --muted:     #566069;   /* testo secondario */
-  --accent:    #b24a00;   /* arancione piu' scuro: leggibile su chiaro */
+  --bg:         #f3efe3;
+  --surface:    #fbf8ef;
+  --surface-2:  #ece6d4;
+  --border:     #ddd5bf;
+  --text:       #16352a;
+  --muted:      #5e6f63;
+  --accent:     #1f4a37;
+  --accent-ink: #f6f2e7;
+  --lime:       #cde84f;
+  --periwinkle: #c5cff6;
+}
+:root[data-theme="dark"] {
+  --bg:         #10211a;   /* verde molto scuro */
+  --surface:    #173125;   /* card e barre */
+  --surface-2:  #1f3d2e;   /* hover */
+  --border:     #2d4c3b;
+  --text:       #eef3ea;   /* testo chiaro */
+  --muted:      #a0b4a7;
+  --accent:     #cde84f;   /* su scuro l'accento e' il lime (risalta) */
+  --accent-ink: #12251b;   /* testo sopra l'accento */
+  --lime:       #cde84f;
+  --periwinkle: #c5cff6;
 }
 
 /* Interruttore del tema nella barra in alto */
 .theme-toggle {
   margin-left: 1rem;
-  width: 2rem;
-  height: 2rem;
+  width: 2.2rem;
+  height: 2.2rem;
   line-height: 1;
   font-size: 1rem;
   background: transparent;
-  border: 1px solid var(--border);
+  border: 2px solid var(--text);
   border-radius: 999px;
-  color: var(--muted);
+  color: var(--text);
   cursor: pointer;
   vertical-align: middle;
 }
-.theme-toggle:hover { background: var(--surface-2); color: var(--text); }
+.theme-toggle:hover { background: var(--text); color: var(--accent-ink); }
+
+/* ===========================================================================
+   Barra-menu fissa in basso (stile HeyFriends): sposta tra le sezioni.
+   =========================================================================== */
+.bottomnav {
+  position: fixed;
+  left: 50%;
+  bottom: 1.1rem;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.35rem;
+  background: var(--surface);
+  border: 2px solid var(--text);
+  border-radius: 999px;
+  box-shadow: 0 12px 34px rgba(13, 40, 28, 0.18);
+  z-index: 50;
+  max-width: calc(100vw - 1.4rem);
+  overflow-x: auto;
+}
+.bottomnav a {
+  padding: 0.55rem 1.15rem;
+  border-radius: 999px;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+.bottomnav a:hover { background: var(--surface-2); text-decoration: none; }
+.bottomnav a.active { background: var(--text); color: var(--accent-ink); }
+.bottomnav a.active:hover { background: var(--text); }
+
+/* Evidenziatore "pennarello" lime, da usare su una parola importante. */
+.hl {
+  background: linear-gradient(transparent 58%, var(--lime) 58%);
+  padding: 0 0.08em;
+  border-radius: 2px;
+}

@@ -20,8 +20,10 @@ from fastapi.staticfiles import StaticFiles
 from app.database import create_db_and_tables
 from app.routers import ai, catalogo, findings, home, progetti, report, target, tecnologie
 from app.seed import (
+    seed_ad_checklist,
     seed_ad_if_absent,
     seed_payloads_if_absent,
+    seed_port_commands,
     seed_ports_if_absent,
     seed_tech_if_absent,
     seed_web_additive,
@@ -44,8 +46,11 @@ async def lifespan(app: FastAPI):
     tecniche = seed_payloads_if_absent()
     ad = seed_ad_if_absent()
     web = seed_web_additive()
+    ad_check = seed_ad_checklist()
+    port_cmd = seed_port_commands()
     for etichetta, n in [("Porte", porte), ("Tecnologie", tecno),
-                         ("Tecniche", tecniche), ("Active Directory", ad), ("Web App", web)]:
+                         ("Tecniche", tecniche), ("Active Directory", ad), ("Web App", web),
+                         ("Checklist AD", ad_check), ("Comandi porte", port_cmd)]:
         if n:
             print(f"[Prometeo] {etichetta} caricate: {n}.")
     yield

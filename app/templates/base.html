@@ -11,6 +11,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   {# Il titolo della scheda del browser. Ogni pagina puo' sovrascriverlo. #}
   <title>{% block title %}Prometeo{% endblock %}</title>
+  {# Font tondeggiante (stile dell'app). Si scarica dal web: se sei offline,
+     il browser usa automaticamente un font di sistema simile. #}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
   <script>
     // Applica il tema salvato PRIMA del render, cosi' non si vede il "lampo"
@@ -20,15 +25,9 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/">Prometeo</a>
-    <nav class="nav">
-      <a href="/porte">Porte</a>
-      <a href="/webapp">WebApp</a>
-      <a href="/active-directory">Active Directory</a>
-      <a href="/progetti">Progetti</a>
-      <button class="theme-toggle" id="theme-toggle" type="button"
-              title="Tema chiaro/scuro" aria-label="Cambia tema">&#9680;</button>
-    </nav>
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">△</span> Prometeo</a>
+    <button class="theme-toggle" id="theme-toggle" type="button"
+            title="Tema chiaro/scuro" aria-label="Cambia tema">&#9680;</button>
   </header>
 
   {# Qui dentro ogni pagina inserisce il proprio contenuto. #}
@@ -39,6 +38,15 @@
   <footer class="footer">
     Assistente per penetration test autorizzati
   </footer>
+
+  {# Barra-menu fissa in basso: sposta tra le sezioni. La voce della sezione
+     attiva viene evidenziata via JavaScript (vedi app.js). #}
+  <nav class="bottomnav" aria-label="Sezioni">
+    <a href="/porte" data-match="/porte">Porte</a>
+    <a href="/webapp" data-match="/webapp">WebApp</a>
+    <a href="/active-directory" data-match="/active-directory">Active Directory</a>
+    <a href="/progetti" data-match="/progetti">Progetti</a>
+  </nav>
 
   <script src="/static/app.js" defer></script>
 </body>
