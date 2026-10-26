@@ -2,9 +2,56 @@
 
 {% block title %}{{ topic.name }} - Prometeo{% endblock %}
 
+{# ---- Blocchetto riutilizzabile per un test o per un lab ---------------- #}
+{% macro render_check(c) %}
+  <article class="check{% if c.is_lab %} lab{% endif %}">
+    <h3>{% if c.is_lab %}<span class="lab-tag">LAB</span> {% endif %}{{ c.title }}</h3>
+    {% if c.goal %}<p class="goal">{{ c.goal }}</p>{% endif %}
+    {% if c.tool %}<p class="tool"><strong>Tool:</strong> {{ c.tool }}</p>{% endif %}
+
+    {# Payload (o comando): autoescape di Jinja2 -> un <script> si vede come TESTO. #}
+    {% set code = c.payload or c.command %}
+    {% if code %}
+      <div class="cmd-block">
+        <div class="cmd-head">
+          <span class="cmd-label">{% if c.payload %}Payload{% else %}Comando / payload{% endif %}</span>
+          <button class="copy-btn" type="button">Copia</button>
+        </div>
+        <pre class="cmd"><code>{{ code }}</code></pre>
+      </div>
+    {% endif %}
+
+    {% if c.process %}
+      <p class="interp"><strong>{% if c.is_lab %}Cosa è stato fatto:{% else %}Processo da provare:{% endif %}</strong> {{ c.process }}</p>
+    {% endif %}
+    {% if c.interpretation %}
+      <p class="interp"><strong>Come leggere il risultato:</strong> {{ c.interpretation }}</p>
+    {% endif %}
+    {% if c.references %}
+      <p class="refs"><a href="{{ c.references }}" target="_blank" rel="noopener noreferrer">Fonte</a></p>
+    {% endif %}
+
+    <div class="finding-actions">
+      {% if not c.is_lab %}
+        <a class="btn-link" href="/findings/nuovo?check_id={{ c.id }}">+ Aggiungi come finding</a>
+      {% endif %}
+      <a class="btn-link" href="/test/{{ c.id }}/modifica">Modifica</a>
+      <form class="inline-form" method="post" action="/test/{{ c.id }}/elimina"
+            onsubmit="return confirm('Eliminare questo elemento?');">
+        {% include "_csrf.html" %}
+        <button class="btn-link-danger" type="submit">Elimina</button>
+      </form>
+    </div>
+  </article>
+{% endmacro %}
+
 {% block content %}
   <p class="breadcrumb">
-    <a href="/catalogo?kind={{ topic.kind }}">&larr; {{ kind_labels.get(topic.kind, topic.kind) }}</a>
+    {% if parent %}
+      <a href="/topic/{{ parent.id }}">&larr; {{ parent.name }}</a>
+    {% else %}
+      <a href="{{ section_url }}">&larr; {{ kind_labels.get(topic.kind, topic.kind) }}</a>
+    {% endif %}
   </p>
 
   <header class="topic-head">
@@ -23,7 +70,7 @@
       <a class="btn" href="/topic/{{ topic.id }}/test/nuovo">+ Aggiungi test</a>
       <a class="btn btn-secondary" href="/topic/{{ topic.id }}/modifica">Modifica voce</a>
       <form class="inline-form" method="post" action="/topic/{{ topic.id }}/elimina"
-            onsubmit="return confirm('Eliminare questa voce e tutti i suoi test?');">
+            onsubmit="return confirm('Eliminare questa voce e tutto il suo contenuto (microcategorie, test e lab)?');">
         {% include "_csrf.html" %}
         <button class="btn btn-danger" type="submit">Elimina voce</button>
       </form>
@@ -37,43 +84,27 @@
     </section>
   {% endif %}
 
-  <h2>Test ({{ checks|length }})</h2>
+  {# Test diretti della voce (per le porte/AD, o per una microcategoria aperta da sola) #}
+  {% if checks %}
+    <h2>Test ({{ checks|length }})</h2>
+    {% for c in checks %}{{ render_check(c) }}{% endfor %}
+  {% endif %}
 
-  {% for c in checks %}
-    <article class="check">
-      <h3>{{ c.title }}</h3>
-      {% if c.goal %}<p class="goal">{{ c.goal }}</p>{% endif %}
-      {% if c.tool %}<p class="tool"><strong>Tool:</strong> {{ c.tool }}</p>{% endif %}
-      {% if c.command %}
-        {# NB sicurezza: {{ ... }} applica l'autoescaping di Jinja2, quindi anche
-           un payload come <script> viene mostrato come TESTO, non eseguito. #}
-        <div class="cmd-block">
-          <div class="cmd-head">
-            <span class="cmd-label">Comando / payload</span>
-            <button class="copy-btn" type="button">Copia</button>
-          </div>
-          <pre class="cmd"><code>{{ c.command }}</code></pre>
-        </div>
-      {% endif %}
-      {% if c.interpretation %}
-        <p class="interp"><strong>Come leggere il risultato:</strong> {{ c.interpretation }}</p>
-      {% endif %}
-      {% if c.references %}
-        <p class="refs">
-          <a href="{{ c.references }}" target="_blank" rel="noopener noreferrer">Fonte</a>
-        </p>
-      {% endif %}
-      <div class="finding-actions">
-        <a class="btn-link" href="/findings/nuovo?check_id={{ c.id }}">+ Aggiungi come finding</a>
-        <a class="btn-link" href="/test/{{ c.id }}/modifica">Modifica</a>
-        <form class="inline-form" method="post" action="/test/{{ c.id }}/elimina"
-              onsubmit="return confirm('Eliminare questo test?');">
-          {% include "_csrf.html" %}
-          <button class="btn-link-danger" type="submit">Elimina</button>
-        </form>
+  {# Microcategorie: ciascuna come vera e propria mini-sezione #}
+  {% for s in sections %}
+    <section class="micro-section" id="micro-{{ s.topic.id }}">
+      <div class="page-head">
+        <h2>{{ s.topic.name }}</h2>
+        <a class="count" href="/topic/{{ s.topic.id }}">{{ s.checks|length }} elementi &rarr;</a>
       </div>
-    </article>
-  {% else %}
-    <p class="empty">Nessun test per questa voce.</p>
+      {% if s.topic.description %}<p class="desc">{{ s.topic.description }}</p>{% endif %}
+      {% if s.topic.intro %}<div class="intro-text micro-intro">{{ s.topic.intro }}</div>{% endif %}
+      {% for c in s.checks %}{{ render_check(c) }}{% endfor %}
+      {% if not s.checks %}<p class="empty">Ancora nessun test in questa microcategoria.</p>{% endif %}
+    </section>
   {% endfor %}
+
+  {% if not checks and not sections %}
+    <p class="empty">Nessun test per questa voce.</p>
+  {% endif %}
 {% endblock %}

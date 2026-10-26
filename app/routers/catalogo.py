@@ -21,22 +21,45 @@ EDITABLE_KINDS = [KIND_PORT, KIND_WEB, KIND_AD]
 
 
 def _render_section(request, session, kind, q=None, order_by_port=False):
-    """Pagina di una sezione (porte / webapp / active directory)."""
-    stmt = select(Topic).where(Topic.kind == kind)
+    """Pagina di una sezione (porte / webapp / active directory).
+
+    Mostra solo le voci di PRIMO livello (le macrocategorie, parent_id = None):
+    le eventuali microcategorie si vedono entrando nella macro.
+    """
+    stmt = select(Topic).where(Topic.kind == kind, Topic.parent_id.is_(None))
     if q:
         like = f"%{q}%"
         stmt = stmt.where(or_(Topic.name.ilike(like), Topic.description.ilike(like)))
-    # Le porte si ordinano per NUMERO di porta; le altre per nome.
-    stmt = stmt.order_by(Topic.port) if order_by_port else stmt.order_by(Topic.name)
+    # Le porte si ordinano per NUMERO di porta; le altre per posizione (poi nome).
+    # 'position IS NULL' prima mette in coda le voci senza ordine esplicito.
+    if order_by_port:
+        stmt = stmt.order_by(Topic.port)
+    else:
+        stmt = stmt.order_by(Topic.position.is_(None), Topic.position, Topic.name)
     topics = session.exec(stmt).all()
-    counts = dict(
+
+    # Numero di test per voce (query unica con GROUP BY).
+    raw_counts = dict(
         session.exec(select(Check.topic_id, func.count()).group_by(Check.topic_id)).all()
     )
+    # Microcategorie di questo 'kind': servono per contare i test anche dentro
+    # le figlie e per mostrare quante microcategorie ha ciascuna macro.
+    figlie = session.exec(
+        select(Topic.id, Topic.parent_id).where(
+            Topic.kind == kind, Topic.parent_id.is_not(None)
+        )
+    ).all()
+    counts = {t.id: raw_counts.get(t.id, 0) for t in topics}
+    sub_counts: dict[int, int] = {}
+    for child_id, parent_id in figlie:
+        sub_counts[parent_id] = sub_counts.get(parent_id, 0) + 1
+        counts[parent_id] = counts.get(parent_id, 0) + raw_counts.get(child_id, 0)
+
     return templates.TemplateResponse(
         request=request,
         name="sezione.html",
         context={
-            "topics": topics, "counts": counts, "kind": kind,
+            "topics": topics, "counts": counts, "sub_counts": sub_counts, "kind": kind,
             "title": SECTION_TITLE[kind], "section_url": SECTION_URL[kind], "q": q or "",
         },
     )
@@ -113,11 +136,37 @@ def topic_detail(
     """
     # get_or_404 carica la voce o risponde 404 se l'id non esiste.
     topic = get_or_404(session, Topic, topic_id, "Voce non trovata")
-    checks = session.exec(select(Check).where(Check.topic_id == topic_id)).all()
+
+    def checks_of(tid):
+        """I test/lab di una voce, nell'ordine in cui vanno mostrati."""
+        return session.exec(
+            select(Check)
+            .where(Check.topic_id == tid)
+            .order_by(Check.position.is_(None), Check.position, Check.id)
+        ).all()
+
+    checks = checks_of(topic_id)
+    # Microcategorie (voci figlie), ognuna con i suoi test/lab, in ordine.
+    micros = session.exec(
+        select(Topic)
+        .where(Topic.parent_id == topic_id)
+        .order_by(Topic.position.is_(None), Topic.position, Topic.name)
+    ).all()
+    sections = [{"topic": m, "checks": checks_of(m.id)} for m in micros]
+    # Se stiamo guardando una microcategoria, serve il genitore per il breadcrumb.
+    parent = session.get(Topic, topic.parent_id) if topic.parent_id else None
+
     return templates.TemplateResponse(
         request=request,
         name="topic.html",
-        context={"topic": topic, "checks": checks, "kind_labels": KIND_LABELS},
+        context={
+            "topic": topic,
+            "checks": checks,
+            "sections": sections,
+            "parent": parent,
+            "section_url": SECTION_URL.get(topic.kind, "/catalogo?kind=" + topic.kind),
+            "kind_labels": KIND_LABELS,
+        },
     )
 
 

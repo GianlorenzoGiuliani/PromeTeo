@@ -65,6 +65,29 @@ def load_topics_json(path, default_kind: str) -> list[Topic]:
     return topics
 
 
+def _build_check(c: dict, pos: int) -> Check:
+    """Costruisce un test (o un lab) dal dizionario del JSON web."""
+    return Check(
+        title=c["title"],
+        goal=c.get("goal"),
+        tool=c.get("tool"),
+        command=c.get("command"),
+        payload=c.get("payload"),
+        process=c.get("process"),
+        interpretation=c.get("interpretation"),
+        references=c.get("references"),
+        is_lab=bool(c.get("is_lab", False)),
+        position=pos,
+    )
+
+
+def load_web_hierarchy(path) -> list[dict]:
+    """Legge il web_seed.json in formato gerarchico (macro -> micro -> test/lab)."""
+    if not path.exists():
+        return []
+    return json.loads(path.read_text(encoding="utf-8")).get("topics", [])
+
+
 def build_tech_topics() -> list[Topic]:
     """Le voci "tecnologia" di base, scritte a mano (WordPress, campo web)."""
     topics: list[Topic] = []
@@ -157,9 +180,55 @@ def seed_ad_if_absent() -> int:
     return _seed_if_absent(KIND_AD, load_topics_json(AD_SEED_PATH, KIND_AD))
 
 
-def seed_web_if_absent() -> int:
-    """Carica la metodologia Web App, se non ancora presente."""
-    return _seed_if_absent(KIND_WEB, load_topics_json(WEB_SEED_PATH, KIND_WEB))
+def seed_web_additive() -> int:
+    """Carica la metodologia Web App (macro -> micro -> test/lab) in modo ADDITIVO.
+
+    Diverso dagli altri: non e' "tutto o niente". Inserisce solo le
+    MACROcategorie che mancano (confronto per nome), con le loro microcategorie
+    e i loro test/lab. Cosi' aggiungere nuove sezioni agli appunti non richiede
+    di ricreare il database e non tocca quello che c'e' gia'.
+    """
+    macros = load_web_hierarchy(WEB_SEED_PATH)
+    if not macros:
+        return 0
+    added = 0
+    with Session(engine) as session:
+        esistenti = {
+            t.name
+            for t in session.exec(
+                select(Topic).where(Topic.kind == KIND_WEB, Topic.parent_id.is_(None))
+            ).all()
+        }
+        for mpos, m in enumerate(macros):
+            if m["name"] in esistenti:
+                continue
+            macro = Topic(
+                kind=KIND_WEB,
+                name=m["name"],
+                description=m.get("description", ""),
+                intro=m.get("intro"),
+                detection=m.get("detection"),
+                references=m.get("references"),
+                position=mpos,
+            )
+            macro.checks = [_build_check(c, i) for i, c in enumerate(m.get("checks", []))]
+            session.add(macro)
+            session.flush()  # serve l'id della macro per collegarci le microcategorie
+            for cpos, micro in enumerate(m.get("children", [])):
+                child = Topic(
+                    kind=KIND_WEB,
+                    name=micro["name"],
+                    description=micro.get("description", ""),
+                    intro=micro.get("intro"),
+                    references=micro.get("references"),
+                    parent_id=macro.id,
+                    position=cpos,
+                )
+                child.checks = [_build_check(c, i) for i, c in enumerate(micro.get("checks", []))]
+                session.add(child)
+            added += 1
+        session.commit()
+    return added
 
 
 if __name__ == "__main__":
@@ -169,9 +238,9 @@ if __name__ == "__main__":
     tecno = seed_tech_if_absent()
     tecniche = seed_payloads_if_absent()
     ad = seed_ad_if_absent()
-    web = seed_web_if_absent()
+    web = seed_web_additive()
     print(f"Porte: {porte} inserite." if porte else "Porte gia' presenti.")
     print(f"Tecnologie: {tecno} inserite." if tecno else "Tecnologie gia' presenti.")
     print(f"Tecniche: {tecniche} inserite." if tecniche else "Tecniche gia' presenti.")
     print(f"Active Directory: {ad} inserite." if ad else "Active Directory gia' presente.")
-    print(f"Web App: {web} inserite." if web else "Web App gia' presente.")
+    print(f"Web App: {web} macrocategorie inserite." if web else "Web App gia' presente.")

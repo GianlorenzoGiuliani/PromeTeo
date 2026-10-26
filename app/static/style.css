@@ -188,6 +188,34 @@ a:hover { text-decoration: underline; }
 .check h3 { margin: 0 0 0.5rem; }
 .check .goal { margin: 0 0 0.6rem; }
 .check .tool, .check .interp { font-size: 0.92rem; }
+
+/* Microcategoria: una mini-sezione dentro la pagina della macrocategoria. */
+.micro-section {
+  margin: 1.8rem 0;
+  padding-top: 1rem;
+  border-top: 2px solid var(--accent);
+}
+.micro-section > .page-head { align-items: baseline; }
+.micro-intro { margin: 0.4rem 0 1rem; font-size: 0.95rem; }
+
+/* Lab: un test risolto, mostrato come mini-sezione "cosa e' stato fatto". */
+.check.lab {
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+}
+.lab-tag {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+a.count { text-decoration: none; }
+a.count:hover { text-decoration: underline; }
 .cmd-label {
   font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px;
   color: var(--muted); margin-bottom: 0.3rem;

