@@ -1,0 +1,557 @@
+{
+  "source": "appunti comandi per porta",
+  "ports": [
+    {
+      "port": null,
+      "name": "Scansione delle porte",
+      "protocol": null,
+      "description": "Da dove partire: trovare le porte aperte e i servizi.",
+      "intro": null,
+      "checks": [
+        {
+          "title": "Nmap completo (tutte le porte + versioni)",
+          "goal": "Scansione completa con rilevamento versioni e script di default.",
+          "tool": null,
+          "command": "sudo nmap -p- -T4 -sV -sC -Pn -n -vv -oN nmapcompleto.txt IP",
+          "interpretation": null
+        },
+        {
+          "title": "Nmap veloce (top 1000 porte)",
+          "goal": "Prima occhiata rapida sulle porte piu' comuni.",
+          "tool": null,
+          "command": "sudo nmap -sV -Pn -n -vv -oN nmapveloce.txt IP",
+          "interpretation": null
+        },
+        {
+          "title": "RustScan (tutte le porte)",
+          "goal": "Scansione molto veloce di tutte le porte. Abbassa -b a 500 se instabile.",
+          "tool": null,
+          "command": "sudo docker run -it --rm --name rustscan rustscan/rustscan:latest -a IP -r 1-65535 -b 1500",
+          "interpretation": null
+        },
+        {
+          "title": "Masscan (tutte le porte)",
+          "goal": "Scansione ad alta velocita' con rate controllato.",
+          "tool": null,
+          "command": "sudo masscan IP -p1-65535 --rate 500",
+          "interpretation": null
+        },
+        {
+          "title": "Service detection sulle porte trovate",
+          "goal": "Approfondisci versioni e script solo sulle porte scoperte.",
+          "tool": null,
+          "command": "sudo nmap -sV -sC -p porta1,porta2,porta3 IP",
+          "interpretation": null
+        }
+      ]
+    },
+    {
+      "port": 21,
+      "name": "FTP",
+      "protocol": null,
+      "description": null,
+      "intro": null,
+      "checks": [
+        {
+          "title": "Banner grabbing",
+          "goal": "Leggi il banner del servizio.",
+          "tool": null,
+          "command": "nc -vn IP 21",
+          "interpretation": null
+        },
+        {
+          "title": "Script nmap FTP (safe)",
+          "goal": "Enumerazione e controlli sicuri (anche nmap --script ftp-* -p 21 IP).",
+          "tool": null,
+          "command": "nmap -p21 -sV --script \"ftp-* and safe\" IP",
+          "interpretation": null
+        },
+        {
+          "title": "Verifica supporto TLS",
+          "goal": null,
+          "tool": null,
+          "command": "echo -e \"AUTH TLS\\r\" | nc -vn IP 21",
+          "interpretation": "Risposta 530 = niente crittografia (credenziali in chiaro → finding)."
+        },
+        {
+          "title": "Brute force",
+          "goal": null,
+          "tool": null,
+          "command": "hydra [-L users.txt | -l utente] [-P pass.txt | -p password] -f ftp://IP\nnmap -p 21 --script ftp-brute IP",
+          "interpretation": "Credenziali deboli = accesso."
+        },
+        {
+          "title": "Accesso / login anonimo",
+          "goal": null,
+          "tool": null,
+          "command": "ftp IP",
+          "interpretation": "Muoviti con ls, cd, get. Se 'anonymous' e' accettato = finding (login anonimo)."
+        }
+      ]
+    },
+    {
+      "port": 22,
+      "name": "SSH",
+      "protocol": null,
+      "description": null,
+      "intro": null,
+      "checks": [
+        {
+          "title": "Banner grabbing",
+          "goal": "Leggi il banner (versione OpenSSH).",
+          "tool": null,
+          "command": "nc -vn IP 22",
+          "interpretation": null
+        },
+        {
+          "title": "Algoritmi e metodi di autenticazione",
+          "goal": "Algoritmi deboli o auth via password abilitata.",
+          "tool": null,
+          "command": "nmap -p22 --script \"ssh2-enum-algos,ssh-hostkey,ssh-auth-methods\" -sV IP",
+          "interpretation": null
+        },
+        {
+          "title": "Audit completo",
+          "goal": "Segnala cifrature/algoritmi deboli o obsoleti.",
+          "tool": null,
+          "command": "ssh-audit IP",
+          "interpretation": null
+        },
+        {
+          "title": "Enumerazione utenti (Metasploit)",
+          "goal": "Scopre nomi utente validi.",
+          "tool": null,
+          "command": "msfconsole -q\nuse scanner/ssh/ssh_enumusers",
+          "interpretation": null
+        },
+        {
+          "title": "Brute force",
+          "goal": null,
+          "tool": null,
+          "command": "hydra -l UTENTE -P /usr/share/wordlists/rockyou.txt -t 4 ssh://IP",
+          "interpretation": "Password deboli = accesso."
+        },
+        {
+          "title": "Connessione",
+          "goal": "Accesso con credenziali valide.",
+          "tool": null,
+          "command": "ssh UTENTE@IP",
+          "interpretation": null
+        }
+      ]
+    },
+    {
+      "port": 23,
+      "name": "Telnet",
+      "protocol": null,
+      "description": "Protocollo obsoleto: trasmette TUTTO in chiaro.",
+      "intro": "Telnet invia credenziali e dati in chiaro: la sua sola presenza attiva e' gia' un finding. Preferire SSH.",
+      "checks": [
+        {
+          "title": "Banner grabbing",
+          "goal": "Leggi il banner.",
+          "tool": null,
+          "command": "nc -vn IP 23",
+          "interpretation": null
+        },
+        {
+          "title": "Enumerazione nmap (safe)",
+          "goal": "Controlli sicuri sul servizio.",
+          "tool": null,
+          "command": "nmap -n -sV -Pn --script \"*telnet* and safe\" -p 23 IP",
+          "interpretation": null
+        },
+        {
+          "title": "Comunicazione",
+          "goal": null,
+          "tool": null,
+          "command": "telnet IP",
+          "interpretation": "Puo' dare information disclosure."
+        },
+        {
+          "title": "Brute force",
+          "goal": null,
+          "tool": null,
+          "command": "hydra -l admin -P /usr/share/wordlists/rockyou.txt -t 4 -f telnet://IP",
+          "interpretation": "Credenziali deboli = accesso."
+        }
+      ]
+    },
+    {
+      "port": 53,
+      "name": "DNS",
+      "protocol": null,
+      "description": null,
+      "intro": null,
+      "checks": [
+        {
+          "title": "Versione del server",
+          "goal": "Fingerprint del resolver.",
+          "tool": null,
+          "command": "dig @IP version.bind chaos txt",
+          "interpretation": null
+        },
+        {
+          "title": "Zone transfer (AXFR)",
+          "goal": null,
+          "tool": null,
+          "command": "dig @IP DOMINIO AXFR",
+          "interpretation": "Se il trasferimento riesce, ottieni TUTTI i record della zona = esposizione grave (finding)."
+        },
+        {
+          "title": "Test ricorsione",
+          "goal": null,
+          "tool": null,
+          "command": "dig @IP google.com",
+          "interpretation": "Se risolve domini esterni, il resolver e' ricorsivo e aperto (possibile abuso/amplification)."
+        },
+        {
+          "title": "Verifica DNSSEC",
+          "goal": "Presenza/assenza di DNSSEC.",
+          "tool": null,
+          "command": "dig @IP ZONA DNSKEY",
+          "interpretation": null
+        },
+        {
+          "title": "Script nmap",
+          "goal": "Ricorsione, NSID e zone transfer in un colpo solo.",
+          "tool": null,
+          "command": "nmap -p53 --script \"dns-nsid,dns-recursion,dns-zone-transfer\" --script-args dns-zone-transfer.domain=ZONA IP",
+          "interpretation": null
+        },
+        {
+          "title": "Enumerazione (dnsrecon / dnsenum)",
+          "goal": "Enumerazione record e sottodomini (puo' puntare a un DNS diverso dall'IP).",
+          "tool": null,
+          "command": "dnsrecon -n IP -d ZONA\ndnsenum --dnsserver IP ZONA",
+          "interpretation": null
+        }
+      ]
+    },
+    {
+      "port": 80,
+      "name": "HTTP",
+      "protocol": null,
+      "description": null,
+      "intro": null,
+      "checks": [
+        {
+          "title": "Comunicazione",
+          "goal": "Leggi header e corpo della risposta.",
+          "tool": null,
+          "command": "curl -sik http://IP/\nnc IP 80",
+          "interpretation": null
+        },
+        {
+          "title": "Stack tecnologico",
+          "goal": null,
+          "tool": null,
+          "command": "whatweb http://IP/",
+          "interpretation": "Riconosce server, framework e CMS (anche con l'estensione Wappalyzer). Cerca poi la tecnologia nel catalogo."
+        },
+        {
+          "title": "Ricerca vulnerabilita'",
+          "goal": "Misconfigurazioni, file esposti e CVE note. Visita anche manualmente con Burp.",
+          "tool": null,
+          "command": "nikto -h http://IP/\nnuclei -u http://IP/   # oppure: nuclei -u http://IP/ -t http/technologies/",
+          "interpretation": null
+        },
+        {
+          "title": "Fuzzing di directory/file",
+          "goal": "Pagine/cartelle non linkate (admin, backup, .git...).",
+          "tool": null,
+          "command": "ffuf -u http://IP/FUZZ -w /usr/share/wordlists/dirb/common.txt\nferoxbuster -u http://IP/ -w /usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt",
+          "interpretation": null
+        },
+        {
+          "title": "Se IIS: tilde enumeration",
+          "goal": null,
+          "tool": null,
+          "command": "(manuale su Burp Suite)",
+          "interpretation": "Sui server IIS prova la tilde (8.3) enumeration per scoprire nomi file nascosti."
+        }
+      ]
+    },
+    {
+      "port": 443,
+      "name": "HTTPS",
+      "protocol": null,
+      "description": "HTTP su TLS: come la 80, piu' i controlli sui certificati.",
+      "intro": null,
+      "checks": [
+        {
+          "title": "Comunicazione",
+          "goal": "Leggi header e corpo (ignora cert con -k).",
+          "tool": null,
+          "command": "curl -sik https://IP/\nnc IP 443",
+          "interpretation": null
+        },
+        {
+          "title": "Stack tecnologico",
+          "goal": "Server, framework e CMS (anche Wappalyzer).",
+          "tool": null,
+          "command": "whatweb https://IP/",
+          "interpretation": null
+        },
+        {
+          "title": "Ricerca vulnerabilita'",
+          "goal": "Misconfigurazioni e CVE note. Visita anche con Burp.",
+          "tool": null,
+          "command": "nikto -h https://IP/\nnuclei -u https://IP/   # oppure: nuclei -u https://IP/ -t http/technologies/",
+          "interpretation": null
+        },
+        {
+          "title": "Controlli sui certificati e cifrari",
+          "goal": null,
+          "tool": null,
+          "command": "sudo nmap -p443 --script ssl-enum-ciphers,ssl-cert IP\nsslscan IP:443\ntestssl IP:443",
+          "interpretation": "Cifrari/protocolli deboli (SSLv3/TLS1.0), certificati scaduti o self-signed."
+        },
+        {
+          "title": "Header di sicurezza",
+          "goal": null,
+          "tool": null,
+          "command": "curl -sIk https://IP/",
+          "interpretation": "Mancanza di HSTS, CSP, X-Frame-Options, cookie senza flag = debolezze da annotare."
+        },
+        {
+          "title": "Fuzzing di directory/file",
+          "goal": "Contenuti non linkati.",
+          "tool": null,
+          "command": "ffuf -u https://IP/FUZZ -w /usr/share/wordlists/dirb/common.txt\nferoxbuster -u https://IP/ -w /usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt",
+          "interpretation": null
+        },
+        {
+          "title": "Se WordPress: WPScan",
+          "goal": "Versione, utenti, plugin/temi vulnerabili.",
+          "tool": null,
+          "command": "wpscan --url https://NOME/ --disable-tls-checks --enumerate vp,vt,u \\\n  --plugins-detection aggressive --api-token TUO_TOKEN",
+          "interpretation": null
+        }
+      ]
+    },
+    {
+      "port": 111,
+      "name": "rpcbind / portmapper",
+      "protocol": "tcp/udp",
+      "description": "Portmapper di Linux: mappa i servizi RPC (spesso NFS).",
+      "intro": null,
+      "checks": [
+        {
+          "title": "Interroga il portmapper",
+          "goal": "Elenca i servizi RPC registrati e le loro porte.",
+          "tool": null,
+          "command": "rpcinfo -p IP",
+          "interpretation": null
+        },
+        {
+          "title": "Share NFS esposte",
+          "goal": null,
+          "tool": null,
+          "command": "showmount -e IP",
+          "interpretation": "Mostra le cartelle NFS condivise: share esportate a tutti = possibile accesso/lettura dati."
+        }
+      ]
+    },
+    {
+      "port": 135,
+      "name": "MSRPC",
+      "protocol": null,
+      "description": "Endpoint Mapper RPC di Windows: dice su quale porta dinamica (49xxx) gira un servizio.",
+      "intro": "Le porte 49xxx sono dinamiche, assegnate da RPC: non si testano direttamente, si parte da qui (135).",
+      "checks": [
+        {
+          "title": "Elenca gli endpoint RPC",
+          "goal": "Tutti gli endpoint DCE/RPC registrati.",
+          "tool": null,
+          "command": "impacket-rpcdump IP",
+          "interpretation": null
+        },
+        {
+          "title": "Filtra endpoint interessanti",
+          "goal": "Evidenzia spooler, SAMR, task scheduler, MSSQL...",
+          "tool": null,
+          "command": "impacket-rpcdump IP | grep -iE \"ncacn_ip_tcp|annotation|mssql|sql server|spool|atsvc|samr\"",
+          "interpretation": null
+        },
+        {
+          "title": "PrintNightmare (se Print Spooler attivo)",
+          "goal": null,
+          "tool": null,
+          "command": "msfconsole -q\nuse exploit/windows/dcerpc/cve_2021_1675_printnightmare\nset RHOSTS IP\ncheck",
+          "interpretation": "Se lo spooler e' esposto, verifica CVE-2021-1675/34527 (RCE)."
+        }
+      ]
+    },
+    {
+      "port": 445,
+      "name": "SMB",
+      "protocol": null,
+      "description": null,
+      "intro": null,
+      "checks": [
+        {
+          "title": "Controllo sicurezza (protocolli e signing)",
+          "goal": "Versioni SMB, signing, info dominio/host.",
+          "tool": null,
+          "command": "sudo nmap -p139,445 --script \"smb-protocols,smb2-security-mode,smb-security-mode\" IP\nnxc smb IP\nenum4linux-ng -A IP",
+          "interpretation": null
+        },
+        {
+          "title": "EternalBlue MS17-010 (se SMBv1 attivo)",
+          "goal": null,
+          "tool": null,
+          "command": "sudo nmap -p445 --script smb-vuln-ms17-010 IP\nnxc smb IP -u '' -p '' -M ms17-010\nmsfconsole -q\nuse auxiliary/scanner/smb/smb_ms17_010\nset RHOSTS IP\nrun",
+          "interpretation": "Se SMBv1 e' attivo, verifica MS17-010 (solo con credenziali o login guest/null)."
+        },
+        {
+          "title": "Null session sulle share",
+          "goal": null,
+          "tool": null,
+          "command": "smbclient //IP/NOMESHARE -N",
+          "interpretation": "Accesso senza credenziali: dentro muoviti con ls, cd e scarica con get."
+        }
+      ]
+    },
+    {
+      "port": 515,
+      "name": "LPD",
+      "protocol": null,
+      "description": "Line Printer Daemon: canale di stampa (oltre a FTP e 9100).",
+      "intro": null,
+      "checks": [
+        {
+          "title": "Stampa la coda di stampa",
+          "goal": "Interroga il demone LPD (RFC 1179) di una stampante.",
+          "tool": null,
+          "command": "printf '\\x03lp\\n' | nc -w3 IP 515",
+          "interpretation": null
+        }
+      ]
+    },
+    {
+      "port": 631,
+      "name": "IPP / CUPS",
+      "protocol": null,
+      "description": "Internet Printing Protocol: il protocollo di stampa moderno.",
+      "intro": null,
+      "checks": [
+        {
+          "title": "Script nmap CUPS",
+          "goal": "Enumerazione del servizio di stampa IPP (gira sopra HTTP).",
+          "tool": null,
+          "command": "nmap -sV -p631 --script=cups* IP",
+          "interpretation": null
+        }
+      ]
+    },
+    {
+      "port": 3389,
+      "name": "RDP",
+      "protocol": null,
+      "description": null,
+      "intro": null,
+      "checks": [
+        {
+          "title": "Sicurezza, cifratura e NLA",
+          "goal": "Livello di cifratura, NLA on/off, info NTLM (dominio/host).",
+          "tool": null,
+          "command": "sudo nmap -p3389 --script rdp-enum-encryption,rdp-ntlm-info IP\nnxc rdp IP\ncd rdp-sec-check && ./rdp-sec-check.pl IP",
+          "interpretation": null
+        },
+        {
+          "title": "Login",
+          "goal": "Accesso con credenziali.",
+          "tool": null,
+          "command": "xfreerdp /v:IP /u:UTENTE /p:PASSWORD /cert:ignore",
+          "interpretation": null
+        },
+        {
+          "title": "Brute force",
+          "goal": null,
+          "tool": null,
+          "command": "hydra -t 1 -V -f -l administrator -P /usr/share/wordlists/seclists/Passwords/Common-Credentials/10k-most-common.txt rdp://IP\nnxc rdp IP -u utenti.txt -p /usr/share/wordlists/seclists/Passwords/Common-Credentials/10k-most-common.txt",
+          "interpretation": "Attenzione al lockout degli account."
+        },
+        {
+          "title": "BlueKeep (se NLA off)",
+          "goal": null,
+          "tool": null,
+          "command": "msfconsole -q\nuse auxiliary/scanner/rdp/cve_2019_0708_bluekeep\nset RHOSTS IP\nrun",
+          "interpretation": "Con NLA disattivata, verifica CVE-2019-0708 (RCE)."
+        }
+      ]
+    },
+    {
+      "port": 5985,
+      "name": "WinRM",
+      "protocol": null,
+      "description": null,
+      "intro": null,
+      "checks": [
+        {
+          "title": "Configurazione (senza credenziali)",
+          "goal": "Verifica se WinRM (gestione remota) e' esposto. Porte 5985 (http), 5986 (https), 47001.",
+          "tool": null,
+          "command": "curl -sik http://IP:47001/wsman\nsudo nmap -p47001,5985,5986 --script http-winrm-info IP\nnxc winrm IP",
+          "interpretation": null
+        },
+        {
+          "title": "Con credenziali",
+          "goal": null,
+          "tool": null,
+          "command": "nxc winrm IP -u utente -p password\nevil-winrm -i IP -u utente -p password",
+          "interpretation": "Con credenziali valide ottieni una shell PowerShell remota."
+        }
+      ]
+    },
+    {
+      "port": 5060,
+      "name": "SIP",
+      "protocol": "udp",
+      "description": "Session Initiation Protocol (VoIP).",
+      "intro": null,
+      "checks": [
+        {
+          "title": "Enumerazione",
+          "goal": "Scoperta di dispositivi/estensioni VoIP.",
+          "tool": null,
+          "command": "svmap IP\nsipsak -s sip:IP -vv",
+          "interpretation": null
+        }
+      ]
+    },
+    {
+      "port": 5357,
+      "name": "WSDAPI",
+      "protocol": null,
+      "description": "Web Services on Devices API di Windows.",
+      "intro": null,
+      "checks": [
+        {
+          "title": "Nota",
+          "goal": null,
+          "tool": null,
+          "command": "(nessun test diretto)",
+          "interpretation": "Servizio HTTP.SYS di Windows per scoprire e comunicare con dispositivi in rete. Raramente sfruttabile direttamente."
+        }
+      ]
+    },
+    {
+      "port": 5504,
+      "name": "RDWeb (possibile)",
+      "protocol": null,
+      "description": "Possibile gestione RemoteApp/RD Connection (Windows RDS).",
+      "intro": null,
+      "checks": [
+        {
+          "title": "Cerca il portale RDWeb",
+          "goal": null,
+          "tool": null,
+          "command": "(apri nel browser) https://IP/RDWeb   e   http://IP/RDWeb",
+          "interpretation": "Possibile RPC di RemoteApp/RD: controlla se su 80/443 esiste il percorso /RDWeb (portale RemoteApp)."
+        }
+      ]
+    }
+  ]
+}

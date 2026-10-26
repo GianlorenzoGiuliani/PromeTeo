@@ -27,6 +27,8 @@ PORTS_SEED_PATH = BASE_DIR / "data" / "ports_seed.json"
 PAYLOADS_SEED_PATH = BASE_DIR / "data" / "payloads_seed.json"
 AD_SEED_PATH = BASE_DIR / "data" / "ad_seed.json"
 WEB_SEED_PATH = BASE_DIR / "data" / "web_seed.json"
+AD_CHECKLIST_PATH = BASE_DIR / "data" / "ad_checklist_seed.json"
+PORTS_COMMANDS_PATH = BASE_DIR / "data" / "ports_commands_seed.json"
 
 
 def load_topics_json(path, default_kind: str) -> list[Topic]:
@@ -180,15 +182,15 @@ def seed_ad_if_absent() -> int:
     return _seed_if_absent(KIND_AD, load_topics_json(AD_SEED_PATH, KIND_AD))
 
 
-def seed_web_additive() -> int:
-    """Carica la metodologia Web App (macro -> micro -> test/lab) in modo ADDITIVO.
+def _seed_hierarchy_additive(kind: str, path) -> int:
+    """Carica una gerarchia macro -> micro -> test/lab in modo ADDITIVO.
 
-    Diverso dagli altri: non e' "tutto o niente". Inserisce solo le
-    MACROcategorie che mancano (confronto per nome), con le loro microcategorie
-    e i loro test/lab. Cosi' aggiungere nuove sezioni agli appunti non richiede
-    di ricreare il database e non tocca quello che c'e' gia'.
+    Non e' "tutto o niente": inserisce solo le MACROcategorie mancanti (confronto
+    per nome) di quel 'kind', con le loro microcategorie e i loro test/lab. Cosi'
+    aggiungere nuove sezioni agli appunti non richiede di ricreare il database e
+    non tocca quello che c'e' gia'. Restituisce quante macrocategorie sono state aggiunte.
     """
-    macros = load_web_hierarchy(WEB_SEED_PATH)
+    macros = load_web_hierarchy(path)
     if not macros:
         return 0
     added = 0
@@ -196,14 +198,14 @@ def seed_web_additive() -> int:
         esistenti = {
             t.name
             for t in session.exec(
-                select(Topic).where(Topic.kind == KIND_WEB, Topic.parent_id.is_(None))
+                select(Topic).where(Topic.kind == kind, Topic.parent_id.is_(None))
             ).all()
         }
         for mpos, m in enumerate(macros):
             if m["name"] in esistenti:
                 continue
             macro = Topic(
-                kind=KIND_WEB,
+                kind=kind,
                 name=m["name"],
                 description=m.get("description", ""),
                 intro=m.get("intro"),
@@ -216,7 +218,7 @@ def seed_web_additive() -> int:
             session.flush()  # serve l'id della macro per collegarci le microcategorie
             for cpos, micro in enumerate(m.get("children", [])):
                 child = Topic(
-                    kind=KIND_WEB,
+                    kind=kind,
                     name=micro["name"],
                     description=micro.get("description", ""),
                     intro=micro.get("intro"),
@@ -231,6 +233,68 @@ def seed_web_additive() -> int:
     return added
 
 
+def seed_web_additive() -> int:
+    """Metodologia Web App (macro -> micro -> test/lab), additiva."""
+    return _seed_hierarchy_additive(KIND_WEB, WEB_SEED_PATH)
+
+
+def seed_ad_checklist() -> int:
+    """Checklist di audit Active Directory (macro -> micro -> test), additiva."""
+    return _seed_hierarchy_additive(KIND_AD, AD_CHECKLIST_PATH)
+
+
+def seed_port_commands() -> int:
+    """Arricchisce le voci PORTA con i comandi degli appunti, in modo ADDITIVO.
+
+    Per ogni porta trova (o crea) la voce e aggiunge solo i check che mancano
+    (confronto per titolo): non duplica ne' tocca i check gia' presenti.
+    Restituisce il numero di check aggiunti.
+    """
+    if not PORTS_COMMANDS_PATH.exists():
+        return 0
+    entries = json.loads(PORTS_COMMANDS_PATH.read_text(encoding="utf-8")).get("ports", [])
+    if not entries:
+        return 0
+    added = 0
+    with Session(engine) as session:
+        for e in entries:
+            port = e.get("port")
+            topic = None
+            if port is not None:
+                topic = session.exec(
+                    select(Topic).where(Topic.kind == KIND_PORT, Topic.port == port)
+                ).first()
+            if topic is None:  # per nome (voci senza numero di porta, es. "Scansione")
+                topic = session.exec(
+                    select(Topic).where(Topic.kind == KIND_PORT, Topic.name == e["name"])
+                ).first()
+            if topic is None:  # porta non ancora nel catalogo: la creiamo
+                topic = Topic(
+                    kind=KIND_PORT, name=e["name"], port=port, protocol=e.get("protocol"),
+                    description=e.get("description", ""), intro=e.get("intro"),
+                    detection=e.get("detection"), references=e.get("references"),
+                )
+                session.add(topic)
+                session.flush()
+            esistenti = {
+                c.title for c in session.exec(select(Check).where(Check.topic_id == topic.id)).all()
+            }
+            base = len(esistenti)
+            for i, c in enumerate(e.get("checks", [])):
+                if c["title"] in esistenti:
+                    continue
+                session.add(Check(
+                    topic_id=topic.id, title=c["title"], goal=c.get("goal"),
+                    tool=c.get("tool"), command=c.get("command"),
+                    interpretation=c.get("interpretation"), references=c.get("references"),
+                    position=base + i,
+                ))
+                esistenti.add(c["title"])
+                added += 1
+        session.commit()
+    return added
+
+
 if __name__ == "__main__":
     # Eseguito con:  python -m app.seed
     create_db_and_tables()
@@ -239,8 +303,12 @@ if __name__ == "__main__":
     tecniche = seed_payloads_if_absent()
     ad = seed_ad_if_absent()
     web = seed_web_additive()
+    ad_check = seed_ad_checklist()
+    port_cmd = seed_port_commands()
     print(f"Porte: {porte} inserite." if porte else "Porte gia' presenti.")
     print(f"Tecnologie: {tecno} inserite." if tecno else "Tecnologie gia' presenti.")
     print(f"Tecniche: {tecniche} inserite." if tecniche else "Tecniche gia' presenti.")
     print(f"Active Directory: {ad} inserite." if ad else "Active Directory gia' presente.")
     print(f"Web App: {web} macrocategorie inserite." if web else "Web App gia' presente.")
+    print(f"Checklist AD: {ad_check} inserite." if ad_check else "Checklist AD gia' presente.")
+    print(f"Comandi porte: {port_cmd} check aggiunti." if port_cmd else "Comandi porte gia' presenti.")
