@@ -26,11 +26,12 @@
     <h2>Findings ({{ findings|length }})</h2>
     {% if findings %}
       {% for f in findings %}
-        <article class="finding sev-{{ f.severity }}">
+        {% set sev = severity_from_cvss(f.cvss_score) %}
+        <article class="finding sev-{{ sev }}">
           <div class="finding-head">
-            <span class="sev-badge sev-{{ f.severity }}">{{ severity_labels.get(f.severity, f.severity) }}</span>
+            <span class="sev-badge sev-{{ sev }}">{{ severity_labels.get(sev, sev) }}</span>
             <strong>{{ f.title }}</strong>
-            <span class="status-badge">{{ status_labels.get(f.status, f.status) }}</span>
+            {% if f.cvss_score is not none %}<span class="cvss-badge">CVSS {{ f.cvss_score }}</span>{% endif %}
           </div>
 
           {% if f.cve or f.cwe %}
@@ -40,26 +41,14 @@
             </p>
           {% endif %}
 
-          {% if f.port or f.cvss_score is not none or f.likelihood or f.assignee or f.closed_at %}
-            <p class="finding-meta">
-              {% if f.port %}<span>Porta: <strong>{{ f.port }}</strong></span>{% endif %}
-              {% if f.cvss_score is not none %}<span class="cvss-badge">CVSS {{ f.cvss_score }}</span>{% endif %}
-              {% if f.likelihood %}<span>Probabilità: <strong>{{ likelihood_labels.get(f.likelihood, f.likelihood) }}</strong></span>{% endif %}
-              {% if f.assignee %}<span>Assegnatario: <strong>{{ f.assignee }}</strong></span>{% endif %}
-              {% if f.closed_at %}<span>Chiuso il <strong>{{ f.closed_at.strftime('%Y-%m-%d') }}</strong></span>{% endif %}
-            </p>
-          {% endif %}
+          {% if f.cvss_vector %}<p class="finding-meta"><span class="muted">{{ f.cvss_vector }}</span></p>{% endif %}
 
           {% if f.description %}<p>{{ f.description }}</p>{% endif %}
-          {% if f.impact %}<p class="interp"><strong>Impatto:</strong> {{ f.impact }}</p>{% endif %}
-          {% if f.reproduction %}<p class="interp"><strong>Passi per riprodurre:</strong> {{ f.reproduction }}</p>{% endif %}
-          {% if f.evidence %}
-            <div class="cmd-label">Prova</div>
-            <pre class="cmd"><code>{{ f.evidence }}</code></pre>
+          {% if f.poc %}
+            <div class="cmd-label">Proof of concept</div>
+            <pre class="cmd"><code>{{ f.poc }}</code></pre>
           {% endif %}
           {% if f.remediation %}<p class="interp"><strong>Rimedio:</strong> {{ f.remediation }}</p>{% endif %}
-          {% if f.references %}<p class="interp"><strong>Riferimenti:</strong> {{ f.references }}</p>{% endif %}
-          {% if f.retest %}<p class="interp"><strong>Verifica (retest):</strong> {{ f.retest }}</p>{% endif %}
           <div class="finding-actions">
             <a class="btn-link" href="/findings/{{ f.id }}/modifica">Modifica</a>
             <form class="inline-form" method="post" action="/findings/{{ f.id }}/elimina"

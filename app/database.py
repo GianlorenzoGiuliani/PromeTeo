@@ -47,16 +47,9 @@ def _run_light_migrations() -> None:
         "project": [("company", "VARCHAR"), ("author", "VARCHAR"), ("info", "TEXT")],
         "finding": [
             ("target_id", "INTEGER"),
-            ("port", "INTEGER"),
-            ("impact", "TEXT"),
-            ("likelihood", "VARCHAR"),
-            ("reproduction", "TEXT"),
-            ("references", "TEXT"),
             ("cvss_vector", "VARCHAR"),
             ("cvss_score", "FLOAT"),
-            ("assignee", "VARCHAR"),
-            ("retest", "TEXT"),
-            ("closed_at", "DATETIME"),
+            ("poc", "TEXT"),
         ],
         "topic": [("intro", "TEXT"), ("parent_id", "INTEGER"), ("position", "INTEGER")],
         "technology": [("target_id", "INTEGER")],
@@ -84,6 +77,30 @@ def _run_light_migrations() -> None:
                     # Quotiamo anche il nome della colonna: alcuni (es. "references")
                     # sono parole riservate in SQL e senza virgolette darebbero errore.
                     conn.exec_driver_sql(f'ALTER TABLE "{tabella}" ADD COLUMN "{nome}" {tipo}')
+
+        # Rework dei findings: rimuoviamo le colonne non piu' usate (gravita' e
+        # stato, impatto, probabilita', evidence, porta, ecc.). La gravita' ora
+        # si deriva dal CVSS e il ciclo di vita e' stato tolto. SQLite recente
+        # supporta DROP COLUMN; proviamo per ognuna e ignoriamo se gia' assente.
+        da_rimuovere = {
+            "finding": [
+                "severity", "status", "evidence", "port", "impact", "likelihood",
+                "reproduction", "references", "assignee", "retest", "closed_at",
+                "target_host", "target_port", "target_url",
+            ],
+        }
+        for tabella, colonne in da_rimuovere.items():
+            presenti = {row[1] for row in conn.exec_driver_sql(f'PRAGMA table_info("{tabella}")')}
+            for nome in colonne:
+                if nome in presenti:
+                    try:
+                        conn.exec_driver_sql(f'ALTER TABLE "{tabella}" DROP COLUMN "{nome}"')
+                    except Exception:
+                        pass  # versione di SQLite senza DROP COLUMN: la colonna resta inutilizzata
+
+        # Lo storico dei findings (tabella 'findingevent') non esiste piu': il
+        # ciclo di vita e' stato tolto. Rimuoviamo la tabella orfana, se c'e'.
+        conn.exec_driver_sql("DROP TABLE IF EXISTS findingevent")
         conn.commit()
 
 
