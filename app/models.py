@@ -19,17 +19,10 @@ KIND_TECHNIQUE = "technique"  # una tecnica / classe di vulnerabilita' (es. SQL 
 KIND_AD = "ad"               # metodologia su Active Directory
 KIND_WEB = "web"             # metodologia su applicazioni web
 
-# Gravita' di un finding, dalla piu' grave alla meno grave.
+# Gravita' di un finding, dalla piu' grave alla meno grave. NB: la gravita' NON
+# e' un campo salvato nel finding: si DERIVA dal punteggio CVSS (vedi
+# web.severity_from_cvss). Questa lista serve solo per ordinare/etichettare.
 SEVERITIES = ["critical", "high", "medium", "low", "info"]
-
-# Stato di un finding nel tempo.
-STATUSES = ["open", "confirmed", "false_positive", "resolved"]
-
-# Stati "chiusi": entrando in uno di questi registriamo la data di chiusura.
-CLOSED_STATUSES = {"resolved", "false_positive"}
-
-# Probabilita' che la vulnerabilita' venga sfruttata (valutazione del rischio).
-LIKELIHOODS = ["high", "medium", "low"]
 
 
 # ==============================  CATALOGO  ==============================
@@ -134,39 +127,25 @@ class Technology(SQLModel, table=True):
 
 
 class Finding(SQLModel, table=True):
-    """Una vulnerabilita' trovata durante un progetto."""
+    """Una vulnerabilita' trovata durante un progetto.
+
+    Campi essenziali: titolo, descrizione breve, CVSS (punteggio + vettore),
+    CVE/CWE, PoC (proof of concept) e rimedio. La GRAVITA' non e' un campo
+    separato: si DERIVA dal punteggio CVSS (vedi web.severity_from_cvss)."""
 
     id: Optional[int] = Field(default=None, primary_key=True)
     project_id: int = Field(foreign_key="project.id", index=True)
-    # Il bersaglio ora si SELEZIONA tra i target del progetto (facoltativo).
-    target_id: Optional[int] = Field(default=None, foreign_key="target.id")
+    # Il finding appartiene a un target del progetto (si crea entrando nel target).
+    target_id: Optional[int] = Field(default=None, foreign_key="target.id", index=True)
 
-    title: str                               # es. "RDP: login anonimo possibile"
-    description: Optional[str] = None
-    severity: str = "medium"                 # uno tra SEVERITIES
-    status: str = "open"                     # uno tra STATUSES
-    evidence: Optional[str] = None           # la prova: output del comando, screenshot...
-    remediation: Optional[str] = None        # come correggerla (va nel report)
+    title: str                               # titolo del finding
+    description: Optional[str] = None        # descrizione breve
+    cvss_score: Optional[float] = None       # punteggio CVSS 3.1 (0.0-10.0)
+    cvss_vector: Optional[str] = None        # vettore CVSS (es. CVSS:3.1/AV:N/AC:L/...)
     cve: Optional[str] = None                # es. "CVE-2019-0708"
     cwe: Optional[str] = None                # es. "CWE-89"
-    port: Optional[int] = None               # la porta dove e' stato trovato (es. 3389)
-
-    # --- Valutazione del rischio e ciclo di vita ---
-    impact: Optional[str] = None             # impatto se la vulnerabilita' e' sfruttata
-    likelihood: Optional[str] = None         # probabilita': uno tra LIKELIHOODS
-    reproduction: Optional[str] = None       # passi per riprodurre
-    references: Optional[str] = None         # riferimenti / link di approfondimento
-    cvss_vector: Optional[str] = None        # es. "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/..."
-    cvss_score: Optional[float] = None       # punteggio CVSS 0.0-10.0
-    assignee: Optional[str] = None           # a chi e' assegnata la verifica/correzione
-    retest: Optional[str] = None             # esito della verifica della correzione (retest)
-    closed_at: Optional[datetime] = None     # quando il finding e' stato chiuso
-
-    # Campi "bersaglio" storici: restano per i findings creati prima dei target.
-    # I nuovi findings usano 'target_id' qui sopra (si seleziona un target).
-    target_host: Optional[str] = None        # (storico) IP o hostname
-    target_port: Optional[int] = None        # (storico) porta
-    target_url: Optional[str] = None         # (storico) URL / endpoint
+    poc: Optional[str] = None                # proof of concept: passi/prova dello sfruttamento
+    remediation: Optional[str] = None        # come correggerla (va nel report)
 
     # Collegamento FACOLTATIVO al catalogo, se il finding nasce da un test.
     topic_id: Optional[int] = Field(default=None, foreign_key="topic.id")
@@ -175,16 +154,3 @@ class Finding(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     project: Optional[Project] = Relationship(back_populates="findings")
-
-
-class FindingEvent(SQLModel, table=True):
-    """Una riga dello storico di un finding: cosa e' cambiato e quando.
-
-    Ogni volta che un finding viene creato o modificato, aggiungiamo qui una
-    riga leggibile (es. "Stato: aperto -> risolto"). Cosi' resta traccia del
-    ciclo di vita senza toccare il finding stesso."""
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    finding_id: int = Field(foreign_key="finding.id", index=True)
-    at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    message: str                             # descrizione leggibile del cambiamento

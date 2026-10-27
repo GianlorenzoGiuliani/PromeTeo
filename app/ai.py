@@ -1,8 +1,8 @@
 """
 Assistente AI dei findings.
 
-Da una descrizione APPROSSIMATIVA, chiede a Claude di compilare tutti i campi
-di un finding (titolo, gravita', CVSS, impatto, passi, rimedio...). Usa l'SDK
+Da una descrizione APPROSSIMATIVA, chiede a Claude di compilare i campi di un
+finding (titolo, descrizione, CVSS score+vector, CVE/CWE, PoC, rimedio). Usa l'SDK
 ufficiale `anthropic` e gli "structured outputs" (output JSON garantito dallo
 schema), cosi' la risposta e' sempre interpretabile.
 
@@ -17,8 +17,6 @@ Configurazione (variabili d'ambiente):
 import json
 import os
 
-from app.models import LIKELIHOODS, SEVERITIES
-
 # Modello di default. Si puo' cambiare con la variabile PROMETEO_AI_MODEL
 # (es. "claude-haiku-5-5" per spendere molto meno, "claude-sonnet-5-5" via di mezzo).
 DEFAULT_MODEL = "claude-opus-5-5"
@@ -29,22 +27,17 @@ _SCHEMA = {
     "type": "object",
     "properties": {
         "title": {"type": "string"},
-        "severity": {"type": "string", "enum": SEVERITIES},
-        "likelihood": {"type": "string", "enum": LIKELIHOODS + [""]},
+        "description": {"type": "string"},
         "cvss_score": {"type": ["number", "null"]},
         "cvss_vector": {"type": "string"},
         "cve": {"type": "string"},
         "cwe": {"type": "string"},
-        "description": {"type": "string"},
-        "impact": {"type": "string"},
-        "reproduction": {"type": "string"},
+        "poc": {"type": "string"},
         "remediation": {"type": "string"},
-        "references": {"type": "string"},
     },
     "required": [
-        "title", "severity", "likelihood", "cvss_score", "cvss_vector",
-        "cve", "cwe", "description", "impact", "reproduction",
-        "remediation", "references",
+        "title", "description", "cvss_score", "cvss_vector",
+        "cve", "cwe", "poc", "remediation",
     ],
     "additionalProperties": False,
 }
@@ -56,12 +49,13 @@ per un report.
 
 Regole:
 - Scrivi in italiano, con tono tecnico e sintetico.
-- severity: scegli tra critical/high/medium/low/info in base alla gravita' reale.
-- likelihood: alta=high, media=medium, bassa=low; "" se non valutabile.
-- cvss_score: punteggio CVSS 3.1 coerente con la gravita' (0-10), null se non applicabile.
+- title: titolo chiaro e specifico della vulnerabilita'.
+- description: descrizione BREVE (2-4 frasi): cos'e' la vulnerabilita' e che impatto ha.
+- cvss_score: punteggio CVSS 3.1 (0-10) coerente con la gravita' reale; null se non applicabile.
 - cvss_vector: vettore CVSS 3.1 se puoi stimarlo con ragionevolezza, altrimenti "".
-- cve/cwe: inseriscili SOLO se davvero pertinenti e noti (es. CWE-89); altrimenti "".
-- reproduction: passi concreti, con comandi reali dove ha senso.
+- cve/cwe: inseriscili SOLO se davvero pertinenti e noti (es. CVE-2019-0708, CWE-89); altrimenti "".
+- poc: proof of concept, ovvero i passi concreti per riprodurre/dimostrare la vulnerabilita', con comandi o payload reali dove ha senso.
+- remediation: come correggere la vulnerabilita'.
 - Non inventare dettagli specifici del bersaglio (IP, hostname, credenziali): usa segnaposto come <ip> o <url>.
 - Se un campo non e' deducibile dalla descrizione, restituisci stringa vuota (null per cvss_score). Non inventare.
 """
@@ -121,19 +115,12 @@ def _normalize(data: dict) -> dict:
     (anche se il modello sbagliasse qualcosa)."""
     out = {"title": str(data.get("title") or "").strip()}
 
-    sev = str(data.get("severity") or "").strip().lower()
-    out["severity"] = sev if sev in SEVERITIES else "medium"
-
-    lk = str(data.get("likelihood") or "").strip().lower()
-    out["likelihood"] = lk if lk in LIKELIHOODS else ""
-
     score = data.get("cvss_score")
     try:
         out["cvss_score"] = max(0.0, min(10.0, float(score)))
     except (TypeError, ValueError):
         out["cvss_score"] = ""
 
-    for key in ("cvss_vector", "cve", "cwe", "description", "impact",
-                "reproduction", "remediation", "references"):
+    for key in ("description", "cvss_vector", "cve", "cwe", "poc", "remediation"):
         out[key] = str(data.get(key) or "").strip()
     return out

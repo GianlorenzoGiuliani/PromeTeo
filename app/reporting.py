@@ -9,6 +9,7 @@ finiscono nel report: sono appunti interni, non roba da consegnare al cliente.
 from datetime import datetime
 
 from app.models import SEVERITIES, Finding, Project, Target
+from app.web import severity_from_cvss
 
 
 def target_label(t: Target) -> str:
@@ -25,26 +26,22 @@ def target_label(t: Target) -> str:
 
 
 def finding_target_str(f: Finding, targets_by_id: dict[int, Target]) -> str:
-    """Bersaglio di un finding: dal target collegato, o dai vecchi campi (storico)."""
+    """Bersaglio di un finding: l'etichetta del target collegato (se c'e')."""
     if f.target_id and f.target_id in targets_by_id:
         return target_label(targets_by_id[f.target_id])
-    bits = []
-    if f.target_host:
-        bits.append(f.target_host + (f":{f.target_port}" if f.target_port else ""))
-    if f.target_url:
-        bits.append(f.target_url)
-    return " | ".join(bits)
+    return ""
 
 
 def build_markdown_report(
     project: Project,
     findings: list[Finding],
     severity_labels: dict[str, str],
-    status_labels: dict[str, str],
-    likelihood_labels: dict[str, str],
     targets_by_id: dict[int, Target],
 ) -> str:
-    """Costruisce il testo Markdown del report a partire dai dati."""
+    """Costruisce il testo Markdown del report a partire dai dati.
+
+    La gravita' non e' un campo salvato: per ogni finding la ricaviamo dal
+    punteggio CVSS (severity_from_cvss)."""
     out: list[str] = []
 
     if project.company:
@@ -66,12 +63,14 @@ def build_markdown_report(
         out.append(project.scope)
         out.append("")
 
+    # Gravita' derivata dal CVSS, calcolata una volta per finding e riusata.
+    sev_of = {f.id: severity_from_cvss(f.cvss_score) for f in findings}
+
     out.append("## Riepilogo")
     out.append("")
     counts = {s: 0 for s in SEVERITIES}
     for f in findings:
-        if f.severity in counts:
-            counts[f.severity] += 1
+        counts[sev_of[f.id]] += 1
     for s in SEVERITIES:
         out.append(f"- {severity_labels.get(s, s)}: {counts[s]}")
     out.append("")
@@ -83,7 +82,7 @@ def build_markdown_report(
 
     n = 0
     for s in SEVERITIES:
-        group = [f for f in findings if f.severity == s]
+        group = [f for f in findings if sev_of[f.id] == s]
         if not group:
             continue
         out.append(f"### {severity_labels.get(s, s)} ({len(group)})")
@@ -92,14 +91,10 @@ def build_markdown_report(
             n += 1
             out.append(f"#### {n}. {f.title}")
             out.append("")
-            meta = [f"**Stato:** {status_labels.get(f.status, f.status)}"]
+            meta = []
             target = finding_target_str(f, targets_by_id)
             if target:
                 meta.append(f"**Bersaglio:** {target}")
-            if f.port:
-                meta.append(f"**Porta:** {f.port}")
-            if f.likelihood:
-                meta.append(f"**Probabilità:** {likelihood_labels.get(f.likelihood, f.likelihood)}")
             if f.cvss_score is not None:
                 cvss = f"**CVSS:** {f.cvss_score}"
                 if f.cvss_vector:
@@ -111,49 +106,26 @@ def build_markdown_report(
                 meta.append(f"**CVE:** {f.cve}")
             if f.cwe:
                 meta.append(f"**CWE:** {f.cwe}")
-            if f.assignee:
-                meta.append(f"**Assegnatario:** {f.assignee}")
-            if f.closed_at:
-                meta.append(f"**Chiuso il:** {f.closed_at:%Y-%m-%d}")
-            out.append("  \n".join(meta))
-            out.append("")
+            if meta:
+                out.append("  \n".join(meta))
+                out.append("")
 
             if f.description:
                 out.append("**Descrizione**")
                 out.append("")
                 out.append(f.description)
                 out.append("")
-            if f.impact:
-                out.append("**Impatto**")
-                out.append("")
-                out.append(f.impact)
-                out.append("")
-            if f.reproduction:
-                out.append("**Passi per riprodurre**")
-                out.append("")
-                out.append(f.reproduction)
-                out.append("")
-            if f.evidence:
-                out.append("**Prova (evidence)**")
+            if f.poc:
+                out.append("**Proof of concept**")
                 out.append("")
                 out.append("```")
-                out.append(f.evidence)
+                out.append(f.poc)
                 out.append("```")
                 out.append("")
             if f.remediation:
                 out.append("**Rimedio**")
                 out.append("")
                 out.append(f.remediation)
-                out.append("")
-            if f.references:
-                out.append("**Riferimenti**")
-                out.append("")
-                out.append(f.references)
-                out.append("")
-            if f.retest:
-                out.append("**Verifica della correzione**")
-                out.append("")
-                out.append(f.retest)
                 out.append("")
 
     return "\n".join(out)

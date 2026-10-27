@@ -141,8 +141,8 @@ def tech_cve(tech_id: int, request: Request, session: Session = Depends(get_sess
         params = {"cve": c["id"], "title": (f"{label}: " if label else "") + c["id"]}
         if c["description"]:
             params["description"] = c["description"]
-        if c["severity"]:
-            params["severity"] = c["severity"].lower()
+        # La gravita' del finding non e' un campo: si deriva dal CVSS. Passiamo
+        # quindi solo il punteggio (la banda di gravita' la calcola l'app).
         if c["cvss_score"] is not None:
             params["cvss_score"] = c["cvss_score"]
         if tech.target_id:

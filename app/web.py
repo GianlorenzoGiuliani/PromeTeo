@@ -24,7 +24,6 @@ from app.models import (
     KIND_TECH,
     KIND_TECHNIQUE,
     KIND_WEB,
-    SEVERITIES,
 )
 
 # Cartella "app" (dove si trova questo file): i template sono in app/templates.
@@ -43,7 +42,8 @@ KIND_LABELS = {
     KIND_WEB: "Web App",
 }
 
-# Etichette in italiano per gravita' e stato dei findings.
+# Etichette in italiano per la gravita' dei findings (la gravita' si deriva dal
+# CVSS: vedi severity_from_cvss).
 SEVERITY_LABELS = {
     "critical": "Critica",
     "high": "Alta",
@@ -51,16 +51,25 @@ SEVERITY_LABELS = {
     "low": "Bassa",
     "info": "Info",
 }
-STATUS_LABELS = {
-    "open": "Aperto",
-    "confirmed": "Confermato",
-    "false_positive": "Falso positivo",
-    "resolved": "Risolto",
-}
-# Etichette per la probabilita' (valutazione del rischio).
-LIKELIHOOD_LABELS = {"high": "Alta", "medium": "Media", "low": "Bassa"}
-# Ordine di gravita' (0 = piu' grave): serve per ordinare i findings.
-SEVERITY_RANK = {s: i for i, s in enumerate(SEVERITIES)}
+
+
+def severity_from_cvss(score):
+    """Gravita' DERIVATA dal punteggio CVSS 3.1 (bande ufficiali). I findings non
+    hanno piu' un campo 'gravita'' separato: la ricaviamo dal CVSS. Se il
+    punteggio manca, consideriamo 'info'."""
+    try:
+        s = float(score)
+    except (TypeError, ValueError):
+        return "info"
+    if s >= 9.0:
+        return "critical"
+    if s >= 7.0:
+        return "high"
+    if s >= 4.0:
+        return "medium"
+    if s > 0.0:
+        return "low"
+    return "info"
 
 
 def int_or_none(value):

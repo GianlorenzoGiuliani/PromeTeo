@@ -7,9 +7,7 @@ from sqlmodel import Session, func, select
 from app.database import get_session
 from app.models import (
     SEVERITIES,
-    STATUSES,
     Finding,
-    FindingEvent,
     Project,
     Target,
     Technology,
@@ -17,6 +15,7 @@ from app.models import (
 from app.web import (
     SEVERITY_LABELS,
     get_or_404,
+    severity_from_cvss,
     templates,
 )
 
@@ -75,31 +74,22 @@ def progetto_detail(project_id: int, request: Request, session: Session = Depend
         ).all()
     )
 
-    # Statistiche per la mini-dashboard in cima alla pagina: due GROUP BY (una
-    # per la gravita' e una per lo stato), invece di contare in Python.
+    # Statistiche per la mini-dashboard in cima alla pagina. La gravita' non e'
+    # piu' un campo salvato: la ricaviamo dal punteggio CVSS di ogni finding.
+    # Leggiamo i soli punteggi (una query) e contiamo le bande in Python.
+    scores = session.exec(
+        select(Finding.cvss_score).where(Finding.project_id == project_id)
+    ).all()
     sev_counts = {s: 0 for s in SEVERITIES}
-    for sev, n in session.exec(
-        select(Finding.severity, func.count())
-        .where(Finding.project_id == project_id)
-        .group_by(Finding.severity)
-    ).all():
-        if sev in sev_counts:
-            sev_counts[sev] = n
-    status_counts = {s: 0 for s in STATUSES}
-    for st, n in session.exec(
-        select(Finding.status, func.count())
-        .where(Finding.project_id == project_id)
-        .group_by(Finding.status)
-    ).all():
-        if st in status_counts:
-            status_counts[st] = n
+    for score in scores:
+        sev_counts[severity_from_cvss(score)] += 1
+    n_findings = len(scores)
     stats = {
         "n_targets": len(targets),
-        "n_findings": sum(sev_counts.values()),
-        "da_verificare": status_counts["open"] + status_counts["confirmed"],
-        "risolti": status_counts["resolved"],
+        "n_findings": n_findings,
+        # "Gravi" = findings Critici + Alti: quelli da affrontare per primi.
+        "gravi": sev_counts["critical"] + sev_counts["high"],
         "sev_counts": sev_counts,
-        "status_counts": status_counts,
     }
 
     return templates.TemplateResponse(
@@ -145,12 +135,10 @@ def progetto_update(
 
 @router.post("/progetti/{project_id}/elimina")
 def progetto_delete(project_id: int, session: Session = Depends(get_session)):
-    """Elimina un progetto e tutto cio' che contiene: findings (con il loro
-    storico), target e tecnologie. Cascata manuale ed esplicita."""
+    """Elimina un progetto e tutto cio' che contiene: findings, target e
+    tecnologie. Cascata manuale ed esplicita."""
     project = get_or_404(session, Project, project_id, "Progetto non trovato")
     for f in session.exec(select(Finding).where(Finding.project_id == project_id)).all():
-        for ev in session.exec(select(FindingEvent).where(FindingEvent.finding_id == f.id)).all():
-            session.delete(ev)
         session.delete(f)
     for t in session.exec(select(Target).where(Target.project_id == project_id)).all():
         session.delete(t)
