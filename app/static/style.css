@@ -693,3 +693,31 @@ pre.cmd code {
   padding: 0 0.08em;
   border-radius: 2px;
 }
+
+/* Campi di compilazione automatica dei comandi (sezione Porte). */
+.cmd-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0 0 0.7rem;
+}
+.cmd-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+}
+.cmd-fields input {
+  min-width: 9rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+}
+.cmd-fields input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
