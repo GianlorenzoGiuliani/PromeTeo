@@ -655,6 +655,39 @@ pre.cmd code {
 }
 .theme-toggle:hover { background: var(--text); color: var(--accent-ink); }
 
+/* Azioni in alto a destra: icona Impostazioni (stessa forma del tasto tema). */
+.topbar-actions { display: flex; align-items: center; gap: 0.6rem; }
+.topbar-actions .theme-toggle { margin-left: 0; }
+.topbar-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  font-size: 1.15rem;
+  line-height: 1;
+  background: transparent;
+  border: 2px solid var(--text);
+  border-radius: 999px;
+  color: var(--text);
+  text-decoration: none;
+}
+.topbar-icon:hover { background: var(--text); color: var(--accent-ink); }
+
+/* Pagina Impostazioni. */
+.flash-ok {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-left-width: 6px;
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  margin: 0 0 1rem;
+  font-weight: 600;
+}
+.status-line { font-weight: 600; margin: 0.2rem 0 1rem; }
+.status-line.off { color: var(--muted); }
+.help-list { line-height: 1.7; padding-left: 1.2rem; }
+
 /* ===========================================================================
    Barra-menu fissa in basso (stile HeyFriends): sposta tra le sezioni.
    =========================================================================== */
