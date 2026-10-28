@@ -10,16 +10,13 @@ Degradazione elegante: se manca la chiave API o la libreria, il resto dell'app
 funziona lo stesso. La funzione solleva AIError con un messaggio pensato per
 l'utente, e la rotta lo mostra senza far crashare nulla.
 
-Configurazione (variabili d'ambiente):
-  - ANTHROPIC_API_KEY  -> la tua chiave API di Claude (obbligatoria).
-  - PROMETEO_AI_MODEL -> modello da usare (facoltativa; default qui sotto).
+Configurazione (vedi app/settings_store.py): la chiave e il modello si possono
+impostare dalla pagina Impostazioni della webapp (restano solo in memoria)
+oppure con le variabili d'ambiente ANTHROPIC_API_KEY / PROMETEO_AI_MODEL.
 """
 import json
-import os
 
-# Modello di default. Si puo' cambiare con la variabile PROMETEO_AI_MODEL
-# (es. "claude-haiku-5-5" per spendere molto meno, "claude-sonnet-5-5" via di mezzo).
-DEFAULT_MODEL = "claude-opus-5-5"
+from app import settings_store
 
 # Schema dei campi che l'AI deve restituire. Con gli structured outputs la
 # risposta rispetta questo schema: niente testo libero da "ripulire a mano".
@@ -73,10 +70,10 @@ def suggest_finding(description: str) -> dict:
     if not description:
         raise AIError("Scrivi prima una breve descrizione del finding.")
 
-    if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
+    if not settings_store.is_configured():
         raise AIError(
-            "Assistente AI non configurato: imposta la variabile d'ambiente "
-            "ANTHROPIC_API_KEY con la tua chiave di Claude."
+            "Assistente AI non configurato: apri le Impostazioni (icona ⚙ in alto "
+            "a destra) e incolla la tua chiave API di Claude."
         )
     try:
         import anthropic
@@ -85,8 +82,11 @@ def suggest_finding(description: str) -> dict:
             "Libreria 'anthropic' non installata. Esegui: pip install -r requirements.txt"
         )
 
-    model = os.environ.get("PROMETEO_AI_MODEL", DEFAULT_MODEL)
-    client = anthropic.Anthropic()
+    model = settings_store.effective_model()
+    # Se abbiamo una chiave esplicita (inserita dalla webapp o in ANTHROPIC_API_KEY)
+    # la passiamo al client; altrimenti lasciamo che l'SDK la legga dall'ambiente.
+    key = settings_store.explicit_api_key()
+    client = anthropic.Anthropic(api_key=key) if key else anthropic.Anthropic()
     try:
         response = client.messages.create(
             model=model,

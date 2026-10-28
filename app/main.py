@@ -18,7 +18,17 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
 from app.database import create_db_and_tables
-from app.routers import ai, catalogo, findings, home, progetti, report, target, tecnologie
+from app.routers import (
+    ai,
+    catalogo,
+    findings,
+    home,
+    impostazioni,
+    progetti,
+    report,
+    target,
+    tecnologie,
+)
 from app.seed import (
     seed_ad_checklist,
     seed_ad_if_absent,
@@ -98,3 +108,4 @@ app.include_router(target.router, dependencies=protette)
 app.include_router(tecnologie.router, dependencies=protette)
 app.include_router(report.router, dependencies=protette)
 app.include_router(ai.router, dependencies=protette)
+app.include_router(impostazioni.router, dependencies=protette)

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Impostazioni - Prometeo{% endblock %}
+
+{% block content %}
+  <p class="breadcrumb"><a href="/">&larr; Home</a></p>
+  <h1>Impostazioni</h1>
+
+  {% if salvato %}<p class="flash-ok">✓ Impostazioni salvate.</p>{% endif %}
+  {% if rimosso %}<p class="flash-ok">✓ Chiave rimossa dalla memoria.</p>{% endif %}
+
+  <section class="targets-section">
+    <h2>Assistente AI</h2>
+
+    {# Stato attuale della chiave (senza mai mostrarla per intero). #}
+    {% if stato.set %}
+      {% if stato.source == 'memoria' %}
+        <p class="status-line ok">✓ Chiave impostata (in memoria{% if stato.tail %}, termina con …{{ stato.tail }}{% endif %}).
+          Verrà dimenticata al riavvio di Prometeo.</p>
+      {% else %}
+        <p class="status-line ok">✓ Chiave rilevata da variabile d'ambiente.</p>
+      {% endif %}
+    {% else %}
+      <p class="status-line off">✗ Nessuna chiave impostata: l'assistente AI è disattivato
+        (il resto dell'app funziona normalmente).</p>
+    {% endif %}
+
+    <form class="form-card" method="post" action="/impostazioni" autocomplete="off">
+      {% include "_csrf.html" %}
+
+      <label>Chiave API di Claude
+        <input type="password" name="api_key" autocomplete="off" spellcheck="false"
+               placeholder="{% if stato.set and stato.source == 'memoria' %}•••••• (lascia vuoto per non cambiarla){% else %}sk-ant-...incolla qui la tua chiave{% endif %}">
+      </label>
+      <p class="hint">🔒 La chiave resta <strong>solo in memoria</strong>: non viene salvata su file
+        né nel database. Al <strong>prossimo avvio</strong> dovrai reinserirla. È una scelta di sicurezza.</p>
+
+      <label>Modello
+        <select name="model">
+          {% for valore, etichetta in modelli %}
+            <option value="{{ valore }}"{% if valore == modello_attuale %} selected{% endif %}>{{ etichetta }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <p class="hint">Per fare qualche prova spendendo pochissimo, scegli <strong>Haiku</strong>.</p>
+
+      <button type="submit">Salva</button>
+    </form>
+
+    {% if stato.set and stato.source == 'memoria' %}
+      <form class="inline-form" method="post" action="/impostazioni/rimuovi"
+            onsubmit="return confirm('Rimuovere la chiave dalla memoria?');">
+        {% include "_csrf.html" %}
+        <button class="btn-link-danger" type="submit">Rimuovi la chiave ora</button>
+      </form>
+    {% endif %}
+  </section>
+
+  <section class="targets-section">
+    <h2>Come ottenere una chiave</h2>
+    <ol class="help-list">
+      <li>Vai sulla <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Console di Anthropic → API Keys</a> e accedi (o registrati).</li>
+      <li>Premi <strong>Create Key</strong>, dalle un nome (es. "Prometeo") e <strong>copia subito</strong> la chiave (inizia con <code>sk-ant-</code>): viene mostrata una volta sola.</li>
+      <li>Serve un piccolo <strong>credito</strong> nella Console (sezione <em>Billing</em>): l'API è a consumo ed è separata dall'abbonamento Claude.ai. Ai nuovi account di solito viene dato un piccolo credito gratuito per provare.</li>
+      <li>Torna qui, incolla la chiave e premi <strong>Salva</strong>.</li>
+    </ol>
+    <p class="hint">⚠️ La chiave è come una password: non condividerla e non incollarla in chat o screenshot.
+      Se pensi sia stata esposta, puoi revocarla dalla Console e crearne una nuova.</p>
+  </section>
+{% endblock %}

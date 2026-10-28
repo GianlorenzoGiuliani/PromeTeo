@@ -71,6 +71,7 @@ Prometeo/
 │  ├─ main.py            # regia: crea l'app, prepara il DB, monta i router
 │  ├─ web.py             # pezzi condivisi: template, etichette, utility, CSRF
 │  ├─ ai.py              # assistente AI (API di Claude): compila i findings
+│  ├─ settings_store.py  # impostazioni a runtime (chiave AI tenuta in memoria)
 │  ├─ nvd.py             # interroga l'NVD: CVE note dal CPE di una tecnologia
 │  ├─ database.py        # configurazione del database SQLite
 │  ├─ models.py          # le "tabelle": Topic, Check, Project, Target, Finding
@@ -84,13 +85,14 @@ Prometeo/
 │  │  ├─ target.py       # target (bersagli di un progetto)
 │  │  ├─ tecnologie.py   # tecnologie + ricerca CVE sull'NVD
 │  │  ├─ report.py       # report (HTML e Markdown)
-│  │  └─ ai.py           # endpoint dell'assistente AI
+│  │  ├─ ai.py           # endpoint dell'assistente AI
+│  │  └─ impostazioni.py # pagina Impostazioni (chiave AI, modello)
 │  ├─ templates/         # le pagine HTML
 │  │  ├─ base.html       # struttura comune a tutte le pagine
 │  │  └─ home.html       # la home
 │  └─ static/
 │     ├─ style.css       # lo stile grafico
-│     └─ app.js          # il poco JavaScript lato browser (tasto Copia)
+│     └─ app.js          # JavaScript lato browser (copia, tema, menu, auto-compilazione comandi)
 ├─ data/
 │  ├─ ports_seed.json    # catalogo delle porte/servizi comuni
 │  ├─ ad_seed.json       # metodologia Active Directory
@@ -150,26 +152,39 @@ python tools/import_payloads.py --source /tmp/patt --out data/payloads_seed.json
 ## Assistente AI (facoltativo)
 
 Nel form di un finding c'e' un riquadro **Assistente AI**: scrivi la
-vulnerabilita' a grandi linee e lui compila tutti i campi (titolo, gravita',
-CVSS, impatto, passi per riprodurre, rimedio, riferimenti...). Poi **controlli
-e correggi** prima di salvare: l'AI assiste, non decide al posto tuo.
+vulnerabilita' a grandi linee e lui compila i campi del finding (titolo,
+descrizione breve, punteggio e vettore **CVSS**, eventuali **CVE/CWE**, **PoC**
+e **rimedio**). La **gravita' non si scrive a mano**: si ricava in automatico dal
+punteggio CVSS. Poi **controlli e correggi** prima di salvare: l'AI assiste, non
+decide al posto tuo.
 
-Per attivarlo serve una chiave API di Claude:
+Per attivarlo serve una **chiave API di Claude**. Hai due modi:
+
+**1) Dalla webapp (consigliato).** Clicca l'icona ⚙ in alto a destra → pagina
+**Impostazioni** → incolla la chiave e premi **Salva**. La chiave resta **solo in
+memoria**: non viene salvata su file ne' nel database, e al riavvio va reinserita
+(scelta di sicurezza). Da qui scegli anche il **modello**.
+
+**2) Da variabile d'ambiente** (se preferisci il terminale):
 
 ```bash
 export ANTHROPIC_API_KEY="la-tua-chiave"      # macOS / Linux
 #  setx ANTHROPIC_API_KEY "la-tua-chiave"      # Windows (poi riapri il terminale)
 ```
 
-Poi avvia Prometeo normalmente. **Senza chiave il riquadro mostra un avviso e
-tutto il resto dell'app funziona lo stesso.**
+**Senza chiave il riquadro mostra un avviso e tutto il resto dell'app funziona lo stesso.**
 
-Il modello di default e' `claude-opus-5-5`. Per spendere molto meno puoi
-cambiarlo con una variabile d'ambiente:
+Il modello di default e' `claude-opus-5-5`. Per spendere molto meno puoi sceglierne
+uno piu' economico (es. Haiku) dalla pagina Impostazioni, oppure con una variabile
+d'ambiente:
 
 ```bash
 export PROMETEO_AI_MODEL="claude-haiku-5-5"   # piu' economico
 ```
+
+> 💡 **Dove creare la chiave:** [Console di Anthropic → API Keys](https://console.anthropic.com/settings/keys).
+> L'API e' a consumo ed e' separata dall'abbonamento Claude.ai; ai nuovi account
+> di solito viene dato un piccolo credito gratuito per provare.
 
 > ⚠️ La descrizione che scrivi viene inviata all'API di Claude. Usa solo dati
 > di test autorizzati ed evita di incollare segreti reali (credenziali, chiavi).
@@ -201,3 +216,4 @@ export NVD_API_KEY="la-tua-chiave-nvd"
 - [x] **M4** - Report del progetto (pagina stampabile/PDF + export Markdown)
 - [x] **M5** - Modifica ed eliminazione di progetti e findings (CRUD completo)
 - [x] **M6** - Gestione del catalogo dall'app, comodità (copia comando, filtri, ricerca) e report più ricco
+- [x] **M7** - Compilazione automatica dei comandi nelle Porte, assistente AI dei findings con campi essenziali (gravità ricavata dal CVSS) e pagina Impostazioni per la chiave API
